@@ -39,6 +39,7 @@ async def test_graph_runs_analyst_then_tutor_in_sequence() -> None:
                 "code": "escreva(1)",
                 "errors": ["erro"],
                 "history": [],
+                "active_tutor_decorations": 0,
                 "diagnosis": {},
                 "tutor_response": "",
                 "actions": [],

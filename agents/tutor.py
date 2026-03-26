@@ -14,8 +14,10 @@ logger = logging.getLogger(__name__)
 
 @tool
 def highlight_line(line: int, color: str) -> str:
-    """Destaca uma linha específica no editor do aluno para chamar atenção sem revelar o erro.
-    Use color='warning' para erros, 'info' para observações neutras."""
+    """Destaca uma linha no editor do aluno (o painel mostra o destaque visual).
+    Obrigatório quando o aluno pergunta onde está algo, onde colocar código, ou diz que não
+    encontrou o local — não substitua isso só com números de linha no texto.
+    Use color='warning' para erros, 'info' para observações neutras ou “onde olhar”."""
     return "ok"
 
 
@@ -28,8 +30,9 @@ def highlight_variable(variable_name: str) -> str:
 
 @tool
 def clear_highlights() -> str:
-    """Remove todos os destaques visuais do editor.
-    Use quando o aluno resolver o problema ou mudar de contexto."""
+    """Remove todos os destaques visuais do editor (linhas, variáveis, comentários inline do tutor).
+    Use de forma **proativa**: antes de aplicar novos destaques, avalie se os ativos (ver estado no sistema)
+    atrapalham o novo foco; se sim, chame esta tool **primeiro**. Também use após resolução ou mudança de tópico."""
     return "ok"
 
 
@@ -77,6 +80,11 @@ TUTOR_TOOLS_EDITOR_SECTION = """
 Você tem acesso a tools que interagem com o editor do aluno.
 Use-as de forma pedagógica — nunca para revelar a resposta.
 
+### Texto sempre obrigatório no chat
+- Cada turno **DEVE** incluir texto visível ao aluno no painel de conversa, **além** de quaisquer tools.
+- **Nunca** emitir apenas ações de editor sem pelo menos uma linha de texto (acolhimento, pergunta ou orientação breve).
+- Se usar várias tools, o texto continua obrigatório — as tools complementam o que você diz, não substituem.
+
 ### Numeração de linhas
 - Mais abaixo há o **código atual com números de linha**. Use **esses** números em `highlight_line` e `add_inline_comment` (não invente; conte no bloco numerado).
 - Se o analista indicou uma linha de foco, prefira destacar essa região quando for orientar sobre o erro.
@@ -86,7 +94,17 @@ Use-as de forma pedagógica — nunca para revelar a resposta.
 - Sempre que estiver a orientar sobre **código concreto**, prefira **combinar** texto curto + pelo menos uma tool (destaque, variável ou comentário inline), sempre que fizer sentido pedagógico.
 - Quanto mais o aluno estiver preso ou confuso, **mais** deve recorrer a tools para tornar o código **visível** (onde olhar, onde a variável aparece, pergunta no contexto da linha).
 - Pode e deve usar **várias tools na mesma resposta** (ex.: highlight_line + add_inline_comment; highlight_variable + run_code_with_watch) quando isso clarificar o raciocínio.
-- Se mudar de assunto ou recomeçar o foco, use clear_highlights antes de novos destaques.
+
+### “Onde?” / “Não achei” (obrigatório usar o editor)
+- Frases como: "onde coloco?", "onde fica?", "não sei onde", "não encontrei", "mostra onde" → **sempre** inclua `highlight_line` (e `clear_highlights` antes, se destaques antigos atrapalharem).
+- **Não** use só numeração de linhas no texto como substituto do destaque.
+- **Não** cole a solução completa em bloco de código para “mostrar o lugar”; use `highlight_line` + uma pergunta socrática curta.
+
+### Destaques já ativos no editor (estado reportado pelo cliente)
+- O sistema indica quantos destaques/comentários do tutor **ainda estão visíveis** no editor do aluno.
+- Se esse número for **> 0**, avalie em cada resposta: os destaques antigos **ajudam** o próximo passo ou **confundem** (foco novo, outra linha, outro erro)?
+- Se confundirem ou competirem com o que vai mostrar agora, chame **clear_highlights** **antes** de highlight_line / highlight_variable / add_inline_comment.
+- Se ainda forem pedagógicos para a mesma dúvida, pode **manter** e só acrescentar — não limpe por rotina.
 
 ### Referência rápida das tools
 - highlight_line: direcione o olhar para uma região sem dizer o que está errado
@@ -95,9 +113,9 @@ Use-as de forma pedagógica — nunca para revelar a resposta.
 - run_code_with_watch: torne o estado do programa visível para o aluno
 - mark_bug_resolved: use APENAS quando o aluno corrigir o erro de forma autônoma
 - escalate_to_direct_help: use APENAS após 5+ trocas sem nenhum progresso
-- clear_highlights: use ao iniciar novo tópico ou após resolução
+- clear_highlights: limpe quando trocar de foco ou quando destaques antigos atrapalharem (ver estado no sistema)
 
-NUNCA use tools como substituto para a pergunta socrática — use **texto + tools** juntos.
+NUNCA use tools como substituto para a pergunta socrática — use **texto + tools** juntos. **Nunca** texto vazio com só tools.
 """
 
 TUTOR_SYSTEM_TEMPLATE = """Você é ARIA (Assistente de Raciocínio Inteligente e Adaptativo), tutora de lógica de programação integrada ao Portugol Webstudio.
@@ -106,12 +124,14 @@ TUTOR_SYSTEM_TEMPLATE = """Você é ARIA (Assistente de Raciocínio Inteligente 
 Você acredita que aprender a depurar código é tão importante quanto escrever código. Você NUNCA entrega a resposta pronta. Você guia. Você pergunta. Você celebra descobertas.
 
 ## Regras Invioláveis
-1. NUNCA escreva código correto como sugestão direta.
+1. NUNCA escreva código correto como sugestão direta (nem bloco completo da solução).
 2. NUNCA diga "o erro está na linha X, mude para Y".
 3. Se o aluno pedir a resposta diretamente, responda com empatia e redirecione com uma pergunta.
 4. Faça UMA pergunta por vez. Nunca faça múltiplas perguntas seguidas.
 5. Adapte o tom: se o aluno está frustrado, seja mais empático antes de perguntar.
 6. Respostas curtas e diretas. Sem textão.
+7. Se o aluno não souber **onde** no código fazer algo, ou disser que **não achou** o lugar, você **DEVE** chamar a tool `highlight_line` na mesma resposta (use os números do bloco “Código atual” abaixo). Não basta descrever “linha 2–4” ou “entre as chaves” só no texto — o editor precisa do destaque visual.
+8. **Sempre** escreva **mensagem de texto** para o aluno (mínimo: uma frase curta). **Proibido** responder só com tools e corpo de mensagem vazio — o painel de chat não pode ficar sem texto.
 
 ## Seu Fluxo de Tutoria
 1. ACOLHIMENTO: Reconheça o esforço (1 frase curta).
@@ -125,6 +145,9 @@ Você acredita que aprender a depurar código é tão importante quanto escrever
 - Severidade: {severity}
 - Linha de foco sugerida pelo analista (use em highlight_line / add_inline_comment quando fizer sentido): {error_line_hint}
 - Descrição técnica (interno, não leia em voz alta): {error_description}
+
+## Estado do editor reportado pelo cliente (ferramentas)
+- Destaques/comentários do tutor ainda **ativos** no editor: **{active_tutor_decorations}** (0 = nenhum)
 
 ## Exemplos do que NÃO fazer
 Aluno: "Me diz só o código certo"
@@ -143,13 +166,14 @@ def _tutor_llm():
     return create_chat_client(max_tokens=600, temperature=0.7).bind_tools(TUTOR_TOOLS)
 
 
-def _diagnosis_to_template_vars(diagnosis: Diagnosis) -> dict[str, str]:
+def _diagnosis_to_template_vars(diagnosis: Diagnosis, active_tutor_decorations: int) -> dict[str, str]:
     av = diagnosis.get("affectedVariable")
     el = diagnosis.get("errorLine")
     if isinstance(el, int) and el >= 1:
         error_line_hint = str(el)
     else:
         error_line_hint = "não identificada"
+    ad = max(0, active_tutor_decorations)
     return {
         "error_type": str(diagnosis.get("errorType", "none")),
         "affected_variable": av if av is not None else "",
@@ -157,6 +181,7 @@ def _diagnosis_to_template_vars(diagnosis: Diagnosis) -> dict[str, str]:
         "severity": str(diagnosis.get("severity", "low")),
         "error_line_hint": error_line_hint,
         "error_description": str(diagnosis.get("errorDescription", "")),
+        "active_tutor_decorations": str(ad),
     }
 
 
@@ -171,8 +196,10 @@ def _numbered_code(code: str) -> str:
     return "\n".join(f"{i + 1:{width}} | {line}" for i, line in enumerate(lines))
 
 
-def _build_tutor_system_content(diagnosis: Diagnosis, code: str) -> str:
-    system_content = TUTOR_SYSTEM_TEMPLATE.format(**_diagnosis_to_template_vars(diagnosis))
+def _build_tutor_system_content(diagnosis: Diagnosis, code: str, active_tutor_decorations: int) -> str:
+    system_content = TUTOR_SYSTEM_TEMPLATE.format(
+        **_diagnosis_to_template_vars(diagnosis, active_tutor_decorations),
+    )
     return (
         system_content
         + TUTOR_TOOLS_EDITOR_SECTION
@@ -196,9 +223,14 @@ def _history_to_messages(history: list[dict]) -> list[HumanMessage | AIMessage]:
     return messages
 
 
-def _tutor_lc_messages(diagnosis: Diagnosis, history: list[dict], code: str) -> list[SystemMessage | HumanMessage | AIMessage]:
+def _tutor_lc_messages(
+    diagnosis: Diagnosis,
+    history: list[dict],
+    code: str,
+    active_tutor_decorations: int,
+) -> list[SystemMessage | HumanMessage | AIMessage]:
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
-        SystemMessage(content=_build_tutor_system_content(diagnosis, code)),
+        SystemMessage(content=_build_tutor_system_content(diagnosis, code, active_tutor_decorations)),
     ]
     hist_msgs = _history_to_messages(history)
     if not hist_msgs:
@@ -233,17 +265,22 @@ def _tool_call_to_action(tc: object) -> dict[str, Any] | None:
     return {"type": name, "payload": args}
 
 
-async def run_tutor(diagnosis: Diagnosis, history: list[dict], code: str) -> str:
+async def run_tutor(diagnosis: Diagnosis, history: list[dict], code: str, active_tutor_decorations: int = 0) -> str:
     llm = _tutor_llm()
-    lc_messages = _tutor_lc_messages(diagnosis, history, code)
+    lc_messages = _tutor_lc_messages(diagnosis, history, code, active_tutor_decorations)
     response = await llm.ainvoke(lc_messages)
     return _chunk_content_to_text(response.content)
 
 
-async def run_tutor_stream(diagnosis: Diagnosis, history: list[dict], code: str) -> AsyncIterator[str | dict[str, Any]]:
+async def run_tutor_stream(
+    diagnosis: Diagnosis,
+    history: list[dict],
+    code: str,
+    active_tutor_decorations: int = 0,
+) -> AsyncIterator[str | dict[str, Any]]:
     """Emite trechos de texto (``str``) e, após o stream, ações de editor (``dict`` com type/payload)."""
     llm = _tutor_llm()
-    lc_messages = _tutor_lc_messages(diagnosis, history, code)
+    lc_messages = _tutor_lc_messages(diagnosis, history, code, active_tutor_decorations)
     accumulated: AIMessageChunk | None = None
     async for chunk in llm.astream(lc_messages):
         if accumulated is None:

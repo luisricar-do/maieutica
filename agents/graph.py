@@ -10,6 +10,7 @@ class TutorState(TypedDict):
     code: str
     errors: list[str]
     history: list[dict]
+    active_tutor_decorations: int
     diagnosis: dict
     tutor_response: str
     actions: list[dict]
@@ -22,7 +23,12 @@ async def analyst_node(state: TutorState) -> dict:
 
 async def tutor_node(state: TutorState) -> dict:
     diagnosis = cast(Diagnosis, state["diagnosis"])
-    tutor_response = await run_tutor(diagnosis, state["history"], state["code"])
+    tutor_response = await run_tutor(
+        diagnosis,
+        state["history"],
+        state["code"],
+        state["active_tutor_decorations"],
+    )
     return {"tutor_response": tutor_response, "actions": []}
 
 

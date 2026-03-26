@@ -43,7 +43,12 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
         diagnosis = await run_analyst(initial["code"], initial["errors"])
         yield format_sse("diagnosis", diagnosis)
         d = cast(Diagnosis, diagnosis)
-        async for delta in run_tutor_stream(d, initial["history"], initial["code"]):
+        async for delta in run_tutor_stream(
+            d,
+            initial["history"],
+            initial["code"],
+            initial["active_tutor_decorations"],
+        ):
             if isinstance(delta, str):
                 yield format_sse("token", {"text": delta})
             else:
