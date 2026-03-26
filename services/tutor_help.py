@@ -15,9 +15,19 @@ class TutorHelpState(TypedDict):
     errors: list[str]
     history: list[dict]
     active_tutor_decorations: int
+    include_documentation: bool
     diagnosis: dict
+    documentation_context: list[str]
     tutor_response: str
     actions: list[dict]
+
+
+def _parse_include_documentation(raw: object) -> bool:
+    if raw is None:
+        return False
+    if isinstance(raw, bool):
+        return raw
+    return False
 
 
 def _parse_active_tutor_decorations(raw: object) -> int:
@@ -67,13 +77,16 @@ def parse_help_payload(payload: Any) -> tuple[TutorHelpState | None, dict[str, A
     errors_str = [str(e) for e in errors]
     history_dicts = [h for h in history if isinstance(h, dict)]
     active_tutor_decorations = _parse_active_tutor_decorations(payload.get("activeTutorDecorations"))
+    include_documentation = _parse_include_documentation(payload.get("includeDocumentation"))
 
     initial_state: TutorHelpState = {
         "code": code,
         "errors": errors_str,
         "history": history_dicts,
         "active_tutor_decorations": active_tutor_decorations,
+        "include_documentation": include_documentation,
         "diagnosis": {},
+        "documentation_context": [],
         "tutor_response": "",
         "actions": [],
     }

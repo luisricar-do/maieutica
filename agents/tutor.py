@@ -118,6 +118,19 @@ Use-as de forma pedagógica — nunca para revelar a resposta.
 NUNCA use tools como substituto para a pergunta socrática — use **texto + tools** juntos. **Nunca** texto vazio com só tools.
 """
 
+
+def _documentation_context_block(chunks: list[str]) -> str:
+    if not chunks:
+        return ""
+    body = "\n\n---\n\n".join(chunks)
+    return (
+        "\n## Documentação Portugol (referência interna)\n"
+        "Use apenas para alinhar perguntas à sintaxe e semântica da linguagem; "
+        "não entregue a solução completa nem copie blocos literais da documentação ao aluno.\n\n"
+        f"{body}\n"
+    )
+
+
 TUTOR_SYSTEM_TEMPLATE = """Você é ARIA (Assistente de Raciocínio Inteligente e Adaptativo), tutora de lógica de programação integrada ao Portugol Webstudio.
 
 ## Sua Filosofia Central
@@ -196,12 +209,19 @@ def _numbered_code(code: str) -> str:
     return "\n".join(f"{i + 1:{width}} | {line}" for i, line in enumerate(lines))
 
 
-def _build_tutor_system_content(diagnosis: Diagnosis, code: str, active_tutor_decorations: int) -> str:
+def _build_tutor_system_content(
+    diagnosis: Diagnosis,
+    code: str,
+    active_tutor_decorations: int,
+    documentation_context: list[str] | None = None,
+) -> str:
     system_content = TUTOR_SYSTEM_TEMPLATE.format(
         **_diagnosis_to_template_vars(diagnosis, active_tutor_decorations),
     )
+    doc_block = _documentation_context_block(documentation_context or [])
     return (
         system_content
+        + doc_block
         + TUTOR_TOOLS_EDITOR_SECTION
         + "\n## Código atual do aluno (referência para números de linha nas tools)\n"
         + _numbered_code(code)
@@ -228,9 +248,17 @@ def _tutor_lc_messages(
     history: list[dict],
     code: str,
     active_tutor_decorations: int,
+    documentation_context: list[str] | None = None,
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
-        SystemMessage(content=_build_tutor_system_content(diagnosis, code, active_tutor_decorations)),
+        SystemMessage(
+            content=_build_tutor_system_content(
+                diagnosis,
+                code,
+                active_tutor_decorations,
+                documentation_context=documentation_context,
+            )
+        ),
     ]
     hist_msgs = _history_to_messages(history)
     if not hist_msgs:
@@ -265,9 +293,22 @@ def _tool_call_to_action(tc: object) -> dict[str, Any] | None:
     return {"type": name, "payload": args}
 
 
-async def run_tutor(diagnosis: Diagnosis, history: list[dict], code: str, active_tutor_decorations: int = 0) -> str:
+async def run_tutor(
+    diagnosis: Diagnosis,
+    history: list[dict],
+    code: str,
+    active_tutor_decorations: int = 0,
+    *,
+    documentation_context: list[str] | None = None,
+) -> str:
     llm = _tutor_llm()
-    lc_messages = _tutor_lc_messages(diagnosis, history, code, active_tutor_decorations)
+    lc_messages = _tutor_lc_messages(
+        diagnosis,
+        history,
+        code,
+        active_tutor_decorations,
+        documentation_context=documentation_context,
+    )
     response = await llm.ainvoke(lc_messages)
     return _chunk_content_to_text(response.content)
 
@@ -277,10 +318,18 @@ async def run_tutor_stream(
     history: list[dict],
     code: str,
     active_tutor_decorations: int = 0,
+    *,
+    documentation_context: list[str] | None = None,
 ) -> AsyncIterator[str | dict[str, Any]]:
     """Emite trechos de texto (``str``) e, após o stream, ações de editor (``dict`` com type/payload)."""
     llm = _tutor_llm()
-    lc_messages = _tutor_lc_messages(diagnosis, history, code, active_tutor_decorations)
+    lc_messages = _tutor_lc_messages(
+        diagnosis,
+        history,
+        code,
+        active_tutor_decorations,
+        documentation_context=documentation_context,
+    )
     accumulated: AIMessageChunk | None = None
     async for chunk in llm.astream(lc_messages):
         if accumulated is None:

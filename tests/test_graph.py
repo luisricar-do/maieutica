@@ -40,7 +40,9 @@ async def test_graph_runs_analyst_then_tutor_in_sequence() -> None:
                 "errors": ["erro"],
                 "history": [],
                 "active_tutor_decorations": 0,
+                "include_documentation": False,
                 "diagnosis": {},
+                "documentation_context": [],
                 "tutor_response": "",
                 "actions": [],
             }
@@ -52,3 +54,52 @@ async def test_graph_runs_analyst_then_tutor_in_sequence() -> None:
         assert final["diagnosis"] == diagnosis
         assert final["tutor_response"] == "Resposta socrática de teste."
         assert final["actions"] == []
+
+
+@pytest.mark.asyncio
+async def test_graph_passes_retrieved_docs_to_tutor_when_include_documentation() -> None:
+    diagnosis = {
+        "errorType": "syntax",
+        "errorLine": 1,
+        "affectedVariable": None,
+        "errorDescription": "teste",
+        "hintAngle": "pergunta",
+        "severity": "low",
+    }
+
+    async def analyst_impl(*_args, **_kwargs):
+        return diagnosis
+
+    async def tutor_impl(*_args, **_kwargs):
+        return "Com doc"
+
+    with (
+        patch("agents.graph.run_analyst", new_callable=AsyncMock) as mock_analyst,
+        patch("agents.graph.run_tutor", new_callable=AsyncMock) as mock_tutor,
+        patch(
+            "agents.graph.retrieve_doc_chunks",
+            return_value=["trecho-a", "trecho-b"],
+        ) as mock_retrieve,
+    ):
+        mock_analyst.side_effect = analyst_impl
+        mock_tutor.side_effect = tutor_impl
+
+        graph = build_graph()
+        await graph.ainvoke(
+            {
+                "code": "escreva(1)",
+                "errors": ["erro"],
+                "history": [],
+                "active_tutor_decorations": 0,
+                "include_documentation": True,
+                "diagnosis": {},
+                "documentation_context": [],
+                "tutor_response": "",
+                "actions": [],
+            }
+        )
+
+    mock_retrieve.assert_called_once()
+    mock_tutor.assert_awaited_once()
+    _args, kwargs = mock_tutor.call_args
+    assert kwargs.get("documentation_context") == ["trecho-a", "trecho-b"]

@@ -1,1 +1,5 @@
-"""Agentes LangGraph do MAS Tutor Socrático."""
+"""Agentes LangGraph do MAS Tutor Socrático.
+
+- ``agents.graph`` — grafo analista → recuperação RAG opcional → tutor ARIA (``tutor_graph``)
+- ``agents.rag`` — índice + grafo dedicado ``/api/portugol/ask`` (``COMPILED_RAG_GRAPH``)
+"""

@@ -13,6 +13,7 @@ from azurefunctions.extensions.http.fastapi import (  # noqa: E402
     StreamingResponse,
 )
 
+from agents.rag.graph import COMPILED_RAG_GRAPH
 from services.ping import ping_response
 from services.tutor_help import process_help_request
 from services.tutor_help_stream import format_sse, iter_help_sse
@@ -107,3 +108,47 @@ async def help_stream_endpoint(req: Request) -> StreamingResponse:
         media_type="text/event-stream; charset=utf-8",
         headers=_sse_headers(),
     )
+
+
+@app.route(
+    route="portugol/ask",
+    methods=(func.HttpMethod.POST,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def portugol_ask(req: Request) -> JSONResponse:
+    """RAG sobre `docs/portugol_referencia.md` (corpo JSON: `{\"question\": \"...\"}`)."""
+    try:
+        try:
+            payload = await req.json()
+        except Exception:
+            return _json_response(
+                {"error": "Corpo da requisição deve ser JSON válido."},
+                status=400,
+            )
+
+        if not isinstance(payload, dict):
+            return _json_response({"error": "JSON deve ser um objeto."}, status=400)
+
+        question = payload.get("question")
+        if question is None or (isinstance(question, str) and not question.strip()):
+            return _json_response(
+                {"error": "Campo \"question\" é obrigatório e não pode estar vazio."},
+                status=400,
+            )
+        if not isinstance(question, str):
+            return _json_response(
+                {"error": "Campo \"question\" deve ser uma string."},
+                status=400,
+            )
+
+        result = COMPILED_RAG_GRAPH.invoke(
+            {"question": question.strip(), "context": [], "answer": ""}
+        )
+        return _json_response({"answer": result["answer"]}, status=200)
+
+    except Exception:
+        logger.exception("Erro ao processar /api/portugol/ask")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )

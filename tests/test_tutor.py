@@ -34,6 +34,37 @@ async def test_run_tutor_returns_model_message() -> None:
 
 
 @pytest.mark.asyncio
+async def test_run_tutor_includes_documentation_context_in_system_message() -> None:
+    diagnosis: Diagnosis = {
+        "errorType": "none",
+        "errorLine": None,
+        "affectedVariable": None,
+        "errorDescription": "",
+        "hintAngle": "Ângulo",
+        "severity": "low",
+    }
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        bound = _patch_bound_chat(mock_cls)
+        bound.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_tutor(
+            diagnosis,
+            [],
+            "escreva(1)",
+            documentation_context=["referência sobre vetores"],
+        )
+    msgs = captured[0]
+    system_text = msgs[0].content
+    assert "Documentação Portugol" in system_text
+    assert "referência sobre vetores" in system_text
+
+
+@pytest.mark.asyncio
 async def test_run_tutor_stream_yields_chunks() -> None:
     diagnosis: Diagnosis = {
         "errorType": "none",

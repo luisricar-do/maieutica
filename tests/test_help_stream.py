@@ -27,7 +27,7 @@ async def test_iter_help_sse_validation_error() -> None:
 
 @pytest.mark.asyncio
 async def test_iter_help_sse_happy_path() -> None:
-    def fake_tutor_stream(_d, _h, _code, _active=0):
+    def fake_tutor_stream(_d, _h, _code, _active=0, **_kwargs):
         async def gen():
             yield "Oi"
             yield "!"
@@ -50,3 +50,67 @@ async def test_iter_help_sse_happy_path() -> None:
     assert any("diagnosis" in d for d in decoded)
     assert sum(1 for d in decoded if "token" in d) == 2
     assert any("done" in d for d in decoded)
+
+
+@pytest.mark.asyncio
+async def test_iter_help_sse_calls_retrieve_when_include_documentation() -> None:
+    def fake_tutor_stream(_d, _h, _code, _active=0, **_kwargs):
+        async def gen():
+            yield "x"
+
+        return gen()
+
+    with (
+        patch("services.tutor_help_stream.run_analyst", new_callable=AsyncMock) as ma,
+        patch(
+            "services.tutor_help_stream.retrieve_doc_chunks",
+            return_value=["doc-chunk"],
+        ) as mock_retrieve,
+        patch("services.tutor_help_stream.run_tutor_stream", fake_tutor_stream),
+    ):
+        ma.return_value = {
+            "errorType": "none",
+            "severity": "low",
+            "errorDescription": "d",
+            "hintAngle": "h",
+        }
+        chunks = [
+            c
+            async for c in iter_help_sse(
+                {
+                    "code": "x",
+                    "errors": ["e1"],
+                    "history": [],
+                    "includeDocumentation": True,
+                }
+            )
+        ]
+    mock_retrieve.assert_called_once()
+    decoded = [c.decode("utf-8") for c in chunks]
+    assert any("diagnosis" in d for d in decoded)
+    assert any("token" in d for d in decoded)
+
+
+@pytest.mark.asyncio
+async def test_iter_help_sse_skips_retrieve_when_include_documentation_false() -> None:
+    def fake_tutor_stream(_d, _h, _code, _active=0, **_kwargs):
+        async def gen():
+            yield "y"
+
+        return gen()
+
+    with (
+        patch("services.tutor_help_stream.run_analyst", new_callable=AsyncMock) as ma,
+        patch(
+            "services.tutor_help_stream.retrieve_doc_chunks",
+        ) as mock_retrieve,
+        patch("services.tutor_help_stream.run_tutor_stream", fake_tutor_stream),
+    ):
+        ma.return_value = {"errorType": "none", "severity": "low"}
+        _chunks = [
+            c
+            async for c in iter_help_sse(
+                {"code": "x", "errors": [], "history": [], "includeDocumentation": False}
+            )
+        ]
+    mock_retrieve.assert_not_called()
