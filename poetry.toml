@@ -1,0 +1,3 @@
+[virtualenvs]
+# Mantém `.venv` na raiz do repositório — após mover a pasta, basta `poetry install` de novo.
+in-project = true

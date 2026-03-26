@@ -1,0 +1,14 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    "LITELLM_BASE_URL": "http://localhost:4000",
+    "LITELLM_API_KEY": "COLOQUE_SUA_CHAVE_AQUI",
+    "LITELLM_MODEL": "claude-sonnet-4-20250514"
+  },
+  "Host": {
+    "CORS": "*",
+    "CORSCredentials": false
+  }
+}

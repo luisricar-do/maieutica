@@ -1,0 +1,14 @@
+---
+description: Contexto do backend maieutica — tutor socrático, Azure Functions e integração com a IDE
+alwaysApply: true
+---
+
+# maieutica (Portugol Tutor API)
+
+- **Objetivo:** API multiagente para **tutor socrático** em Portugol; o tutor **não** entrega solução pronta — só orientação por perguntas.
+- **Stack:** Python 3.11, Azure Functions (decoradores v2), LangGraph, `langchain-openai` + proxy LiteLLM/OpenAI-compatível.
+- **Entrada típica da IDE:** `code`, `errors`, `history` (JSON). Ver contratos em `README.md` e `services/tutor_help*.py`.
+- **Testes:** `make test` (`pytest`); LLM mockado nos testes padrão — não assumir chamadas reais à rede.
+- **Estilo:** Ruff (`pyproject.toml`); `function_app.py` pode ter ignores específicos (`E402`).
+- **Segredos:** Nunca commitar `local.settings.json`, `.env` ou chaves. Documentar variáveis no exemplo, não valores reais.
+- **Após mudar deps de produção:** atualizar `requirements.txt` para deploy (`poetry export` ou alinhamento manual) conforme `README.md`.

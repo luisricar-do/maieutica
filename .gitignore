@@ -1,34 +1,9 @@
-# Dependências e build
-node_modules/
-dist/
-build/
-.next/
-out/
-*.tsbuildinfo
-
-# Ambiente e segredos
+local.settings.json
 .env
-.env.*.local
-!.env.example
-
-# Logs e caches
-*.log
-npm-debug.log*
-.cache/
-.turbo/
-
-# IDE / SO
-.DS_Store
-.idea/
-.vscode/*
-!.vscode/extensions.json
-
-# Testes e cobertura
-coverage/
-.nyc_output/
-
-# Python (caso scripts de benchmark usem)
-.venv/
-venv/
 __pycache__/
-*.py[cod]
+.pytest_cache/
+.ruff_cache/
+venv/
+.venv/
+dist/
+.python-packages/

@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "portugol-tutor-api"
+version = "0.1.0"
+description = "Backend MAS Tutor Socrático para o Portugol Webstudio"
+authors = ["Luis Ricardo Albano Santos <luisricardo0626@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/luisricar-do/maieutica"
+repository = "https://github.com/luisricar-do/maieutica"
+package-mode = false
+
+[tool.poetry.urls]
+"Issues" = "https://github.com/luisricar-do/maieutica/issues"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+azure-functions = "*"
+langgraph = ">=0.2.0"
+langchain-openai = ">=0.2.0"
+langchain-core = ">=0.3.0"
+python-dotenv = "*"
+azurefunctions-extensions-http-fastapi = "^1.0.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+ruff = "*"
+watchfiles = ">=0.21.0"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint.per-file-ignores]
+"function_app.py" = ["E402"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+
+# Atalhos `make test`, `make dev`, `make start`, `make watch` — ver Makefile na raiz.
+# O Poetry não tem “scripts” como o npm; depois de mudar dependências: `poetry lock && poetry install`.

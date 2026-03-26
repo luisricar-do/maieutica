@@ -1,0 +1,13 @@
+---
+description: Convenções Python para agents/, services/, tests/ e function_app
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python — tutor API
+
+- Manter **async** onde o código já é assíncrono; respeitar padrões existentes em `agents/` e `services/`.
+- Novos endpoints ou alterações de contrato: alinhar com o consumo em **portugol-ai-tutor** (`packages/agent`, chat SSE).
+- **Grafo LangGraph:** alterações em `agents/graph.py` devem manter o fluxo analista → tutor e tipos de diagnóstico esperados pelo frontend.
+- **Testes:** adicionar ou atualizar testes em `tests/`; usar mocks para LLM como nos testes existentes (`conftest.py`, padrões atuais).
+- Preferir funções pequenas e nomes alinhados ao domínio (diagnóstico, histórico, stream SSE).
