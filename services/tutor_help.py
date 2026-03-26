@@ -16,6 +16,7 @@ class TutorHelpState(TypedDict):
     history: list[dict]
     diagnosis: dict
     tutor_response: str
+    actions: list[dict]
 
 
 def parse_help_payload(payload: Any) -> tuple[TutorHelpState | None, dict[str, Any] | None, int]:
@@ -54,6 +55,7 @@ def parse_help_payload(payload: Any) -> tuple[TutorHelpState | None, dict[str, A
         "history": history_dicts,
         "diagnosis": {},
         "tutor_response": "",
+        "actions": [],
     }
     return initial_state, None, 200
 

@@ -41,6 +41,7 @@ async def test_graph_runs_analyst_then_tutor_in_sequence() -> None:
                 "history": [],
                 "diagnosis": {},
                 "tutor_response": "",
+                "actions": [],
             }
         )
 
@@ -49,3 +50,4 @@ async def test_graph_runs_analyst_then_tutor_in_sequence() -> None:
         assert call_order == ["analyst", "tutor"]
         assert final["diagnosis"] == diagnosis
         assert final["tutor_response"] == "Resposta socrática de teste."
+        assert final["actions"] == []

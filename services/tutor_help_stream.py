@@ -43,8 +43,11 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
         diagnosis = await run_analyst(initial["code"], initial["errors"])
         yield format_sse("diagnosis", diagnosis)
         d = cast(Diagnosis, diagnosis)
-        async for delta in run_tutor_stream(d, initial["history"]):
-            yield format_sse("token", {"text": delta})
+        async for delta in run_tutor_stream(d, initial["history"], initial["code"]):
+            if isinstance(delta, str):
+                yield format_sse("token", {"text": delta})
+            else:
+                yield format_sse("action", delta)
         yield format_sse("done", {})
     except Exception:
         logger.exception("Falha no streaming SSE (/help/stream)")

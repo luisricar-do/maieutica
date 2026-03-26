@@ -27,7 +27,7 @@ async def test_iter_help_sse_validation_error() -> None:
 
 @pytest.mark.asyncio
 async def test_iter_help_sse_happy_path() -> None:
-    def fake_tutor_stream(_d, _h):
+    def fake_tutor_stream(_d, _h, _code):
         async def gen():
             yield "Oi"
             yield "!"
