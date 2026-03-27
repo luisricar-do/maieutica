@@ -62,3 +62,5 @@ async def test_process_help_passes_include_documentation_to_graph() -> None:
     state = call_args[0][0]
     assert state["include_documentation"] is True
     assert state["documentation_context"] == []
+    assert state["strategist_plan"] == ""
+    assert state["intent"] == ""

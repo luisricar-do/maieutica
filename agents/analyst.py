@@ -25,6 +25,7 @@ Language rules for string fields:
 - Write **errorDescription** and **hintAngle** in **Portuguese** (they inform a Portuguese-speaking tutor experience).
 
 Guidelines for hintAngle and errorDescription:
+- **hintAngle** must be an actionable angle for the tutor: one concrete discovery question in Portuguese. Prefer hints that imply **which region of the code** deserves attention (e.g. declaration vs usage, loop condition vs body, delimiter pairing) so the tutor can choose IDE tools such as `compare_lines`, `highlight_line`, or `highlight_variable` without you naming tools in the JSON.
 - For **string** issues (mismatched quotes, mixing `"` and `'`, wrong delimiter such as an accent, missing quotes where needed): hintAngle should steer toward **comparing the character that opens and the one that closes** the text inside `escreva` (or the literal), without giving the exact fix.
 - For other errors, keep a concrete question aligned with the symptom (loop, condition, variable), always discovery-oriented.
 

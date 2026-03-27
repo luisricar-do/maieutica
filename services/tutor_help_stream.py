@@ -1,19 +1,21 @@
 """
-Streaming SSE do tutor: analista (evento único) + tokens do LLM (eventos ``token``) + ``done``.
+Streaming SSE do tutor: roteamento → (analista opcional) → RAG/estrag. → tokens do comunicador + ``done``.
 """
 
-import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
-from agents.analyst import Diagnosis, run_analyst
-from agents.rag.query import build_rag_query, retrieve_doc_chunks
-from agents.tutor import run_tutor_stream
+from agents.graph import analyst_node, rag_retrieve_node, strategist_node
+from agents.router import run_router
+from agents.tutor import run_communicator_stream
 from services.tutor_help import parse_help_payload
 
 logger = logging.getLogger(__name__)
+
+# Diagnóstico mínimo quando o analista não corre (CASUAL / THEORY); compatível com o cliente IDE.
+_MINIMAL_SSE_DIAGNOSIS: dict[str, str] = {"errorType": "none", "severity": "low"}
 
 
 def format_sse(event: str | None, data: dict[str, Any]) -> bytes:
@@ -42,25 +44,49 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
         return
 
     try:
-        diagnosis = await run_analyst(initial["code"], initial["errors"])
-        yield format_sse("diagnosis", diagnosis)
-        d = cast(Diagnosis, diagnosis)
-        if initial.get("include_documentation"):
-            query = build_rag_query(d, initial["errors"], initial["history"])
-            doc_ctx = await asyncio.to_thread(retrieve_doc_chunks, query)
-        else:
-            doc_ctx = []
-        async for delta in run_tutor_stream(
-            d,
-            initial["history"],
-            initial["code"],
-            initial["active_tutor_decorations"],
-            documentation_context=doc_ctx,
-        ):
-            if isinstance(delta, str):
+        state: dict[str, Any] = dict(initial)
+        state.update(await run_router(state))
+        intent = state.get("intent") or "DEBUG"
+
+        if intent == "CASUAL":
+            yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
+            async for delta in run_communicator_stream(
+                state["strategist_plan"],
+                state["history"],
+                intent="CASUAL",
+                documentation_context=[],
+            ):
                 yield format_sse("token", {"text": delta})
-            else:
-                yield format_sse("action", delta)
+            yield format_sse("done", {})
+            return
+
+        if intent == "THEORY":
+            yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
+            state.update(await rag_retrieve_node(cast(Any, state)))
+            async for delta in run_communicator_stream(
+                state["strategist_plan"],
+                state["history"],
+                intent="THEORY",
+                documentation_context=state.get("documentation_context") or [],
+            ):
+                yield format_sse("token", {"text": delta})
+            yield format_sse("done", {})
+            return
+
+        state.update(await analyst_node(cast(Any, state)))
+        yield format_sse("diagnosis", state["diagnosis"])
+        state.update(await rag_retrieve_node(cast(Any, state)))
+        state.update(await strategist_node(cast(Any, state)))
+        actions = state["actions"]
+        for action in actions:
+            yield format_sse("action", action)
+        async for delta in run_communicator_stream(
+            state["strategist_plan"],
+            state["history"],
+            intent="DEBUG",
+            documentation_context=state.get("documentation_context") or [],
+        ):
+            yield format_sse("token", {"text": delta})
         yield format_sse("done", {})
     except Exception:
         logger.exception("Falha no streaming SSE (/help/stream)")

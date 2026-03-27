@@ -31,6 +31,22 @@ def build_rag_query(
     return text[:4000]
 
 
+def build_theory_rag_query(history: list[dict], code: str = "") -> str:
+    """Monta consulta para RAG em perguntas teóricas (sem diagnóstico do analista)."""
+    parts: list[str] = []
+    for h in reversed(history):
+        if isinstance(h, dict) and h.get("role") == "user":
+            u = str(h.get("content", "")).strip()
+            if u:
+                parts.append(u)
+            break
+    if not parts and code.strip():
+        preview = code.strip()[:1500]
+        parts.append("Contexto do código no editor:\n" + preview)
+    text = "\n".join(parts) if parts else ""
+    return text[:4000]
+
+
 def retrieve_doc_chunks(
     query: str,
     k: int = 4,

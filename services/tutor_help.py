@@ -18,8 +18,10 @@ class TutorHelpState(TypedDict):
     include_documentation: bool
     diagnosis: dict
     documentation_context: list[str]
+    strategist_plan: str
     tutor_response: str
     actions: list[dict]
+    intent: str
 
 
 def _parse_include_documentation(raw: object) -> bool:
@@ -87,8 +89,10 @@ def parse_help_payload(payload: Any) -> tuple[TutorHelpState | None, dict[str, A
         "include_documentation": include_documentation,
         "diagnosis": {},
         "documentation_context": [],
+        "strategist_plan": "",
         "tutor_response": "",
         "actions": [],
+        "intent": "",
     }
     return initial_state, None, 200
 

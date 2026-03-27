@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock
 
 from agents.analyst import Diagnosis
-from agents.rag.query import build_rag_query, retrieve_doc_chunks
+from agents.rag.query import build_rag_query, build_theory_rag_query, retrieve_doc_chunks
 
 
 def test_build_rag_query_joins_errors_diagnosis_and_last_user_message() -> None:
@@ -24,6 +24,20 @@ def test_build_rag_query_joins_errors_diagnosis_and_last_user_message() -> None:
     assert "Falta ponto e vírgula" in q
     assert "Onde termina a instrução?" in q
     assert "Não entendi o erro" in q
+
+
+def test_build_theory_rag_query_uses_last_user_message() -> None:
+    history = [
+        {"role": "assistant", "content": "Oi"},
+        {"role": "user", "content": "Como funciona o para?"},
+    ]
+    q = build_theory_rag_query(history, "")
+    assert "Como funciona o para?" in q
+
+
+def test_build_theory_rag_query_falls_back_to_code_when_no_user() -> None:
+    q = build_theory_rag_query([], "inicio\n  escreva(1)\nfim")
+    assert "Contexto do código" in q or "escreva" in q
 
 
 def test_build_rag_query_skips_empty_history_roles() -> None:

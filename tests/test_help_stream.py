@@ -26,19 +26,29 @@ async def test_iter_help_sse_validation_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_iter_help_sse_happy_path() -> None:
-    def fake_tutor_stream(_d, _h, _code, _active=0, **_kwargs):
-        async def gen():
-            yield "Oi"
-            yield "!"
+async def test_iter_help_sse_happy_path_actions_before_tokens() -> None:
+    async def fake_communicator_stream(*_a, **_k):
+        yield "Oi"
+        yield "!"
 
-        return gen()
+    async def fake_analyst_node(*_a, **_k):
+        return {"diagnosis": {"errorType": "none", "severity": "low"}}
+
+    async def fake_strategist_node(*_a, **_k):
+        return {
+            "actions": [{"type": "highlight_line", "payload": {"line": 1, "color": "info"}}],
+            "strategist_plan": "p",
+        }
 
     with (
-        patch("services.tutor_help_stream.run_analyst", new_callable=AsyncMock) as ma,
-        patch("services.tutor_help_stream.run_tutor_stream", fake_tutor_stream),
+        patch("services.tutor_help_stream.run_router", new_callable=AsyncMock) as mr,
+        patch("services.tutor_help_stream.analyst_node", new_callable=AsyncMock) as ma,
+        patch("services.tutor_help_stream.strategist_node", new_callable=AsyncMock) as ms,
+        patch("services.tutor_help_stream.run_communicator_stream", fake_communicator_stream),
     ):
-        ma.return_value = {"errorType": "none", "severity": "low"}
+        mr.return_value = {"intent": "DEBUG"}
+        ma.side_effect = fake_analyst_node
+        ms.side_effect = fake_strategist_node
 
         chunks = [
             c
@@ -48,32 +58,46 @@ async def test_iter_help_sse_happy_path() -> None:
         ]
     decoded = [c.decode("utf-8") for c in chunks]
     assert any("diagnosis" in d for d in decoded)
-    assert sum(1 for d in decoded if "token" in d) == 2
+    action_idx = next(i for i, d in enumerate(decoded) if "event: action" in d)
+    token_indices = [i for i, d in enumerate(decoded) if "event: token" in d]
+    assert token_indices
+    assert action_idx < min(token_indices)
+    assert sum(1 for d in decoded if "event: token" in d) == 2
     assert any("done" in d for d in decoded)
 
 
 @pytest.mark.asyncio
 async def test_iter_help_sse_calls_retrieve_when_include_documentation() -> None:
-    def fake_tutor_stream(_d, _h, _code, _active=0, **_kwargs):
-        async def gen():
-            yield "x"
+    async def fake_communicator_stream(*_a, **_k):
+        yield "x"
 
-        return gen()
+    async def fake_analyst_node(*_a, **_k):
+        return {
+            "diagnosis": {
+                "errorType": "none",
+                "severity": "low",
+                "errorDescription": "d",
+                "hintAngle": "h",
+            }
+        }
+
+    async def fake_strategist_node(*_a, **_k):
+        return {"actions": [], "strategist_plan": "plan"}
 
     with (
-        patch("services.tutor_help_stream.run_analyst", new_callable=AsyncMock) as ma,
+        patch("services.tutor_help_stream.run_router", new_callable=AsyncMock) as mr,
+        patch("services.tutor_help_stream.analyst_node", new_callable=AsyncMock) as ma,
+        patch("services.tutor_help_stream.strategist_node", new_callable=AsyncMock) as ms,
         patch(
-            "services.tutor_help_stream.retrieve_doc_chunks",
+            "agents.graph.retrieve_doc_chunks",
             return_value=["doc-chunk"],
         ) as mock_retrieve,
-        patch("services.tutor_help_stream.run_tutor_stream", fake_tutor_stream),
+        patch("services.tutor_help_stream.run_communicator_stream", fake_communicator_stream),
     ):
-        ma.return_value = {
-            "errorType": "none",
-            "severity": "low",
-            "errorDescription": "d",
-            "hintAngle": "h",
-        }
+        mr.return_value = {"intent": "DEBUG"}
+        ma.side_effect = fake_analyst_node
+        ms.side_effect = fake_strategist_node
+
         chunks = [
             c
             async for c in iter_help_sse(
@@ -93,20 +117,27 @@ async def test_iter_help_sse_calls_retrieve_when_include_documentation() -> None
 
 @pytest.mark.asyncio
 async def test_iter_help_sse_skips_retrieve_when_include_documentation_false() -> None:
-    def fake_tutor_stream(_d, _h, _code, _active=0, **_kwargs):
-        async def gen():
-            yield "y"
+    async def fake_communicator_stream(*_a, **_k):
+        yield "y"
 
-        return gen()
+    async def fake_analyst_node(*_a, **_k):
+        return {"diagnosis": {"errorType": "none", "severity": "low"}}
+
+    async def fake_strategist_node(*_a, **_k):
+        return {"actions": [], "strategist_plan": "plan"}
 
     with (
-        patch("services.tutor_help_stream.run_analyst", new_callable=AsyncMock) as ma,
+        patch("services.tutor_help_stream.run_router", new_callable=AsyncMock) as mr,
+        patch("services.tutor_help_stream.analyst_node", new_callable=AsyncMock) as ma,
+        patch("services.tutor_help_stream.strategist_node", new_callable=AsyncMock) as ms,
         patch(
-            "services.tutor_help_stream.retrieve_doc_chunks",
+            "agents.graph.retrieve_doc_chunks",
         ) as mock_retrieve,
-        patch("services.tutor_help_stream.run_tutor_stream", fake_tutor_stream),
+        patch("services.tutor_help_stream.run_communicator_stream", fake_communicator_stream),
     ):
-        ma.return_value = {"errorType": "none", "severity": "low"}
+        mr.return_value = {"intent": "DEBUG"}
+        ma.side_effect = fake_analyst_node
+        ms.side_effect = fake_strategist_node
         _chunks = [
             c
             async for c in iter_help_sse(
