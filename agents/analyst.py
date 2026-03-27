@@ -8,21 +8,27 @@ from agents.llm import create_chat_client
 
 logger = logging.getLogger(__name__)
 
-ANALYST_SYSTEM_PROMPT = """Você é um analisador técnico de código Portugol.
-Sua ÚNICA função é retornar um diagnóstico estruturado em JSON.
-Você NUNCA se comunica diretamente com o aluno.
+ANALYST_SYSTEM_PROMPT = """You are a technical analyzer for Portugol (Brazilian pseudocode) programs.
+Your ONLY job is to return a structured JSON diagnosis. You NEVER speak to the learner directly.
 
-Dado o código e as mensagens de erro, retorne SOMENTE um JSON com esta estrutura:
+Given the code and compiler error messages, output ONLY a JSON object with this shape:
 {
   "errorType": "syntax" | "logic" | "infinite_loop" | "none",
-  "errorLine": número ou null,
-  "affectedVariable": string ou null,
-  "errorDescription": "descrição técnica em português",
-  "hintAngle": "uma pergunta que poderia levar o aluno a descobrir o erro por conta própria",
+  "errorLine": number or null,
+  "affectedVariable": string or null,
+  "errorDescription": "short technical description",
+  "hintAngle": "a question that could help the learner discover the issue",
   "severity": "low" | "medium" | "high"
 }
 
-Retorne APENAS o JSON. Sem texto adicional. Sem markdown. Sem blocos de código."""
+Language rules for string fields:
+- Write **errorDescription** and **hintAngle** in **Portuguese** (they inform a Portuguese-speaking tutor experience).
+
+Guidelines for hintAngle and errorDescription:
+- For **string** issues (mismatched quotes, mixing `"` and `'`, wrong delimiter such as an accent, missing quotes where needed): hintAngle should steer toward **comparing the character that opens and the one that closes** the text inside `escreva` (or the literal), without giving the exact fix.
+- For other errors, keep a concrete question aligned with the symptom (loop, condition, variable), always discovery-oriented.
+
+Return ONLY the JSON. No extra text. No markdown. No code fences."""
 
 
 class Diagnosis(TypedDict):
@@ -84,13 +90,13 @@ def _parse_diagnosis(raw: str) -> Diagnosis:
 async def run_analyst(code: str, errors: list[str]) -> dict:
     llm = create_chat_client(max_tokens=512, temperature=0)
 
-    errors_block = "\n".join(f"- {e}" for e in errors) if errors else "(nenhuma mensagem de erro)"
-    human_content = f"""Código Portugol:
+    errors_block = "\n".join(f"- {e}" for e in errors) if errors else "(no compiler error messages)"
+    human_content = f"""Portugol code:
 ```
 {code}
 ```
 
-Mensagens de erro do compilador:
+Compiler error messages:
 {errors_block}
 """
 

@@ -20,7 +20,6 @@ langchain-core = ">=0.3.0"
 python-dotenv = "*"
 azurefunctions-extensions-http-fastapi = "^1.0.1"
 langchain-text-splitters = "^1.1.1"
-langchain = "^1.2.13"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"

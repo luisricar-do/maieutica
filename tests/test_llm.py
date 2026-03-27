@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agents.llm import create_chat_client
+from agents.llm import create_chat_client, create_embeddings_client
 
 
 def test_create_chat_client_openai_compatible_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -44,3 +44,33 @@ def test_create_chat_client_requires_base_url(monkeypatch: pytest.MonkeyPatch) -
             create_chat_client(max_tokens=1, temperature=0)
 
     mock_openai.assert_not_called()
+
+
+def test_create_embeddings_client_openai_compatible_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("LITELLM_BASE_URL", "http://localhost:4000")
+    monkeypatch.setenv("LITELLM_API_KEY", "sk-test")
+    monkeypatch.setenv("LITELLM_EMBEDDING_MODEL", "text-embedding-3-small")
+
+    with patch("agents.llm.OpenAIEmbeddings") as mock_emb:
+        mock_emb.return_value = MagicMock()
+        create_embeddings_client()
+
+    mock_emb.assert_called_once()
+    _, kwargs = mock_emb.call_args
+    assert kwargs["base_url"] == "http://localhost:4000/v1"
+    assert kwargs["model"] == "text-embedding-3-small"
+    assert kwargs["api_key"] == "sk-test"
+
+
+def test_create_embeddings_client_requires_base_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("LITELLM_BASE_URL", raising=False)
+
+    with patch("agents.llm.OpenAIEmbeddings") as mock_emb:
+        with pytest.raises(ValueError, match="LITELLM_BASE_URL"):
+            create_embeddings_client()
+
+    mock_emb.assert_not_called()

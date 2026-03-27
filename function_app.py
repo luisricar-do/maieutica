@@ -13,7 +13,7 @@ from azurefunctions.extensions.http.fastapi import (  # noqa: E402
     StreamingResponse,
 )
 
-from agents.rag.graph import COMPILED_RAG_GRAPH
+from agents.rag.graph import get_compiled_rag_graph
 from services.ping import ping_response
 from services.tutor_help import process_help_request
 from services.tutor_help_stream import format_sse, iter_help_sse
@@ -141,7 +141,7 @@ async def portugol_ask(req: Request) -> JSONResponse:
                 status=400,
             )
 
-        result = COMPILED_RAG_GRAPH.invoke(
+        result = get_compiled_rag_graph().invoke(
             {"question": question.strip(), "context": [], "answer": ""}
         )
         return _json_response({"answer": result["answer"]}, status=200)
