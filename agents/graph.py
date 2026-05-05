@@ -22,6 +22,12 @@ class TutorState(TypedDict):
     tutor_response: str
     actions: list[dict]
     intent: str
+    hint_level: int
+    student_name: str
+    cursor_line: int | None
+    cursor_column: int | None
+    ast_summary: str
+    data_flow_context: str
 
 
 async def router_node(state: TutorState) -> dict:
@@ -61,6 +67,11 @@ async def strategist_node(state: TutorState) -> dict:
         state["code"],
         state["active_tutor_decorations"],
         documentation_context=doc_ctx,
+        hint_level=int(state.get("hint_level") or 1),
+        cursor_line=state.get("cursor_line"),
+        cursor_column=state.get("cursor_column"),
+        ast_summary=str(state.get("ast_summary") or ""),
+        data_flow_context=str(state.get("data_flow_context") or ""),
     )
     return {"actions": actions, "strategist_plan": strategist_plan}
 
@@ -71,6 +82,12 @@ async def tutor_node(state: TutorState) -> dict:
         state["history"],
         intent=state.get("intent") or "DEBUG",
         documentation_context=state.get("documentation_context") or [],
+        student_name=str(state.get("student_name") or ""),
+        hint_level=int(state.get("hint_level") or 1),
+        cursor_line=state.get("cursor_line"),
+        cursor_column=state.get("cursor_column"),
+        ast_summary=str(state.get("ast_summary") or ""),
+        data_flow_context=str(state.get("data_flow_context") or ""),
     )
     return {"tutor_response": tutor_response}
 

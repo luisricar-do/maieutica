@@ -18,7 +18,8 @@ Given the code and compiler error messages, output ONLY a JSON object with this 
   "affectedVariable": string or null,
   "errorDescription": "short technical description",
   "hintAngle": "a question that could help the learner discover the issue",
-  "severity": "low" | "medium" | "high"
+  "severity": "low" | "medium" | "high",
+  "dataFlowHint": "optional one line in Portuguese about data flow (e.g. variable used before init, read/write path)"
 }
 
 Language rules for string fields:
@@ -28,6 +29,7 @@ Guidelines for hintAngle and errorDescription:
 - **hintAngle** must be an actionable angle for the tutor: one concrete discovery question in Portuguese. Prefer hints that imply **which region of the code** deserves attention (e.g. declaration vs usage, loop condition vs body, delimiter pairing) so the tutor can choose IDE tools such as `compare_lines`, `highlight_line`, or `highlight_variable` without you naming tools in the JSON.
 - For **string** issues (mismatched quotes, mixing `"` and `'`, wrong delimiter such as an accent, missing quotes where needed): hintAngle should steer toward **comparing the character that opens and the one that closes** the text inside `escreva` (or the literal), without giving the exact fix.
 - For other errors, keep a concrete question aligned with the symptom (loop, condition, variable), always discovery-oriented.
+- **dataFlowHint** (optional): only when useful — a short Portuguese note on declaration vs usage, uninitialized reads, or confusing assignment order (no solution).
 
 Return ONLY the JSON. No extra text. No markdown. No code fences."""
 
@@ -39,6 +41,7 @@ class Diagnosis(TypedDict):
     errorDescription: str
     hintAngle: str
     severity: Literal["low", "medium", "high"]
+    dataFlowHint: NotRequired[str]
 
 
 class DiagnosisPartial(TypedDict, total=False):
@@ -50,6 +53,7 @@ class DiagnosisPartial(TypedDict, total=False):
     errorDescription: NotRequired[str]
     hintAngle: NotRequired[str]
     severity: NotRequired[str]
+    dataFlowHint: NotRequired[str]
 
 
 def _default_diagnosis() -> Diagnosis:
@@ -78,7 +82,10 @@ def _parse_diagnosis(raw: str) -> Diagnosis:
     if severity not in ("low", "medium", "high"):
         severity = "low"
 
-    return {
+    raw_df = partial.get("dataFlowHint")
+    data_flow_hint = raw_df.strip()[:500] if isinstance(raw_df, str) else ""
+
+    out: Diagnosis = {
         "errorType": error_type,  # type: ignore[typeddict-item]
         "errorLine": partial.get("errorLine"),
         "affectedVariable": partial.get("affectedVariable"),
@@ -86,6 +93,9 @@ def _parse_diagnosis(raw: str) -> Diagnosis:
         "hintAngle": partial.get("hintAngle", ""),
         "severity": severity,  # type: ignore[typeddict-item]
     }
+    if data_flow_hint:
+        out["dataFlowHint"] = data_flow_hint
+    return out
 
 
 async def run_analyst(code: str, errors: list[str]) -> dict:

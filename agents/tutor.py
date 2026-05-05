@@ -15,6 +15,15 @@ You will receive a <strategist_plan> from the internal pedagogical engine.
 Your ONLY job is to translate that strategy into 1 or 2 warm, encouraging sentences in Brazilian Portuguese.
 If the strategy says 'We highlighted lines 3 and 5 to compare quotes', your message MUST smoothly mention that you highlighted the code for them to look at.
 Never invent line numbers. Rely entirely on the <strategist_plan>.
+Never output Portugol code blocks or complete fixes; ask questions only.
+
+<learner_context>
+Student display name (optional; if non-empty, greet them once by first name): {student_name}
+Hint level from UI (1=subtle … 3=more concrete): {hint_level}
+Cursor (if known): line {cursor_line} column {cursor_column}
+AST/editor summary: {ast_summary}
+Data flow from IDE (optional): {data_flow_context}
+</learner_context>
 
 <strategist_plan>
 {strategist_plan}
@@ -63,13 +72,34 @@ def _build_system_content(
     strategist_plan: str,
     intent: str,
     documentation_context: list[str],
+    *,
+    student_name: str = "",
+    hint_level: int = 1,
+    cursor_line: int | None = None,
+    cursor_column: int | None = None,
+    ast_summary: str = "",
+    data_flow_context: str = "",
 ) -> str:
     if intent == "CASUAL":
         return COMMUNICATOR_CASUAL_TEMPLATE.format(strategist_plan=strategist_plan)
     if intent == "THEORY":
         docs_text = "\n\n---\n\n".join(documentation_context) if documentation_context else "(Nenhum trecho recuperado; responda com cuidado e uma pergunta socrática.)"
         return COMMUNICATOR_THEORY_TEMPLATE.format(documentation=docs_text)
-    return COMMUNICATOR_DEBUG_TEMPLATE.format(strategist_plan=strategist_plan)
+    name = student_name.strip()
+    hl = max(1, min(3, int(hint_level)))
+    cl = str(cursor_line) if isinstance(cursor_line, int) and cursor_line >= 1 else "n/a"
+    cc = str(cursor_column) if isinstance(cursor_column, int) and cursor_column >= 1 else "n/a"
+    ast = ast_summary.strip() if ast_summary.strip() else "(none)"
+    dfc = data_flow_context.strip() if data_flow_context.strip() else "(none)"
+    return COMMUNICATOR_DEBUG_TEMPLATE.format(
+        strategist_plan=strategist_plan,
+        student_name=name if name else "(none)",
+        hint_level=str(hl),
+        cursor_line=cl,
+        cursor_column=cc,
+        ast_summary=ast,
+        data_flow_context=dfc,
+    )
 
 
 def _communicator_lc_messages(
@@ -78,11 +108,27 @@ def _communicator_lc_messages(
     *,
     intent: str = "DEBUG",
     documentation_context: list[str] | None = None,
+    student_name: str = "",
+    hint_level: int = 1,
+    cursor_line: int | None = None,
+    cursor_column: int | None = None,
+    ast_summary: str = "",
+    data_flow_context: str = "",
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     docs = documentation_context if documentation_context is not None else []
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
         SystemMessage(
-            content=_build_system_content(strategist_plan, intent, docs),
+            content=_build_system_content(
+                strategist_plan,
+                intent,
+                docs,
+                student_name=student_name,
+                hint_level=hint_level,
+                cursor_line=cursor_line,
+                cursor_column=cursor_column,
+                ast_summary=ast_summary,
+                data_flow_context=data_flow_context,
+            ),
         ),
     ]
     hist_msgs = _history_to_messages(history)
@@ -108,6 +154,12 @@ async def run_communicator(
     *,
     intent: str = "DEBUG",
     documentation_context: list[str] | None = None,
+    student_name: str = "",
+    hint_level: int = 1,
+    cursor_line: int | None = None,
+    cursor_column: int | None = None,
+    ast_summary: str = "",
+    data_flow_context: str = "",
 ) -> str:
     """Gera a mensagem final da ARIA a partir do plano interno do estrategista."""
     llm = _communicator_llm()
@@ -116,6 +168,12 @@ async def run_communicator(
         history,
         intent=intent,
         documentation_context=documentation_context,
+        student_name=student_name,
+        hint_level=hint_level,
+        cursor_line=cursor_line,
+        cursor_column=cursor_column,
+        ast_summary=ast_summary,
+        data_flow_context=data_flow_context,
     )
     response = await llm.ainvoke(lc_messages)
     return _chunk_content_to_text(response.content).strip()
@@ -127,6 +185,12 @@ async def run_communicator_stream(
     *,
     intent: str = "DEBUG",
     documentation_context: list[str] | None = None,
+    student_name: str = "",
+    hint_level: int = 1,
+    cursor_line: int | None = None,
+    cursor_column: int | None = None,
+    ast_summary: str = "",
+    data_flow_context: str = "",
 ) -> AsyncIterator[str]:
     """Stream de tokens do comunicador (apenas texto, sem ferramentas)."""
     llm = _communicator_llm()
@@ -135,6 +199,12 @@ async def run_communicator_stream(
         history,
         intent=intent,
         documentation_context=documentation_context,
+        student_name=student_name,
+        hint_level=hint_level,
+        cursor_line=cursor_line,
+        cursor_column=cursor_column,
+        ast_summary=ast_summary,
+        data_flow_context=data_flow_context,
     )
     async for chunk in llm.astream(lc_messages):
         text = _chunk_content_to_text(chunk.content)

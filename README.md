@@ -154,8 +154,8 @@ make watch
 Isto corre `func start --verbose` e **reinicia** o processo quando deteta alterações em ficheiros Python no projeto (é um restart do processo, não hot-reload dentro do mesmo processo).
 
 - **GET** `http://localhost:7071/api/ping` — health check, resposta JSON: `{"pong": true}`.
-- **POST** `http://localhost:7071/api/help` — tutor socrático, resposta JSON única (`message` + `diagnosis`). Preflight CORS é tratado pelo host quando `Host.CORS` está definido em `local.settings.json`.
-- **POST** `http://localhost:7071/api/help/stream` — mesmo corpo JSON que `/api/help`, resposta **`text/event-stream`** (SSE). Eventos típicos: `diagnosis` (JSON do analista), `token` (fragmentos de texto do tutor), `done` (fim do stream) ou `error` (falha de validação ou interna). O frontend em [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) consome este endpoint para exibir a resposta em tempo real.
+- **POST** `http://localhost:7071/api/help` — tutor socrático, resposta JSON (`message`, `diagnosis`, `actions`, `tutorMeta`). Preflight CORS é tratado pelo host quando `Host.CORS` está definido em `local.settings.json`.
+- **POST** `http://localhost:7071/api/help/stream` — mesmo corpo JSON que `/api/help`, resposta **`text/event-stream`** (SSE). Eventos típicos: `diagnosis` (JSON do analista), `action` (ações pedagógicas na IDE), `token` (fragmentos de texto do tutor), `done` (fim do stream, com `tutorMeta` opcional) ou `error` (falha de validação ou interna). O frontend em [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) consome este endpoint para exibir a resposta em tempo real.
 
 ## Testes
 
@@ -209,7 +209,7 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
 }
 ```
 
-**Response** — `200 OK`
+**Response** — `200 OK` (`/api/help`)
 
 ```json
 {
@@ -221,6 +221,25 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
     "errorDescription": "...",
     "hintAngle": "...",
     "severity": "high"
+  },
+  "actions": [],
+  "tutorMeta": {
+    "suggestedConversationEnd": false,
+    "endReason": "none"
+  }
+}
+```
+
+- **`actions`**: lista de ações de editor (mesmo formato que no SSE `event: action`), por exemplo destaques ou `mark_bug_resolved` quando o problema foi dado como resolvido.
+- **`tutorMeta`**: metadados para a UI. Quando o estrategista emite `mark_bug_resolved`, vem `suggestedConversationEnd: true` e `endReason: "bug_resolved"` — a IDE pode encerrar a conversa atual e abrir uma nova.
+
+**Evento SSE `done`** (`/api/help/stream`) — exemplo:
+
+```json
+{
+  "tutorMeta": {
+    "suggestedConversationEnd": false,
+    "endReason": "none"
   }
 }
 ```

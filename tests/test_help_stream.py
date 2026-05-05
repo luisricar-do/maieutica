@@ -63,7 +63,50 @@ async def test_iter_help_sse_happy_path_actions_before_tokens() -> None:
     assert token_indices
     assert action_idx < min(token_indices)
     assert sum(1 for d in decoded if "event: token" in d) == 2
-    assert any("done" in d for d in decoded)
+    done_blocks = [d for d in decoded if "event: done" in d]
+    assert len(done_blocks) == 1
+    done_line = next(line for line in done_blocks[0].split("\n") if line.startswith("data: "))
+    done_json = json.loads(done_line.removeprefix("data: "))
+    assert done_json["tutorMeta"]["suggestedConversationEnd"] is False
+
+
+@pytest.mark.asyncio
+async def test_iter_help_sse_done_meta_bug_resolved_when_action_present() -> None:
+    async def fake_communicator_stream(*_a, **_k):
+        yield "Ok"
+
+    async def fake_analyst_node(*_a, **_k):
+        return {"diagnosis": {"errorType": "none", "severity": "low"}}
+
+    async def fake_strategist_node(*_a, **_k):
+        return {
+            "actions": [{"type": "mark_bug_resolved", "payload": {}}],
+            "strategist_plan": "p",
+        }
+
+    with (
+        patch("services.tutor_help_stream.run_router", new_callable=AsyncMock) as mr,
+        patch("services.tutor_help_stream.analyst_node", new_callable=AsyncMock) as ma,
+        patch("services.tutor_help_stream.strategist_node", new_callable=AsyncMock) as ms,
+        patch("services.tutor_help_stream.run_communicator_stream", fake_communicator_stream),
+    ):
+        mr.return_value = {"intent": "DEBUG"}
+        ma.side_effect = fake_analyst_node
+        ms.side_effect = fake_strategist_node
+
+        chunks = [
+            c
+            async for c in iter_help_sse(
+                {"code": "x", "errors": [], "history": []}
+            )
+        ]
+    decoded = [c.decode("utf-8") for c in chunks]
+    done_blocks = [d for d in decoded if "event: done" in d]
+    assert len(done_blocks) == 1
+    done_line = next(line for line in done_blocks[0].split("\n") if line.startswith("data: "))
+    done_json = json.loads(done_line.removeprefix("data: "))
+    assert done_json["tutorMeta"]["suggestedConversationEnd"] is True
+    assert done_json["tutorMeta"]["endReason"] == "bug_resolved"
 
 
 @pytest.mark.asyncio

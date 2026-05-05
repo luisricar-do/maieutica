@@ -28,6 +28,11 @@ _TOOL_ONLY_VISUAL_TOOLS = frozenset(
         "add_inline_comment",
         "run_code_with_watch",
         "compare_lines",
+        "scroll_to",
+        "spotlight_block",
+        "draw_data_flow",
+        "activate_focus_mode",
+        "deactivate_focus_mode",
     },
 )
 
@@ -67,6 +72,11 @@ def _fallback_plan_pt_for_tool_calls(tool_calls: object) -> str:
         return (
             "Diretriz: celebrar a resolução pelo aluno; uma pergunta curta sobre o próximo passo "
             "(sem mencionar limpeza de destaques)."
+        )
+    if set(non_clear) <= {"pause_at_iteration"}:
+        return (
+            "Diretriz: execução pausada para observação; peça ao aluno que descreva o que mudou "
+            "nas variáveis indicadas, sem dar a solução."
         )
     if "escalate_to_direct_help" in non_clear:
         return (
@@ -158,6 +168,43 @@ def suggest_documentation(topic: str) -> str:
     return "ok"
 
 
+@tool
+def scroll_to(line: int) -> str:
+    """Centra o editor na linha 1-based indicada para guiar o olhar do aluno."""
+    return "ok"
+
+
+@tool
+def spotlight_block(start_line: int, end_line: int) -> str:
+    """Realça um bloco de linhas (holofote) e escurece o restante via modo foco da IDE."""
+    return "ok"
+
+
+@tool
+def draw_data_flow(connections: list[dict]) -> str:
+    """Desenha “cordas” de fluxo entre linhas. Cada item: from_line, from_var, to_line, to_var,
+    status em {'ok','broken'} (1-based). Use para variável lida vs usada, laços, etc."""
+    return "ok"
+
+
+@tool
+def activate_focus_mode(line: int = -1) -> str:
+    """Ativa modo foco (dimming). Se line >= 1, também pulsa essa linha; use -1 só para escurecer."""
+    return "ok"
+
+
+@tool
+def deactivate_focus_mode() -> str:
+    """Desliga modo foco e pulso."""
+    return "ok"
+
+
+@tool
+def pause_at_iteration(line: int, iteration_limit: int, variables: list[str]) -> str:
+    """Pausa a execução para o aluno observar variáveis (playback didático)."""
+    return "ok"
+
+
 STRATEGIST_TOOLS = [
     highlight_line,
     highlight_variable,
@@ -168,6 +215,12 @@ STRATEGIST_TOOLS = [
     escalate_to_direct_help,
     compare_lines,
     suggest_documentation,
+    scroll_to,
+    spotlight_block,
+    draw_data_flow,
+    activate_focus_mode,
+    deactivate_focus_mode,
+    pause_at_iteration,
 ]
 
 # Alias para compatibilidade com código que referia TUTOR_TOOLS
@@ -196,6 +249,8 @@ Rules:
 - The `content` field must be a concise internal directive in English or Portuguese (internal only): which lines were highlighted or compared, what single discovery question the Communicator should ask, and any constraint (no full solution).
 - If `active_tutor_decorations` > 0 and the topic changes or the bug is fixed, call `clear_highlights` before new highlights when stale marks would confuse.
 - Prefer `compare_lines` for declaration vs usage; prefer `highlight_line` on the analyst focus line for first error turns.
+- ABSOLUTE GUARDRAIL: Never output Portugol source code or full fixes in `content`. Do not paste learner code back as a solution. Use ONLY IDE tools (`scroll_to`, `spotlight_block`, `draw_data_flow`, `activate_focus_mode`, `highlight_line`, etc.) to guide visually.
+- When hint_level is 3, you may be more concrete in the internal directive, but still forbid handing the final code patch.
 
 <diagnosis_context>
 - Error Type: {error_type}
@@ -204,10 +259,15 @@ Rules:
 - Suggested Pedagogical Angle: {hint_angle}
 - Severity: {severity}
 - Analyst focus line (for highlights when relevant): {error_line_hint}
+- Data flow note from analyst (optional): {data_flow_hint}
 </diagnosis_context>
 
 <editor_state>
 - Active Tutor Highlights in IDE: {active_tutor_decorations}
+- Hint level from UI (1=subtle questions … 3=more concrete guidance): {hint_level}
+- Cursor (1-based, if provided): line {cursor_line} column {cursor_column}
+- AST/editor summary (optional): {ast_summary}
+- Data flow context from IDE (optional, e.g. drawn links): {data_flow_context}
 </editor_state>
 
 <learner_code>
@@ -228,6 +288,7 @@ def _diagnosis_to_template_vars(diagnosis: Diagnosis, active_tutor_decorations: 
     else:
         error_line_hint = "not identified"
     ad = max(0, active_tutor_decorations)
+    dfh = str(diagnosis.get("dataFlowHint", "") or "")
     return {
         "error_type": str(diagnosis.get("errorType", "none")),
         "affected_variable": av if av is not None else "",
@@ -236,6 +297,7 @@ def _diagnosis_to_template_vars(diagnosis: Diagnosis, active_tutor_decorations: 
         "error_line_hint": error_line_hint,
         "error_description": str(diagnosis.get("errorDescription", "")),
         "active_tutor_decorations": str(ad),
+        "data_flow_hint": dfh.strip() if dfh.strip() else "(none)",
     }
 
 
@@ -255,9 +317,23 @@ def _build_strategist_system_content(
     code: str,
     active_tutor_decorations: int,
     documentation_context: list[str] | None = None,
+    *,
+    hint_level: int = 1,
+    cursor_line: int | None = None,
+    cursor_column: int | None = None,
+    ast_summary: str = "",
+    data_flow_context: str = "",
 ) -> str:
     vars_map = _diagnosis_to_template_vars(diagnosis, active_tutor_decorations)
     vars_map["numbered_code"] = _numbered_code(code)
+    vars_map["hint_level"] = str(max(1, min(3, hint_level)))
+    vars_map["cursor_line"] = str(cursor_line) if isinstance(cursor_line, int) and cursor_line >= 1 else "n/a"
+    vars_map["cursor_column"] = (
+        str(cursor_column) if isinstance(cursor_column, int) and cursor_column >= 1 else "n/a"
+    )
+    vars_map["ast_summary"] = ast_summary.strip() if ast_summary.strip() else "(none)"
+    dfc = data_flow_context.strip() if data_flow_context.strip() else "(none)"
+    vars_map["data_flow_context"] = dfc
     system_content = STRATEGIST_SYSTEM_TEMPLATE.format(**vars_map)
     return system_content + _documentation_context_block(documentation_context or [])
 
@@ -282,6 +358,12 @@ def _strategist_lc_messages(
     code: str,
     active_tutor_decorations: int,
     documentation_context: list[str] | None = None,
+    *,
+    hint_level: int = 1,
+    cursor_line: int | None = None,
+    cursor_column: int | None = None,
+    ast_summary: str = "",
+    data_flow_context: str = "",
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
         SystemMessage(
@@ -290,6 +372,11 @@ def _strategist_lc_messages(
                 code,
                 active_tutor_decorations,
                 documentation_context=documentation_context,
+                hint_level=hint_level,
+                cursor_line=cursor_line,
+                cursor_column=cursor_column,
+                ast_summary=ast_summary,
+                data_flow_context=data_flow_context,
             )
         ),
     ]
@@ -333,6 +420,11 @@ async def run_strategist(
     active_tutor_decorations: int = 0,
     *,
     documentation_context: list[str] | None = None,
+    hint_level: int = 1,
+    cursor_line: int | None = None,
+    cursor_column: int | None = None,
+    ast_summary: str = "",
+    data_flow_context: str = "",
 ) -> tuple[list[dict[str, Any]], str]:
     """
     Executa o estrategista: devolve (ações IDE formatadas, plano interno para o comunicador).
@@ -344,6 +436,11 @@ async def run_strategist(
         code,
         active_tutor_decorations,
         documentation_context=documentation_context,
+        hint_level=hint_level,
+        cursor_line=cursor_line,
+        cursor_column=cursor_column,
+        ast_summary=ast_summary,
+        data_flow_context=data_flow_context,
     )
     response = await llm.ainvoke(lc_messages)
     tool_calls = getattr(response, "tool_calls", None) or []

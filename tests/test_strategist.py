@@ -11,6 +11,11 @@ def test_strategist_tools_includes_compare_and_documentation() -> None:
     names = {t.name for t in STRATEGIST_TOOLS}
     assert "compare_lines" in names
     assert "suggest_documentation" in names
+    assert "scroll_to" in names
+    assert "spotlight_block" in names
+    assert "draw_data_flow" in names
+    assert "activate_focus_mode" in names
+    assert "pause_at_iteration" in names
     assert STRATEGIST_TOOLS is TUTOR_TOOLS
 
 

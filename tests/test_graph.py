@@ -18,6 +18,12 @@ def _base_state() -> dict:
         "tutor_response": "",
         "actions": [],
         "intent": "",
+        "hint_level": 1,
+        "student_name": "",
+        "cursor_line": None,
+        "cursor_column": None,
+        "ast_summary": "",
+        "data_flow_context": "",
     }
 
 
