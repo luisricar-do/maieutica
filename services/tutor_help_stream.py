@@ -50,9 +50,11 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
     initial, err_body, status = parse_help_payload(payload)
     if initial is None:
         assert err_body is not None
+        err_msg = err_body.get("error", "Erro na requisição.")
+        logger.warning("help/stream: payload inválido status=%s — %s", status, err_msg)
         yield format_sse(
             "error",
-            {"status": status, "error": err_body.get("error", "Erro na requisição.")},
+            {"status": status, "error": err_msg},
         )
         return
 
@@ -60,35 +62,60 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
         state: dict[str, Any] = dict(initial)
         state.update(await run_router(state))
         intent = state.get("intent") or "DEBUG"
+        logger.info("help/stream: intent=%s", intent)
 
         if intent == "CASUAL":
             yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
+            logger.info("help/stream CASUAL: a iniciar comunicador (stream)")
             async for delta in run_communicator_stream(
                 state["strategist_plan"],
                 state["history"],
                 **_communicator_stream_kwargs(state, "CASUAL", []),
             ):
                 yield format_sse("token", {"text": delta})
+            logger.info("help/stream CASUAL: stream concluído")
             yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions([])})
             return
 
         if intent == "THEORY":
             yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
+            logger.info("help/stream THEORY: rag_retrieve …")
             state.update(await rag_retrieve_node(cast(Any, state)))
+            doc_n = len(state.get("documentation_context") or [])
+            logger.info(
+                "help/stream THEORY: rag_retrieve OK (%d trecho(s)); comunicador …",
+                doc_n,
+            )
             async for delta in run_communicator_stream(
                 state["strategist_plan"],
                 state["history"],
                 **_communicator_stream_kwargs(state, "THEORY", state.get("documentation_context") or []),
             ):
                 yield format_sse("token", {"text": delta})
+            logger.info("help/stream THEORY: stream concluído")
             yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions([])})
             return
 
+        logger.info("help/stream DEBUG: analista …")
         state.update(await analyst_node(cast(Any, state)))
         yield format_sse("diagnosis", state["diagnosis"])
+        incl_doc = bool(state.get("include_documentation"))
+        logger.info(
+            "help/stream DEBUG: analista OK; include_documentation=%s; rag_retrieve …",
+            incl_doc,
+        )
         state.update(await rag_retrieve_node(cast(Any, state)))
+        doc_n = len(state.get("documentation_context") or [])
+        logger.info(
+            "help/stream DEBUG: rag_retrieve OK (%d trecho(s)); estrategista …",
+            doc_n,
+        )
         state.update(await strategist_node(cast(Any, state)))
         actions = state["actions"]
+        logger.info(
+            "help/stream DEBUG: estrategista OK (%d ação/ões); comunicador …",
+            len(actions) if isinstance(actions, list) else 0,
+        )
         for action in actions:
             yield format_sse("action", action)
         async for delta in run_communicator_stream(
@@ -97,9 +124,15 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             **_communicator_stream_kwargs(state, "DEBUG", state.get("documentation_context") or []),
         ):
             yield format_sse("token", {"text": delta})
+        logger.info("help/stream DEBUG: stream concluído")
         yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions(actions)})
-    except Exception:
-        logger.exception("Falha no streaming SSE (/help/stream)")
+    except Exception as exc:
+        logger.error(
+            "help/stream: falha [%s] %s",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
         yield format_sse(
             "error",
             {"status": 500, "error": "Erro interno ao gerar a resposta."},
