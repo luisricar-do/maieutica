@@ -7,7 +7,7 @@
     "LITELLM_BASE_URL": "",
     "LITELLM_API_KEY": "",
     "LITELLM_MODEL": "gpt-4o-mini",
-    "LITELLM_EMBEDDING_MODEL": "text-embedding-3-small"
+    "LITELLM_EMBEDDING_MODEL": "azure/text-embedding-3-small"
   },
   "Host": {
     "CORS": "*",

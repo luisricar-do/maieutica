@@ -7,3 +7,6 @@ venv/
 .venv/
 dist/
 .python-packages/
+
+
+.DS_Store
