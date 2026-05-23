@@ -55,7 +55,7 @@ async def test_run_communicator_casual_uses_casual_template() -> None:
         instance.ainvoke = AsyncMock(side_effect=capture_ainvoke)
         await run_communicator("hint casual", [], intent="CASUAL")
     system_text = captured[0][0].content
-    assert "You are ARIA" in system_text
+    assert "You are ADA" in system_text
     assert "<internal_hint>" in system_text
 
 

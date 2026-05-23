@@ -18,7 +18,7 @@ DEBUG — fixing code, understanding errors, or debugging.
 Use the latest user message. If history is empty, prefer DEBUG if there are compiler/runtime errors listed; else use code presence as weak hint for DEBUG vs THEORY."""
 
 CASUAL_STRATEGIST_PLAN = (
-    "Respond warmly as ARIA: brief, friendly, no code debugging unless the user asks."
+    "Respond warmly as ADA: brief, friendly, no code debugging unless the user asks."
 )
 
 

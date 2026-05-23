@@ -7,7 +7,7 @@ Backend **multiagente (MAS)** com **tutor socrático** para integração com um 
 O serviço expõe uma **Azure Function** em Python que orquestra dois agentes via **LangGraph**:
 
 1. **Agente Analista** — recebe código Portugol e mensagens de erro do compilador e produz um **diagnóstico estruturado** (JSON).
-2. **Agente Tutor Socrático (ARIA)** — recebe o diagnóstico e o histórico da conversa e devolve **apenas orientação por perguntas**, sem entregar a solução pronta.
+2. **Agente Tutor Socrático (ADA)** — recebe o diagnóstico e o histórico da conversa e devolve **apenas orientação por perguntas**, sem entregar a solução pronta.
 
 ## Arquitetura (visão geral)
 
@@ -26,7 +26,7 @@ O serviço expõe uma **Azure Function** em Python que orquestra dois agentes vi
                         ┌────────────────────────────────────┴────────────────────────┐
                         ▼                                                         ▼
                ┌─────────────────┐                                       ┌─────────────────┐
-               │ Agente Analista │                                       │  Tutor (ARIA)   │
+               │ Agente Analista │                                       │  Tutor (ADA)   │
                │ (via proxy      │                                       │ (via proxy      │
                │  OpenAI /v1)    │                                       │  OpenAI /v1)    │
                └────────┬────────┘                                       └────────┬────────┘
@@ -58,7 +58,7 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 ├── agents/
 │   ├── __init__.py
 │   ├── analyst.py      # Diagnóstico estruturado (JSON)
-│   ├── tutor.py        # Tutor socrático ARIA
+│   ├── tutor.py        # Tutor socrático ADA
 │   ├── llm.py          # Cliente OpenAI-compatível (LiteLLM / proxy)
 │   └── graph.py        # Grafo LangGraph (analyst → tutor)
 ├── services/

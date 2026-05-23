@@ -2,7 +2,7 @@
 
 ## Repositório atual
 
-**maieutica** (nome do pacote Poetry: `portugol-tutor-api`) é a **API do tutor socrático** em Python: Azure Functions + FastAPI extension + **LangGraph** (agente analista → tutor ARIA). Integra com o fork da IDE em [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) via `POST /api/help` e `POST /api/help/stream` (SSE).
+**maieutica** (nome do pacote Poetry: `portugol-tutor-api`) é a **API do tutor socrático** em Python: Azure Functions + FastAPI extension + **LangGraph** (agente analista → tutor ADA). Integra com o fork da IDE em [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) via `POST /api/help` e `POST /api/help/stream` (SSE).
 
 - **Raiz da API:** `function_app.py`, `host.json`, `agents/`, `services/`, `tests/`
 - **Comandos:** `make test`, `make start` / `make dev`, `make watch` (ver `Makefile`)

@@ -1,6 +1,6 @@
 # Instruções para agentes (maieutica)
 
-Repositório: **API Portugol Tutor** — Azure Functions + LangGraph (analista + tutor socrático ARIA).
+Repositório: **API Portugol Tutor** — Azure Functions + LangGraph (analista + tutor socrático ADA).
 
 ## Onde ler contexto detalhado
 

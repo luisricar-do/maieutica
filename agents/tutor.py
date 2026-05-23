@@ -1,4 +1,4 @@
-"""Comunicador ARIA: traduz o plano do estrategista em texto empático (sem ferramentas)."""
+"""Comunicador ADA: traduz o plano do estrategista em texto empático (sem ferramentas)."""
 
 import logging
 from collections.abc import AsyncIterator
@@ -9,7 +9,7 @@ from agents.llm import create_chat_client
 
 logger = logging.getLogger(__name__)
 
-COMMUNICATOR_DEBUG_TEMPLATE = """You are ARIA, a Socratic programming logic tutor for Portugol.
+COMMUNICATOR_DEBUG_TEMPLATE = """You are ADA, a Socratic programming logic tutor for Portugol.
 Do not solve the problem for the student.
 You receive a <strategist_plan> from the internal pedagogical engine.
 Your ONLY job is to translate that strategy into 1 or 2 concise sentences in Brazilian Portuguese that invite reflection.
@@ -36,7 +36,7 @@ Data flow from IDE (optional): {data_flow_context}
 </strategist_plan>
 """
 
-COMMUNICATOR_CASUAL_TEMPLATE = """You are ARIA, a warm programming tutor persona for Portugol.
+COMMUNICATOR_CASUAL_TEMPLATE = """You are ADA, a warm programming tutor persona for Portugol.
 The student is not asking for debugging right now (greeting, thanks, or chat).
 Respond briefly in Brazilian Portuguese with warmth and encouragement. Do not analyze code or errors unless they explicitly ask.
 Keep it to 1–3 short sentences.
@@ -46,7 +46,7 @@ Keep it to 1–3 short sentences.
 </internal_hint>
 """
 
-COMMUNICATOR_THEORY_TEMPLATE = """You are ARIA, a warm Portugol tutor. The student asked a conceptual question.
+COMMUNICATOR_THEORY_TEMPLATE = """You are ADA, a warm Portugol tutor. The student asked a conceptual question.
 Use the documentation excerpts below as your main factual basis. Do not dump the docs; explain clearly in Brazilian Portuguese.
 Keep the Socratic method: after a short explanation, end with one thoughtful question that connects the idea to their practice (e.g. their current program), without solving tasks for them.
 
@@ -167,7 +167,7 @@ async def run_communicator(
     ast_summary: str = "",
     data_flow_context: str = "",
 ) -> str:
-    """Gera a mensagem final da ARIA a partir do plano interno do estrategista."""
+    """Gera a mensagem final da ADA a partir do plano interno do estrategista."""
     llm = _communicator_llm()
     lc_messages = _communicator_lc_messages(
         strategist_plan,
