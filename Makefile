@@ -6,15 +6,15 @@ test:
 
 # Azure Functions local, logs verbosos
 dev:
-	func start --verbose
+	poetry run func start --verbose
 
 # Azure Functions local
 start:
-	func start
+	poetry run func start
 
 # Reinicia o host quando alteras ficheiros .py (o `func` não tem --watch nativo)
 watch dev-watch:
-	poetry run watchfiles --filter python "func start --verbose" .
+	poetry run watchfiles --filter python "poetry run func start --verbose" .
 
 # Regenera poetry.lock quando o pyproject.toml muda
 lock:

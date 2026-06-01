@@ -18,10 +18,16 @@ Debugging / error context — tone rules:
 - Be direct and logical; avoid generic social greetings ("Oi", "Olá", "Tudo bem", small talk, or openings whose only purpose is politeness).
 - Do not start with chit-chat; begin from the observation or question implied by the plan.
 - If {student_name} is non-empty, you may use the first name once only when it fits naturally in a pedagogical sentence; never force a greeting.
+- If the latest student message shows frustration or impatience (e.g. "chega", "cansado", "não entendo", "me diz logo", "desisto"), first acknowledge it with one short empathetic sentence, then ask for one very small next observation. Do not moralize about learning, effort, reflection, or future prevention.
+- During unresolved debugging, never ask what the student can do "no futuro" or "para não acontecer novamente"; keep the question on the immediate problem.
+- If the student suggested the wrong location/cause and the plan redirects them, acknowledge the attempt briefly but do not reinforce the wrong location as the source of the error.
 
 If the strategy mentions highlighted lines, your message MUST reflect that smoothly (without inventing line numbers).
 Never invent line numbers. Rely entirely on the <strategist_plan>.
 Never output Portugol code blocks or complete fixes; ask questions only.
+Avoid generic visual templates like "Quais partes do seu código estão destacadas visualmente...". Prefer the concrete concept from the strategy (type comparison, declaration before use, syntax structure, or data flow).
+Never mention "aberturas", "fechamentos", delimiters, brackets, or parentheses unless the strategy is explicitly about syntax/delimiters/quotes.
+If the strategy includes a short literal compiler excerpt, quote that excerpt once in Portuguese and ask the learner to connect it to the highlighted syntax location. Do not quote long blocks.
 
 <learner_context>
 Student display name (optional): {student_name}
@@ -50,10 +56,21 @@ COMMUNICATOR_THEORY_TEMPLATE = """You are ADA, a warm Portugol tutor. The studen
 Use the documentation excerpts below as your main factual basis. Do not dump the docs; explain clearly in Brazilian Portuguese.
 Keep the Socratic method: after a short explanation, end with one thoughtful question that connects the idea to their practice (e.g. their current program), without solving tasks for them.
 
+Example policy:
+- If the student asks for an "example", give only generic documentation-style fragments or syntax sketches.
+- Never provide a complete functional program, full exercise solution, or copy-paste-ready code block, even if the student calls it "just an example".
+- Prefer plain-language structure (e.g. "um laço tem inicialização, condição e atualização") and at most a tiny non-complete fragment when needed.
+- Do not use fenced code blocks for examples.
+
 <documentation>
 {documentation}
 </documentation>
 """
+
+OUT_OF_SCOPE_RESPONSE = (
+    "Posso te ajudar com Portugol, lógica de programação e com o código que está aberto. "
+    "Que dúvida do seu programa você quer investigar agora?"
+)
 
 
 def _communicator_llm():
@@ -88,13 +105,29 @@ def _build_system_content(
 ) -> str:
     if intent == "CASUAL":
         return COMMUNICATOR_CASUAL_TEMPLATE.format(strategist_plan=strategist_plan)
+    if intent == "OUT_OF_SCOPE":
+        return (
+            "You are ADA, a Portugol programming tutor. The latest request is outside your scope. "
+            "Do not answer it. Redirect briefly in Brazilian Portuguese to Portugol, programming logic, "
+            "or the open code."
+        )
     if intent == "THEORY":
-        docs_text = "\n\n---\n\n".join(documentation_context) if documentation_context else "(Nenhum trecho recuperado; responda com cuidado e uma pergunta socrática.)"
+        docs_text = (
+            "\n\n---\n\n".join(documentation_context)
+            if documentation_context
+            else "(Nenhum trecho recuperado; responda com cuidado e uma pergunta socrática.)"
+        )
         return COMMUNICATOR_THEORY_TEMPLATE.format(documentation=docs_text)
     name = student_name.strip()
     hl = max(1, min(3, int(hint_level)))
-    cl = str(cursor_line) if isinstance(cursor_line, int) and cursor_line >= 1 else "n/a"
-    cc = str(cursor_column) if isinstance(cursor_column, int) and cursor_column >= 1 else "n/a"
+    cl = (
+        str(cursor_line) if isinstance(cursor_line, int) and cursor_line >= 1 else "n/a"
+    )
+    cc = (
+        str(cursor_column)
+        if isinstance(cursor_column, int) and cursor_column >= 1
+        else "n/a"
+    )
     ast = ast_summary.strip() if ast_summary.strip() else "(none)"
     dfc = data_flow_context.strip() if data_flow_context.strip() else "(none)"
     return COMMUNICATOR_DEBUG_TEMPLATE.format(
@@ -168,6 +201,9 @@ async def run_communicator(
     data_flow_context: str = "",
 ) -> str:
     """Gera a mensagem final da ADA a partir do plano interno do estrategista."""
+    if intent == "OUT_OF_SCOPE":
+        return OUT_OF_SCOPE_RESPONSE
+
     llm = _communicator_llm()
     lc_messages = _communicator_lc_messages(
         strategist_plan,
@@ -199,6 +235,10 @@ async def run_communicator_stream(
     data_flow_context: str = "",
 ) -> AsyncIterator[str]:
     """Stream de tokens do comunicador (apenas texto, sem ferramentas)."""
+    if intent == "OUT_OF_SCOPE":
+        yield OUT_OF_SCOPE_RESPONSE
+        return
+
     llm = _communicator_llm()
     lc_messages = _communicator_lc_messages(
         strategist_plan,

@@ -44,6 +44,7 @@ class TutorHelpState(TypedDict):
     student_name: str
     cursor_line: int | None
     cursor_column: int | None
+    compiler_error_lines: list[int]
     ast_summary: str
     data_flow_context: str
 
@@ -92,6 +93,17 @@ def _parse_optional_positive_int(raw: object) -> int | None:
     return None
 
 
+def _parse_positive_int_list(raw: object) -> list[int]:
+    if not isinstance(raw, list):
+        return []
+    out: set[int] = set()
+    for item in raw:
+        parsed = _parse_optional_positive_int(item)
+        if parsed is not None:
+            out.add(parsed)
+    return sorted(out)
+
+
 def _parse_student_name(raw: object) -> str:
     if raw is None:
         return ""
@@ -125,7 +137,9 @@ def _parse_active_tutor_decorations(raw: object) -> int:
     return 0
 
 
-def parse_help_payload(payload: Any) -> tuple[TutorHelpState | None, dict[str, Any] | None, int]:
+def parse_help_payload(
+    payload: Any,
+) -> tuple[TutorHelpState | None, dict[str, Any] | None, int]:
     """
     Valida o body JSON já desserializado.
 
@@ -154,12 +168,17 @@ def parse_help_payload(payload: Any) -> tuple[TutorHelpState | None, dict[str, A
 
     errors_str = [str(e) for e in errors]
     history_dicts = [h for h in history if isinstance(h, dict)]
-    active_tutor_decorations = _parse_active_tutor_decorations(payload.get("activeTutorDecorations"))
-    include_documentation = _parse_include_documentation(payload.get("includeDocumentation"))
+    active_tutor_decorations = _parse_active_tutor_decorations(
+        payload.get("activeTutorDecorations")
+    )
+    include_documentation = _parse_include_documentation(
+        payload.get("includeDocumentation")
+    )
     hint_level = _parse_hint_level(payload.get("hintLevel"))
     student_name = _parse_student_name(payload.get("studentName"))
     cursor_line = _parse_optional_positive_int(payload.get("cursorLine"))
     cursor_column = _parse_optional_positive_int(payload.get("cursorColumn"))
+    compiler_error_lines = _parse_positive_int_list(payload.get("compilerErrorLines"))
     ast_summary = _parse_ast_summary(payload.get("astSummary"))
     data_flow_context = _parse_ast_summary(payload.get("dataFlowContext"))
 
@@ -179,6 +198,7 @@ def parse_help_payload(payload: Any) -> tuple[TutorHelpState | None, dict[str, A
         "student_name": student_name,
         "cursor_line": cursor_line,
         "cursor_column": cursor_column,
+        "compiler_error_lines": compiler_error_lines,
         "ast_summary": ast_summary,
         "data_flow_context": data_flow_context,
     }

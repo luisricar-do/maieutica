@@ -22,6 +22,7 @@ def _base_state() -> dict:
         "student_name": "",
         "cursor_line": None,
         "cursor_column": None,
+        "compiler_error_lines": [],
         "ast_summary": "",
         "data_flow_context": "",
     }
@@ -46,7 +47,9 @@ async def test_graph_runs_analyst_strategist_then_communicator_in_sequence() -> 
 
     async def strategist_impl(*_args, **_kwargs):
         call_order.append("strategist")
-        return [{"type": "highlight_line", "payload": {"line": 1, "color": "info"}}], "plano interno"
+        return [
+            {"type": "highlight_line", "payload": {"line": 1, "color": "info"}}
+        ], "plano interno"
 
     async def communicator_impl(*_args, **_kwargs):
         call_order.append("tutor")
@@ -56,7 +59,9 @@ async def test_graph_runs_analyst_strategist_then_communicator_in_sequence() -> 
         patch("agents.graph.run_router", new_callable=AsyncMock) as mock_router,
         patch("agents.graph.run_analyst", new_callable=AsyncMock) as mock_analyst,
         patch("agents.graph.run_strategist", new_callable=AsyncMock) as mock_strategist,
-        patch("agents.graph.run_communicator", new_callable=AsyncMock) as mock_communicator,
+        patch(
+            "agents.graph.run_communicator", new_callable=AsyncMock
+        ) as mock_communicator,
     ):
         mock_router.return_value = {"intent": "DEBUG"}
         mock_analyst.side_effect = analyst_impl
@@ -79,7 +84,9 @@ async def test_graph_runs_analyst_strategist_then_communicator_in_sequence() -> 
 
 
 @pytest.mark.asyncio
-async def test_graph_passes_retrieved_docs_to_strategist_when_include_documentation() -> None:
+async def test_graph_passes_retrieved_docs_to_strategist_when_include_documentation() -> (
+    None
+):
     diagnosis = {
         "errorType": "syntax",
         "errorLine": 1,
@@ -105,7 +112,9 @@ async def test_graph_passes_retrieved_docs_to_strategist_when_include_documentat
         patch("agents.graph.run_router", new_callable=AsyncMock) as mock_router,
         patch("agents.graph.run_analyst", new_callable=AsyncMock) as mock_analyst,
         patch("agents.graph.run_strategist", new_callable=AsyncMock) as mock_strategist,
-        patch("agents.graph.run_communicator", new_callable=AsyncMock) as mock_communicator,
+        patch(
+            "agents.graph.run_communicator", new_callable=AsyncMock
+        ) as mock_communicator,
         patch(
             "agents.graph.retrieve_doc_chunks",
             return_value=["trecho-a", "trecho-b"],
@@ -131,7 +140,9 @@ async def test_graph_casual_skips_analyst_and_strategist() -> None:
         patch("agents.graph.run_router", new_callable=AsyncMock) as mock_router,
         patch("agents.graph.run_analyst", new_callable=AsyncMock) as mock_analyst,
         patch("agents.graph.run_strategist", new_callable=AsyncMock) as mock_strategist,
-        patch("agents.graph.run_communicator", new_callable=AsyncMock) as mock_communicator,
+        patch(
+            "agents.graph.run_communicator", new_callable=AsyncMock
+        ) as mock_communicator,
     ):
         mock_router.return_value = {
             "intent": "CASUAL",
@@ -157,7 +168,9 @@ async def test_graph_theory_skips_analyst_strategist_uses_rag() -> None:
         patch("agents.graph.run_router", new_callable=AsyncMock) as mock_router,
         patch("agents.graph.run_analyst", new_callable=AsyncMock) as mock_analyst,
         patch("agents.graph.run_strategist", new_callable=AsyncMock) as mock_strategist,
-        patch("agents.graph.run_communicator", new_callable=AsyncMock) as mock_communicator,
+        patch(
+            "agents.graph.run_communicator", new_callable=AsyncMock
+        ) as mock_communicator,
         patch(
             "agents.graph.retrieve_doc_chunks",
             return_value=["doc-theory"],
@@ -182,3 +195,38 @@ async def test_graph_theory_skips_analyst_strategist_uses_rag() -> None:
         assert kwargs.get("intent") == "THEORY"
         assert kwargs.get("documentation_context") == ["doc-theory"]
         assert final["documentation_context"] == ["doc-theory"]
+
+
+@pytest.mark.asyncio
+async def test_graph_out_of_scope_skips_analyst_strategist_and_rag() -> None:
+    with (
+        patch("agents.graph.run_router", new_callable=AsyncMock) as mock_router,
+        patch("agents.graph.run_analyst", new_callable=AsyncMock) as mock_analyst,
+        patch("agents.graph.run_strategist", new_callable=AsyncMock) as mock_strategist,
+        patch(
+            "agents.graph.run_communicator", new_callable=AsyncMock
+        ) as mock_communicator,
+        patch("agents.graph.retrieve_doc_chunks") as mock_retrieve,
+    ):
+        mock_router.return_value = {
+            "intent": "OUT_OF_SCOPE",
+            "strategist_plan": "redirect",
+            "actions": [],
+        }
+        mock_communicator.return_value = "Posso ajudar com Portugol."
+
+        graph = build_graph()
+        final = await graph.ainvoke(
+            {
+                **_base_state(),
+                "history": [{"role": "user", "content": "Quem foi Einstein?"}],
+            }
+        )
+
+        mock_analyst.assert_not_awaited()
+        mock_strategist.assert_not_awaited()
+        mock_retrieve.assert_not_called()
+        mock_communicator.assert_awaited_once()
+        _args, kwargs = mock_communicator.call_args
+        assert kwargs.get("intent") == "OUT_OF_SCOPE"
+        assert final["tutor_response"] == "Posso ajudar com Portugol."

@@ -61,6 +61,7 @@ async def test_process_help_passes_include_documentation_to_graph() -> None:
                 "errors": [],
                 "history": [],
                 "includeDocumentation": True,
+                "compilerErrorLines": [3, "2", 0, True, "x", 3],
             }
         )
     call_args = mock_graph.ainvoke.await_args
@@ -71,6 +72,7 @@ async def test_process_help_passes_include_documentation_to_graph() -> None:
     assert state["intent"] == ""
     assert state["hint_level"] == 1
     assert state["student_name"] == ""
+    assert state["compiler_error_lines"] == [2, 3]
 
 
 @pytest.mark.asyncio

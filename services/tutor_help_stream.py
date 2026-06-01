@@ -14,11 +14,13 @@ from services.tutor_help import build_tutor_meta_from_actions, parse_help_payloa
 
 logger = logging.getLogger(__name__)
 
-# Diagnóstico mínimo quando o analista não corre (CASUAL / THEORY); compatível com o cliente IDE.
+# Diagnóstico mínimo quando o analista não corre (CASUAL / THEORY / OUT_OF_SCOPE); compatível com o cliente IDE.
 _MINIMAL_SSE_DIAGNOSIS: dict[str, str] = {"errorType": "none", "severity": "low"}
 
 
-def _communicator_stream_kwargs(state: dict[str, Any], intent: str, documentation_context: list[str]) -> dict[str, Any]:
+def _communicator_stream_kwargs(
+    state: dict[str, Any], intent: str, documentation_context: list[str]
+) -> dict[str, Any]:
     return {
         "intent": intent,
         "documentation_context": documentation_context,
@@ -77,6 +79,19 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions([])})
             return
 
+        if intent == "OUT_OF_SCOPE":
+            yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
+            logger.info("help/stream OUT_OF_SCOPE: a iniciar comunicador (stream)")
+            async for delta in run_communicator_stream(
+                state["strategist_plan"],
+                state["history"],
+                **_communicator_stream_kwargs(state, "OUT_OF_SCOPE", []),
+            ):
+                yield format_sse("token", {"text": delta})
+            logger.info("help/stream OUT_OF_SCOPE: stream concluído")
+            yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions([])})
+            return
+
         if intent == "THEORY":
             yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
             logger.info("help/stream THEORY: rag_retrieve …")
@@ -89,7 +104,9 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             async for delta in run_communicator_stream(
                 state["strategist_plan"],
                 state["history"],
-                **_communicator_stream_kwargs(state, "THEORY", state.get("documentation_context") or []),
+                **_communicator_stream_kwargs(
+                    state, "THEORY", state.get("documentation_context") or []
+                ),
             ):
                 yield format_sse("token", {"text": delta})
             logger.info("help/stream THEORY: stream concluído")
@@ -121,7 +138,9 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
         async for delta in run_communicator_stream(
             state["strategist_plan"],
             state["history"],
-            **_communicator_stream_kwargs(state, "DEBUG", state.get("documentation_context") or []),
+            **_communicator_stream_kwargs(
+                state, "DEBUG", state.get("documentation_context") or []
+            ),
         ):
             yield format_sse("token", {"text": delta})
         logger.info("help/stream DEBUG: stream concluído")

@@ -3,13 +3,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.messages import AIMessage, AIMessageChunk
 
-from agents.tutor import run_communicator, run_communicator_stream
+from agents.tutor import (
+    OUT_OF_SCOPE_RESPONSE,
+    run_communicator,
+    run_communicator_stream,
+)
 
 
 def _patch_chat_client(mock_cls: MagicMock) -> MagicMock:
     instance = mock_cls.return_value
     # Comunicador não usa bind_tools
-    instance.bind_tools = MagicMock(side_effect=AssertionError("communicator must not bind_tools"))
+    instance.bind_tools = MagicMock(
+        side_effect=AssertionError("communicator must not bind_tools")
+    )
     return instance
 
 
@@ -18,7 +24,9 @@ async def test_run_communicator_returns_model_message() -> None:
     with patch("agents.llm.ChatOpenAI") as mock_cls:
         instance = _patch_chat_client(mock_cls)
         instance.ainvoke = AsyncMock(
-            return_value=AIMessage(content="Ótimo esforço! O que você espera que aconteça aqui?")
+            return_value=AIMessage(
+                content="Ótimo esforço! O que você espera que aconteça aqui?"
+            )
         )
         out = await run_communicator("Plano: perguntar sobre o loop.", [])
     assert out == "Ótimo esforço! O que você espera que aconteça aqui?"
@@ -35,11 +43,17 @@ async def test_run_communicator_includes_strategist_plan_in_system_message() -> 
     with patch("agents.llm.ChatOpenAI") as mock_cls:
         instance = _patch_chat_client(mock_cls)
         instance.ainvoke = AsyncMock(side_effect=capture_ainvoke)
-        await run_communicator("Destaquei linhas 2 e 4 para comparar.", [], intent="DEBUG")
+        await run_communicator(
+            "Destaquei linhas 2 e 4 para comparar.", [], intent="DEBUG"
+        )
     msgs = captured[0]
     system_text = msgs[0].content
     assert "<strategist_plan>" in system_text
     assert "Destaquei linhas 2 e 4 para comparar." in system_text
+    assert "latest student message shows frustration" in system_text
+    assert "Avoid generic visual templates" in system_text
+    assert "Never mention \"aberturas\"" in system_text
+    assert "literal compiler excerpt" in system_text
 
 
 @pytest.mark.asyncio
@@ -80,6 +94,20 @@ async def test_run_communicator_theory_includes_documentation() -> None:
     assert "<documentation>" in system_text
     assert "trecho doc" in system_text
     assert "Socratic" in system_text
+    assert "Never provide a complete functional program" in system_text
+    assert "Do not use fenced code blocks for examples" in system_text
+
+
+@pytest.mark.asyncio
+async def test_run_communicator_out_of_scope_returns_fixed_redirect() -> None:
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        out = await run_communicator(
+            "não responder biografia",
+            [{"role": "user", "content": "Quem foi Einstein?"}],
+            intent="OUT_OF_SCOPE",
+        )
+    assert out == OUT_OF_SCOPE_RESPONSE
+    mock_cls.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -93,3 +121,18 @@ async def test_run_communicator_stream_yields_chunks() -> None:
         instance.astream = fake_astream
         parts = [p async for p in run_communicator_stream("plano interno", [])]
     assert parts == ["A", "B"]
+
+
+@pytest.mark.asyncio
+async def test_run_communicator_stream_out_of_scope_yields_fixed_redirect() -> None:
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        parts = [
+            p
+            async for p in run_communicator_stream(
+                "não responder biografia",
+                [{"role": "user", "content": "Quem foi Einstein?"}],
+                intent="OUT_OF_SCOPE",
+            )
+        ]
+    assert parts == [OUT_OF_SCOPE_RESPONSE]
+    mock_cls.assert_not_called()

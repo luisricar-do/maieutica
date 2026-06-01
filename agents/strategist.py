@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 # Fallbacks quando o modelo devolve tool_calls mas `content` vazio (plano interno ausente).
 TOOL_ONLY_FALLBACK_MESSAGE_PT = (
-    "Diretriz: guie o aluno a observar os destaques visuais no editor e a descrever o que nota "
-    "(sem dar a solução). Uma pergunta socrática curta sobre o que abre vs fecha ou declaração vs uso."
+    "Diretriz: guie o aluno a observar o foco marcado no editor e a relacioná-lo com a mensagem "
+    "do compilador, sem dar a solução. Use uma pergunta socrática curta e específica ao erro."
 )
 TOOL_ONLY_FALLBACK_CLEAR_PT = (
     "Diretriz: o foco mudou ou o bug foi resolvido; convide o aluno a dizer o que quer tentar a seguir, "
@@ -51,10 +51,45 @@ def _tool_names_from_calls(tool_calls: object) -> list[str]:
     return names
 
 
-def _fallback_plan_pt_for_tool_calls(tool_calls: object) -> str:
+def _diagnosis_specific_fallback_plan_pt(diagnosis: Diagnosis) -> str:
+    error_type = str(diagnosis.get("errorType", "none"))
+    line = diagnosis.get("errorLine")
+    line_text = f"linha {line}" if isinstance(line, int) and line >= 1 else "linha indicada"
+    variable = str(diagnosis.get("affectedVariable") or "").strip()
+
+    if error_type == "type_mismatch":
+        target = f"a variável `{variable}`" if variable else "a variável envolvida"
+        return (
+            f"Diretriz: foque {line_text} e peça ao aluno para comparar o tipo declarado de {target} "
+            "com o tipo do valor atribuído. Não desvie para pistas de sintaxe estrutural."
+        )
+    if error_type == "undeclared_identifier":
+        target = f"`{variable}`" if variable else "o identificador usado"
+        return (
+            f"Diretriz: foque {line_text} e peça ao aluno para localizar onde {target} foi declarado "
+            "antes de ser usado. Não desvie para pistas de sintaxe estrutural."
+        )
+    if error_type == "syntax":
+        return (
+            f"Diretriz: foque {line_text} e peça ao aluno para comparar a estrutura/sintaxe daquele "
+            "trecho com a mensagem do compilador, sem entregar a correção."
+        )
+    if error_type == "logic":
+        return (
+            "Diretriz: peça ao aluno para comparar a intenção do algoritmo com o comportamento observado "
+            "no trecho destacado, sem reescrever o código."
+        )
+    return TOOL_ONLY_FALLBACK_MESSAGE_PT
+
+
+def _fallback_plan_pt_for_tool_calls(tool_calls: object, diagnosis: Diagnosis | None = None) -> str:
     names = _tool_names_from_calls(tool_calls)
     if not names:
-        return TOOL_ONLY_FALLBACK_MESSAGE_PT
+        return (
+            _diagnosis_specific_fallback_plan_pt(diagnosis)
+            if diagnosis is not None
+            else TOOL_ONLY_FALLBACK_MESSAGE_PT
+        )
 
     non_clear = [n for n in names if n != "clear_highlights"]
     if not non_clear:
@@ -64,9 +99,17 @@ def _fallback_plan_pt_for_tool_calls(tool_calls: object) -> str:
     had_clear = any(n == "clear_highlights" for n in names)
 
     if has_visual and had_clear:
-        return TOOL_ONLY_FALLBACK_MIXED_CLEAR_AND_VISUAL_PT
+        return (
+            _diagnosis_specific_fallback_plan_pt(diagnosis)
+            if diagnosis is not None
+            else TOOL_ONLY_FALLBACK_MIXED_CLEAR_AND_VISUAL_PT
+        )
     if has_visual:
-        return TOOL_ONLY_FALLBACK_MESSAGE_PT
+        return (
+            _diagnosis_specific_fallback_plan_pt(diagnosis)
+            if diagnosis is not None
+            else TOOL_ONLY_FALLBACK_MESSAGE_PT
+        )
 
     if set(non_clear) <= {"mark_bug_resolved"}:
         return (
@@ -251,6 +294,21 @@ Rules:
 - Prefer `compare_lines` for declaration vs usage; prefer `highlight_line` on the analyst focus line for first error turns.
 - ABSOLUTE GUARDRAIL: Never output Portugol source code or full fixes in `content`. Do not paste learner code back as a solution. Use ONLY IDE tools (`scroll_to`, `spotlight_block`, `draw_data_flow`, `activate_focus_mode`, `highlight_line`, etc.) to guide visually.
 - When hint_level is 3, you may be more concrete in the internal directive, but still forbid handing the final code patch.
+- First debugging turn / auto-trigger must depend on `Error Type`; never use a generic "what is highlighted visually?" opening if a more specific line/concept is available.
+- Error-type mapping for the Communicator angle:
+  - `syntax`: focus on malformed syntax, missing structure, delimiters, quotes, or parser location. Use opening/closing metaphors only here, and only when the symptom is actually delimiters/quotes/brackets.
+  - `type_mismatch`: focus on the assignment line and compare declared type vs assigned value type.
+  - `undeclared_identifier`: focus on declaration before use; prefer comparing declaration and usage lines when both are visible.
+  - `logic`: focus on the difference between intended behavior and observed state/data flow.
+- If `syntax` has a short literal compiler excerpt in Internal Technical Description, carry that excerpt into `content` so the Communicator can quote it once and ask what part of the code it points to.
+- Never mention "aberturas", "fechamentos", delimiters, brackets, or parentheses for `type_mismatch` or `undeclared_identifier`.
+- If the learner's hypothesis points to the wrong element, the internal directive must acknowledge it as a possible investigation path but immediately redirect to the correct line/element before discussing the wrong element. Do not validate the wrong location as the source of the bug.
+- During an unresolved debugging episode, keep the next question about the immediate fixable observation. Reserve "future prevention" or "what did you learn?" for turns after the error is resolved.
+- Escalate specificity across repeated turns in the same episode: observation -> concept -> micro-comparison -> near-explicit hint, still without writing the final code.
+- Escalation pace by `hint_level`:
+  - hint_level 1 (`Mínimo`): keep the first 3 learner turns at observation or micro-comparison. Do not reveal the key concept name too early; if progress is still blocked, introduce the concept only around turns 4-5.
+  - hint_level 2: use the normal pace, introducing the concept after repeated confusion.
+  - hint_level 3: you may be more concrete earlier, but still avoid the final code patch.
 
 <diagnosis_context>
 - Error Type: {error_type}
@@ -265,6 +323,7 @@ Rules:
 <editor_state>
 - Active Tutor Highlights in IDE: {active_tutor_decorations}
 - Hint level from UI (1=subtle questions … 3=more concrete guidance): {hint_level}
+- Learner debugging turns in current session: {debug_user_turns}
 - Cursor (1-based, if provided): line {cursor_line} column {cursor_column}
 - AST/editor summary (optional): {ast_summary}
 - Data flow context from IDE (optional, e.g. drawn links): {data_flow_context}
@@ -312,6 +371,10 @@ def _numbered_code(code: str) -> str:
     return "\n".join(f"{i + 1:{width}} | {line}" for i, line in enumerate(lines))
 
 
+def _count_user_turns(history: list[dict]) -> int:
+    return sum(1 for item in history if item.get("role") == "user")
+
+
 def _build_strategist_system_content(
     diagnosis: Diagnosis,
     code: str,
@@ -323,10 +386,12 @@ def _build_strategist_system_content(
     cursor_column: int | None = None,
     ast_summary: str = "",
     data_flow_context: str = "",
+    debug_user_turns: int = 0,
 ) -> str:
     vars_map = _diagnosis_to_template_vars(diagnosis, active_tutor_decorations)
     vars_map["numbered_code"] = _numbered_code(code)
     vars_map["hint_level"] = str(max(1, min(3, hint_level)))
+    vars_map["debug_user_turns"] = str(max(0, debug_user_turns))
     vars_map["cursor_line"] = str(cursor_line) if isinstance(cursor_line, int) and cursor_line >= 1 else "n/a"
     vars_map["cursor_column"] = (
         str(cursor_column) if isinstance(cursor_column, int) and cursor_column >= 1 else "n/a"
@@ -377,6 +442,7 @@ def _strategist_lc_messages(
                 cursor_column=cursor_column,
                 ast_summary=ast_summary,
                 data_flow_context=data_flow_context,
+                debug_user_turns=_count_user_turns(history),
             )
         ),
     ]
@@ -456,5 +522,5 @@ async def run_strategist(
             "Strategist returned tool calls without plan text; using fallback (n_tools=%d)",
             len(tool_calls),
         )
-        plan_text = _fallback_plan_pt_for_tool_calls(tool_calls)
+        plan_text = _fallback_plan_pt_for_tool_calls(tool_calls, diagnosis)
     return actions, plan_text

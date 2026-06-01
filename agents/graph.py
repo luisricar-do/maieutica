@@ -4,7 +4,11 @@ from typing import Literal, TypedDict, cast
 from langgraph.graph import END, START, StateGraph
 
 from agents.analyst import Diagnosis, run_analyst
-from agents.rag.query import build_rag_query, build_theory_rag_query, retrieve_doc_chunks
+from agents.rag.query import (
+    build_rag_query,
+    build_theory_rag_query,
+    retrieve_doc_chunks,
+)
 from agents.router import run_router
 from agents.strategist import run_strategist
 from agents.tutor import run_communicator
@@ -26,6 +30,7 @@ class TutorState(TypedDict):
     student_name: str
     cursor_line: int | None
     cursor_column: int | None
+    compiler_error_lines: list[int]
     ast_summary: str
     data_flow_context: str
 
@@ -35,7 +40,15 @@ async def router_node(state: TutorState) -> dict:
 
 
 async def analyst_node(state: TutorState) -> dict:
-    diagnosis = await run_analyst(state["code"], state["errors"])
+    diagnosis = await run_analyst(
+        state["code"],
+        state["errors"],
+        compiler_error_lines=state.get("compiler_error_lines") or [],
+        cursor_line=state.get("cursor_line"),
+        cursor_column=state.get("cursor_column"),
+        ast_summary=str(state.get("ast_summary") or ""),
+        data_flow_context=str(state.get("data_flow_context") or ""),
+    )
     return {"diagnosis": diagnosis}
 
 
@@ -92,9 +105,11 @@ async def tutor_node(state: TutorState) -> dict:
     return {"tutor_response": tutor_response}
 
 
-def route_after_router(state: TutorState) -> Literal["analyst", "rag_retrieve", "tutor"]:
+def route_after_router(
+    state: TutorState,
+) -> Literal["analyst", "rag_retrieve", "tutor"]:
     intent = state.get("intent") or "DEBUG"
-    if intent == "CASUAL":
+    if intent in ("CASUAL", "OUT_OF_SCOPE"):
         return "tutor"
     if intent == "THEORY":
         return "rag_retrieve"
