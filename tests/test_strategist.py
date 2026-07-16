@@ -4,7 +4,12 @@ import pytest
 from langchain_core.messages import AIMessage
 
 from agents.analyst import Diagnosis
-from agents.strategist import STRATEGIST_TOOLS, TUTOR_TOOLS, run_strategist
+from agents.strategist import (
+    STRATEGIST_TOOLS,
+    TUTOR_TOOLS,
+    run_strategist,
+    suggested_doc_topics,
+)
 
 
 def test_strategist_tools_includes_compare_and_documentation() -> None:
@@ -17,6 +22,21 @@ def test_strategist_tools_includes_compare_and_documentation() -> None:
     assert "activate_focus_mode" in names
     assert "pause_at_iteration" in names
     assert STRATEGIST_TOOLS is TUTOR_TOOLS
+
+
+def test_suggested_doc_topics_extracts_only_documentation_actions() -> None:
+    actions = [
+        {"type": "highlight_line", "payload": {"line": 3}},
+        {"type": "suggest_documentation", "payload": {"topic": "vetores"}},
+        {"type": "suggest_documentation", "payload": {"topic": " escreva "}},
+        {"type": "suggest_documentation", "payload": {}},
+    ]
+    assert suggested_doc_topics(actions) == ["vetores", "escreva"]
+
+
+def test_suggested_doc_topics_empty_when_no_documentation_action() -> None:
+    assert suggested_doc_topics([{"type": "highlight_line", "payload": {}}]) == []
+    assert suggested_doc_topics([]) == []
 
 
 def _patch_bound_chat(mock_cls: MagicMock) -> MagicMock:

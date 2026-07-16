@@ -28,7 +28,7 @@ Never output Portugol code blocks or complete fixes; ask questions only.
 Avoid generic visual templates like "Quais partes do seu código estão destacadas visualmente...". Prefer the concrete concept from the strategy (type comparison, declaration before use, syntax structure, or data flow).
 Never mention "aberturas", "fechamentos", delimiters, brackets, or parentheses unless the strategy is explicitly about syntax/delimiters/quotes.
 If the strategy includes a short literal compiler excerpt, quote that excerpt once in Portuguese and ask the learner to connect it to the highlighted syntax location. Do not quote long blocks.
-
+{documentation_hint}
 <learner_context>
 Student display name (optional): {student_name}
 Hint level from UI (1=subtle … 3=more concrete): {hint_level}
@@ -72,6 +72,36 @@ OUT_OF_SCOPE_RESPONSE = (
     "Que dúvida do seu programa você quer investigar agora?"
 )
 
+# Nomes legíveis dos slugs de documentação (alinhados à tool `suggest_documentation`).
+_DOC_TOPIC_LABELS = {
+    "variaveis": "variáveis",
+    "tipos": "tipos de dados",
+    "escreva": "comando escreva (saída)",
+    "leia": "comando leia (entrada)",
+    "se_senao": "condicional se/senão",
+    "enquanto": "laço enquanto",
+    "para": "laço para",
+    "vetores": "vetores",
+    "matrizes": "matrizes",
+}
+
+
+def _documentation_hint(topics: list[str] | None) -> str:
+    """Instrução adicional (só quando há tópico sugerido): a ADA explica brevemente a sintaxe e
+    aponta para a referência clicável, sem entregar a solução do bug. Vazio caso contrário."""
+    if not topics:
+        return ""
+    labels = [_DOC_TOPIC_LABELS.get(t, t.replace("_", " ")) for t in topics]
+    topics_text = ", ".join(dict.fromkeys(labels))
+    return (
+        "\nDOCUMENTATION AID (this turn only): the strategist detected the student likely does not "
+        f"know the basic syntax of: {topics_text}. In addition to your guiding question, you MAY add "
+        "ONE short factual sentence, in plain Brazilian Portuguese, describing what that syntax is or "
+        "does in Portugol. Never write the solution to their specific bug and never output a complete "
+        "code block. Mention naturally that you left a reference in the chat (a documentação) they can "
+        "open to see the details. Keep the whole message to at most 2-3 short sentences.\n"
+    )
+
 
 def _communicator_llm():
     return create_chat_client(max_tokens=300, temperature=0.7)
@@ -102,6 +132,7 @@ def _build_system_content(
     cursor_column: int | None = None,
     ast_summary: str = "",
     data_flow_context: str = "",
+    suggested_doc_topics: list[str] | None = None,
 ) -> str:
     if intent == "CASUAL":
         return COMMUNICATOR_CASUAL_TEMPLATE.format(strategist_plan=strategist_plan)
@@ -138,6 +169,7 @@ def _build_system_content(
         cursor_column=cc,
         ast_summary=ast,
         data_flow_context=dfc,
+        documentation_hint=_documentation_hint(suggested_doc_topics),
     )
 
 
@@ -153,6 +185,7 @@ def _communicator_lc_messages(
     cursor_column: int | None = None,
     ast_summary: str = "",
     data_flow_context: str = "",
+    suggested_doc_topics: list[str] | None = None,
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     docs = documentation_context if documentation_context is not None else []
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
@@ -167,6 +200,7 @@ def _communicator_lc_messages(
                 cursor_column=cursor_column,
                 ast_summary=ast_summary,
                 data_flow_context=data_flow_context,
+                suggested_doc_topics=suggested_doc_topics,
             ),
         ),
     ]
@@ -199,6 +233,7 @@ async def run_communicator(
     cursor_column: int | None = None,
     ast_summary: str = "",
     data_flow_context: str = "",
+    suggested_doc_topics: list[str] | None = None,
 ) -> str:
     """Gera a mensagem final da ADA a partir do plano interno do estrategista."""
     if intent == "OUT_OF_SCOPE":
@@ -216,6 +251,7 @@ async def run_communicator(
         cursor_column=cursor_column,
         ast_summary=ast_summary,
         data_flow_context=data_flow_context,
+        suggested_doc_topics=suggested_doc_topics,
     )
     response = await llm.ainvoke(lc_messages)
     return _chunk_content_to_text(response.content).strip()
@@ -233,6 +269,7 @@ async def run_communicator_stream(
     cursor_column: int | None = None,
     ast_summary: str = "",
     data_flow_context: str = "",
+    suggested_doc_topics: list[str] | None = None,
 ) -> AsyncIterator[str]:
     """Stream de tokens do comunicador (apenas texto, sem ferramentas)."""
     if intent == "OUT_OF_SCOPE":
@@ -251,6 +288,7 @@ async def run_communicator_stream(
         cursor_column=cursor_column,
         ast_summary=ast_summary,
         data_flow_context=data_flow_context,
+        suggested_doc_topics=suggested_doc_topics,
     )
     async for chunk in llm.astream(lc_messages):
         text = _chunk_content_to_text(chunk.content)

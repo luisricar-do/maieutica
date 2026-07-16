@@ -9,6 +9,7 @@ from typing import Any, cast
 
 from agents.graph import analyst_node, rag_retrieve_node, strategist_node
 from agents.router import run_router
+from agents.strategist import suggested_doc_topics
 from agents.tutor import run_communicator_stream
 from services.tutor_help import build_tutor_meta_from_actions, parse_help_payload
 
@@ -141,6 +142,7 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             **_communicator_stream_kwargs(
                 state, "DEBUG", state.get("documentation_context") or []
             ),
+            suggested_doc_topics=suggested_doc_topics(actions if isinstance(actions, list) else []),
         ):
             yield format_sse("token", {"text": delta})
         logger.info("help/stream DEBUG: stream concluído")

@@ -57,6 +57,43 @@ async def test_run_communicator_includes_strategist_plan_in_system_message() -> 
 
 
 @pytest.mark.asyncio
+async def test_run_communicator_injects_documentation_hint_when_topic_suggested() -> None:
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        instance = _patch_chat_client(mock_cls)
+        instance.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_communicator(
+            "Aluno não conhece a sintaxe de vetor.",
+            [],
+            intent="DEBUG",
+            suggested_doc_topics=["vetores"],
+        )
+    system_text = captured[0][0].content
+    assert "DOCUMENTATION AID" in system_text
+    assert "vetores" in system_text
+
+
+@pytest.mark.asyncio
+async def test_run_communicator_omits_documentation_hint_by_default() -> None:
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        instance = _patch_chat_client(mock_cls)
+        instance.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_communicator("Plano qualquer.", [], intent="DEBUG")
+    assert "DOCUMENTATION AID" not in captured[0][0].content
+
+
+@pytest.mark.asyncio
 async def test_run_communicator_casual_uses_casual_template() -> None:
     captured: list = []
 

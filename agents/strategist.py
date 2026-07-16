@@ -204,10 +204,10 @@ def compare_lines(line1: int, line2: int) -> str:
 
 @tool
 def suggest_documentation(topic: str) -> str:
-    """Abre o painel de documentação da IDE no tópico especificado. Use isso quando o aluno não
-    souber a sintaxe de algo básico (ex: 'vetores', 'escreva', 'leia', 'laco_enquanto'). Tópicos
-    válidos: 'variaveis', 'tipos', 'escreva', 'leia', 'se_senao', 'enquanto', 'para', 'vetores',
-    'matrizes'."""
+    """Insere no chat uma referência clicável à documentação do tópico e sinaliza ao Comunicador
+    para explicar brevemente essa sintaxe (sem resolver o bug). Use quando o aluno não souber a
+    sintaxe de algo básico (ex: 'vetores', 'escreva', 'leia'). Tópicos válidos: 'variaveis',
+    'tipos', 'escreva', 'leia', 'se_senao', 'enquanto', 'para', 'vetores', 'matrizes'."""
     return "ok"
 
 
@@ -477,6 +477,17 @@ def _tool_call_to_action(tc: object) -> dict[str, Any] | None:
     if not name:
         return None
     return {"type": name, "payload": args}
+
+
+def suggested_doc_topics(actions: list[dict[str, Any]]) -> list[str]:
+    """Tópicos das ações ``suggest_documentation`` (para o Comunicador explicar brevemente)."""
+    topics: list[str] = []
+    for action in actions:
+        if isinstance(action, dict) and action.get("type") == "suggest_documentation":
+            topic = (action.get("payload") or {}).get("topic")
+            if isinstance(topic, str) and topic.strip():
+                topics.append(topic.strip())
+    return topics
 
 
 async def run_strategist(

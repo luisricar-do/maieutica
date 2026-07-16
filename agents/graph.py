@@ -10,7 +10,7 @@ from agents.rag.query import (
     retrieve_doc_chunks,
 )
 from agents.router import run_router
-from agents.strategist import run_strategist
+from agents.strategist import run_strategist, suggested_doc_topics
 from agents.tutor import run_communicator
 
 
@@ -101,6 +101,7 @@ async def tutor_node(state: TutorState) -> dict:
         cursor_column=state.get("cursor_column"),
         ast_summary=str(state.get("ast_summary") or ""),
         data_flow_context=str(state.get("data_flow_context") or ""),
+        suggested_doc_topics=suggested_doc_topics(state.get("actions") or []),
     )
     return {"tutor_response": tutor_response}
 
