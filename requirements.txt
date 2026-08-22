@@ -1,5 +1,6 @@
 # Gerado a partir do ambiente Poetry; alinhar com `poetry.lock` após alterar dependências.
 azure-functions==1.24.0
+azure-storage-blob==12.30.0
 azurefunctions-extensions-http-fastapi==1.0.1
 langgraph==1.1.3
 langchain-core==1.2.22

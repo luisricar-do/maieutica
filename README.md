@@ -65,6 +65,8 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   ├── __init__.py
 │   ├── tutor_help.py         # Caso de uso: /api/help (validação + grafo)
 │   ├── tutor_help_stream.py  # SSE: /api/help/stream (diagnóstico + tokens)
+│   ├── telemetry.py          # Caso de uso: /api/telemetry (validação + NDJSON)
+│   ├── telemetry_store.py    # Persistência dos lotes no Azure Blob Storage
 │   └── ping.py               # Health: resposta JSON para /api/ping
 ├── tests/
 │   ├── test_analyst.py
@@ -74,8 +76,12 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   ├── test_help_stream.py
 │   ├── test_ping.py
 │   ├── test_llm.py
+│   ├── test_telemetry.py
+│   ├── test_telemetry_store.py
 │   └── conftest.py
-├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream
+├── scripts/
+│   └── fetch_telemetry.py   # Baixa e consolida a telemetria (NDJSON + CSV)
+├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/telemetry
 ├── Makefile            # atalhos: make test / make dev / make start / make watch
 ├── pyproject.toml      # Fonte da verdade (Poetry)
 ├── requirements.txt    # Export para deploy na Azure
@@ -248,6 +254,73 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
 
 - `400` — `code` vazio ou JSON inválido.
 - `500` — falha interna (detalhes no log da Function).
+
+## Telemetria da avaliação (`POST /api/telemetry`)
+
+Endpoint de coleta para o estudo quase-experimental: a IDE envia lotes de eventos
+e cada lote é gravado como um blob NDJSON imutável no Azure Blob Storage.
+
+**Configuração** (`local.settings.json` local; App Settings na Azure):
+
+| Variável | Descrição |
+| --- | --- |
+| `TELEMETRY_BLOB_CONNECTION_STRING` | Connection string da conta de armazenamento. **Vazia desliga a coleta** (o endpoint responde `503` e a IDE mantém os eventos em fila). |
+| `TELEMETRY_BLOB_CONTAINER` | Contentor de destino (default: `telemetria`). |
+
+**Request**
+
+```json
+{
+  "installId": "inst-9f2c...",
+  "sessionId": "sess-4a11...",
+  "participantId": "P07",
+  "condition": "experimental",
+  "buildSha": "abc1234",
+  "promptHash": "sha256:...",
+  "events": [
+    { "seq": 1, "ts": "2026-08-22T10:00:00.000Z", "type": "session_start" },
+    { "seq": 2, "ts": "2026-08-22T10:00:09.000Z", "type": "compile", "task": 1, "errorClass": "type_mismatch" }
+  ]
+}
+```
+
+- `installId` / `sessionId`: obrigatórios, até 64 caracteres em `[A-Za-z0-9_-]` (entram no caminho do blob).
+- `condition`: `control` ou `experimental`; outros valores são gravados como `null`.
+- Cada evento exige `type` (string) e `seq` (inteiro ≥ 0); eventos inválidos são descartados e o resto do lote é aceito.
+- Máximo de 500 eventos por lote e 1 MiB por lote serializado.
+- A identidade (`installId`, `sessionId`, `participantId`, `condition`) é sempre reescrita a partir do envelope, nunca do evento.
+- O catálogo de tipos de evento (`task_start`, `code_edit`, `compile`, `chat_turn_user`, …) e os
+  respetivos campos estão documentados no README do **portugol-ai-tutor**, em
+  *Telemetria da avaliação → Eventos registados*. Este endpoint é agnóstico ao tipo:
+  aceita qualquer evento com `type` e `seq`.
+
+**Response** — `200 OK`
+
+```json
+{ "accepted": 2, "blob": "sessions/inst-9f2c.../sess-4a11.../000000001-000000002.ndjson" }
+```
+
+O nome do blob deriva da faixa de `seq`, logo **repetir o mesmo lote é idempotente**.
+Se o cliente reagrupar eventos entre tentativas, pode haver sobreposição entre
+blobs — a deduplicação por `(sessionId, seq)` é feita na coleta.
+
+**Erros**
+
+- `400` — JSON inválido, `installId`/`sessionId` ausente ou fora do padrão, `events` vazio.
+- `413` — mais de 500 eventos ou lote serializado acima de 1 MiB (o cliente divide e repete).
+- `503` — armazenamento não configurado. **O cliente deve manter os eventos e repetir.**
+- `500` — falha ao gravar no blob. Idem.
+
+**Baixar os dados**
+
+```bash
+export TELEMETRY_BLOB_CONNECTION_STRING="..."
+python scripts/fetch_telemetry.py --out dados/
+```
+
+Gera `dados/events.ndjson` e `dados/events.csv` (uma linha por evento), remove
+duplicados de retentativa e avisa sobre lacunas de `seq` — sinal de perda de
+telemetria, relevante para a análise de sensibilidade prevista no protocolo.
 
 ## Licença e contexto académico
 

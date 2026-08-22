@@ -15,6 +15,7 @@ from azurefunctions.extensions.http.fastapi import (  # noqa: E402
 
 from agents.rag.graph import get_compiled_rag_graph
 from services.ping import ping_response
+from services.telemetry import process_telemetry_request
 from services.tutor_help import process_help_request
 from services.tutor_help_stream import format_sse, iter_help_sse
 
@@ -108,6 +109,38 @@ async def help_stream_endpoint(req: Request) -> StreamingResponse:
         media_type="text/event-stream; charset=utf-8",
         headers=_sse_headers(),
     )
+
+
+@app.route(
+    route="telemetry",
+    methods=(func.HttpMethod.POST,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def telemetry_endpoint(req: Request) -> JSONResponse:
+    """
+    Recebe lotes de eventos da IDE e grava NDJSON no Blob Storage.
+
+    Em 503 (sem armazenamento configurado) ou 500, o cliente deve manter o lote
+    localmente e repetir mais tarde.
+    """
+    try:
+        try:
+            payload = await req.json()
+        except Exception:
+            return _json_response(
+                {"error": "Corpo da requisição deve ser JSON válido."},
+                status=400,
+            )
+
+        body, status = await process_telemetry_request(payload)
+        return _json_response(body, status=status)
+
+    except Exception:
+        logger.exception("Erro ao processar /api/telemetry")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
 
 
 @app.route(
