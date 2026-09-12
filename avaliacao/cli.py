@@ -187,6 +187,7 @@ def _cmd_rodar(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
             "hash_prompt_socratic": hashes["prompt_socratic"],
             "hash_prompt_neutral": hashes["prompt_neutral"],
             "hash_contexto": hashes["contexto"],
+            "hash_enunciado": hashes["enunciado"],
             "hash_prompt_juiz": juiz.hash_prompt(),
             "commit_maieutica": commit_atual(Path(__file__).resolve().parent.parent),
         },
@@ -313,7 +314,7 @@ def _hashes_congelados(cfg: Config, diretorio: Path) -> dict[str, str]:
     manifesto = ler_json(diretorio / "manifesto.json")
     anteriores = {
         chave: manifesto.get(chave, "")
-        for chave in ("hash_prompt_socratic", "hash_prompt_neutral", "hash_contexto")
+        for chave in ("hash_prompt_socratic", "hash_prompt_neutral", "hash_contexto", "hash_enunciado")
     }
     try:
         atuais = condicoes.hashes_do_servico(cfg)
@@ -324,6 +325,7 @@ def _hashes_congelados(cfg: Config, diretorio: Path) -> dict[str, str]:
         "hash_prompt_socratic": atuais["prompt_socratic"],
         "hash_prompt_neutral": atuais["prompt_neutral"],
         "hash_contexto": atuais["contexto"],
+        "hash_enunciado": atuais["enunciado"],
     }
     divergentes = [k for k, v in novos.items() if anteriores.get(k) and anteriores[k] != v]
     if divergentes:
