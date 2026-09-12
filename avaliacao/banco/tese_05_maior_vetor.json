@@ -211,6 +211,6 @@
     }
   ],
   "revisado_por": null,
-  "notas_traducao": "Cenario da dissertacao (Tarefa 5). Dialogo de referencia e anotacao de movimento redigidos pelo autor; pendentes de revisao do segundo docente. A REGRESSAO do quinto turno do estudante e decidida pela regra objetiva do codigo (menos casos de teste passam), nao pelo texto: e a unica do banco nessas condicoes.",
+  "notas_traducao": "Cenario da dissertacao (Tarefa 5). Dialogo de referencia e anotacao de movimento redigidos pelo autor, unico codificador humano do estudo; a anotacao com edicao de codigo e conferida pela execucao dos casos de teste sobre o estado resultante, e a estabilidade do julgamento e medida pelo procedimento intra-avaliador da metodologia. A REGRESSAO do quinto turno do estudante e decidida pela regra objetiva do codigo (menos casos de teste passam), nao pelo texto: e a unica do banco nessas condicoes.",
   "estado_solucao": "s3"
 }

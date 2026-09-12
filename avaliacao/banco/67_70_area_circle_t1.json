@@ -1,0 +1,285 @@
+{
+  "id": "67_70_area_circle_t1",
+  "origem": "al_hossami_v2",
+  "prioridade": 3,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "aritmetica",
+    "potencia",
+    "funcao",
+    "condicional"
+  ],
+  "problem": "Escreva a funcao area_circulo(raio) que recebe o raio de um circulo e devolve a sua area. Para raio negativo, a funcao deve devolver 0. O programa le o raio e escreve a area. Ele contem um defeito. Localize e corrija.",
+  "bug_code": "programa\n{\n    inclua biblioteca Matematica\n\n    funcao real area_circulo(real raio)\n    {\n        se (raio < 0)\n        {\n            retorne 0\n        }\n        retorne Matematica.PI * Matematica.potencia(raio, raio)\n    }\n\n    funcao inicio()\n    {\n        real raio\n        escreva(\"Digite o raio: \")\n        leia(raio)\n        escreva(\"Area: \", area_circulo(raio), \"\\n\")\n    }\n}\n",
+  "bug_desc": "Na linha 11 o raio e elevado ao proprio raio, e nao ao quadrado: o segundo argumento de Matematica.potencia deveria ser 2 e e o raio. Consequentemente a funcao nao calcula a area do circulo. O defeito passa despercebido com raio 1, porque 1 elevado a 1 e 1, o mesmo que 1 ao quadrado.",
+  "bug_fixes": [
+    "retorne Matematica.PI * Matematica.potencia(raio, 2)",
+    "retorne Matematica.PI * raio * raio"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "1.0"
+      ],
+      "saida_contem": "Area: 3.141"
+    },
+    {
+      "entrada": [
+        "2.5"
+      ],
+      "saida_contem": "Area: 19.634"
+    },
+    {
+      "entrada": [
+        "3.6"
+      ],
+      "saida_contem": "Area: 40.715"
+    },
+    {
+      "entrada": [
+        "4.1"
+      ],
+      "saida_contem": "Area: 52.810"
+    },
+    {
+      "entrada": [
+        "7.0"
+      ],
+      "saida_contem": "Area: 153.938"
+    },
+    {
+      "entrada": [
+        "-2.0"
+      ],
+      "saida_contem": "Area: 0\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    inclua biblioteca Matematica\n\n    funcao real area_circulo(real raio)\n    {\n        se (raio < 0)\n        {\n            retorne 0\n        }\n        retorne Matematica.PI * Matematica.potencia(raio, raio)\n    }\n\n    funcao inicio()\n    {\n        real raio\n        escreva(\"Digite o raio: \")\n        leia(raio)\n        escreva(\"Area: \", area_circulo(raio), \"\\n\")\n    }\n}\n",
+      "errors": [
+        "Linha 11, coluna 9: Variável não declarada: PI"
+      ],
+      "compilerErrorLines": [
+        11
+      ],
+      "casos_ok": 2,
+      "casos_total": 6,
+      "timeout": false,
+      "descricao": "codigo inicial: expoente e o proprio raio, nao 2",
+      "defeitos_vigentes": [
+        "logica"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    inclua biblioteca Matematica\n\n    funcao real area_circulo(real raio)\n    {\n        se (raio < 0)\n        {\n            retorne 0\n        }\n        retorne Matematica.PI * Matematica.potencia(raio, 2)\n    }\n\n    funcao inicio()\n    {\n        real raio\n        escreva(\"Digite o raio: \")\n        leia(raio)\n        escreva(\"Area: \", area_circulo(raio), \"\\n\")\n    }\n}\n",
+      "errors": [
+        "Linha 11, coluna 9: Variável não declarada: PI"
+      ],
+      "compilerErrorLines": [
+        11
+      ],
+      "casos_ok": 6,
+      "casos_total": 6,
+      "timeout": false,
+      "descricao": "solucao de referencia: raio elevado ao quadrado",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "potencia\\s*\\(\\s*raio\\s*,\\s*2\\s*\\)",
+    "\\braio\\s*\\*\\s*raio\\b"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      11
+    ],
+    "variaveis": [
+      "raio"
+    ],
+    "construtos": [
+      "potencia",
+      "expoente",
+      "formula da area"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Socorro, eu travei!"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Certo. Voce tem alguma ideia de qual e o problema?",
+      "alternativas": [
+        "Algum dos casos de teste esta passando?",
+        "Releia o enunciado. Voce acha que esta faltando alguma coisa?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO",
+      "texto": "Nao, eu nao sei o que esta errado.",
+      "alternativas_estudante_originais": [
+        "O primeiro caso de teste passa, mas o segundo falha."
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "Certo, vamos comecar pelos casos de teste. O segundo passa?",
+      "alternativas": [
+        "Confira o enunciado: voce pulou algum passo?",
+        "O que exatamente esta funcao foi feita para fazer?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "O primeiro caso de teste passa, mas o segundo falha."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Qual e o raio do circulo no primeiro caso, o que esta passando?",
+      "alternativas": [
+        "Interessante. Por que voce acha que o primeiro caso passa?",
+        "Certo, o codigo roda. Vamos olhar a sua funcao: em que linha voce faz a conta?",
+        "Qual e o raio do circulo no primeiro caso que falha?",
+        "Qual e a formula da area de um circulo?",
+        "Olhe a condicao do se na linha 7. Voce ve algum problema nela?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "O raio do primeiro caso, o que passa, e 1."
+    },
+    {
+      "papel": "tutor",
+      "texto": "E qual e o raio do primeiro caso que falha?",
+      "alternativas": [
+        "Qual e a formula da area de um circulo?",
+        "Interessante. Por que voce acha que o primeiro caso passa?",
+        "Certo, o codigo roda. Vamos olhar a sua funcao: em que linha voce faz a conta?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "E 2.5."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Qual e a formula da area de um circulo?",
+      "alternativas": [
+        "Interessante. Voce acha que ha algo de especial nesses dois numeros?",
+        "Certo, vamos olhar a sua funcao agora: em que linha voce faz a conta da area?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "E pi vezes o raio ao quadrado."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Vamos pensar nesses dois valores de raio. Eles se comportam de maneira diferente quando sao elevados ao quadrado?",
+      "alternativas": [
+        "Certo, vamos olhar a sua funcao agora: em que linha voce faz a conta da area?",
+        "O que acontece quando voce eleva 1 ao quadrado?",
+        "Como se eleva um numero a uma potencia em Portugol?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Sim: 1 ao quadrado continua 1, e 2.5 ao quadrado da 6.25.",
+      "alternativas_estudante_originais": [
+        "Acho que errei na parte de elevar ao quadrado."
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "Certo. Ja que funciona com 1 mas nao com 2.5, vamos olhar o trecho que eleva ao quadrado. Onde ele esta?",
+      "alternativas": [
+        "O 1 tem alguma propriedade especial na multiplicacao que o faca comportar-se de outro jeito?",
+        "Como se eleva um numero a uma potencia em Portugol?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Esta na linha 11."
+    },
+    {
+      "papel": "tutor",
+      "texto": "E qual e a expressao que faz a elevacao ao quadrado?",
+      "alternativas": [
+        "Que parte dessa linha faz a elevacao?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "E a chamada de potencia com o raio."
+    },
+    {
+      "papel": "tutor",
+      "texto": "E o que significa elevar um numero ao quadrado?",
+      "alternativas": [
+        "A funcao de potencia recebe dois argumentos. O que cada um deles representa?",
+        "Volte a documentacao do Portugol: como se eleva uma variavel a um valor especifico?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Significa multiplicar o numero por ele mesmo."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Certo. Entao, na sua chamada, o que voce esta passando como expoente?",
+      "alternativas": [
+        "Que numero deveria estar no lugar do expoente?",
+        "Ha diferenca entre o que voce quer elevar e o valor a que quer elevar?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Estou passando o raio como expoente.",
+      "alternativas_estudante_originais": [
+        "Ah! Estou elevando o raio a ele mesmo em vez de elevar ao quadrado!"
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "E o que voce deveria estar fazendo com o raio?",
+      "alternativas": [
+        "O que o segundo argumento da potencia deveria valer?"
+      ]
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 67_70_area_circle_conversational_thread_1.txt. Adaptacoes: (a) a funcao Python area_circle virou funcao real area_circulo em Portugol, com inicio() lendo o raio; (b) o operador ** do Python nao existe em Portugol: o equivalente e Matematica.potencia(base, expoente), da biblioteca Matematica, e o defeito passa a ser o segundo argumento ser o raio em vez de 2 - mesma confusao entre 'elevar ao quadrado' e 'elevar a si mesmo', pela via que o Portugol oferece; os turnos do tutor sobre o operador ** foram reescritos para o expoente; (c) math.pi virou Matematica.PI, verificado no motor da IDE; (d) os casos de teste do original usam tolerancia; aqui a saida real e comparada por prefixo, que produz o mesmo efeito, e o caso do raio negativo exige a quebra de linha para nao casar por prefixo; (e) o ultimo turno do estudante e o turno final do tutor foram cortados. Conferido por execucao: o programa traduzido falha nos mesmos casos que o original e a correcao aceita o faz passar em todos. O que resta de julgamento, a naturalidade do dialogo e o movimento nos turnos sem edicao, e do autor.",
+  "estado_solucao": "s1",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "67_70_area_circle_conversational_thread_1.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 67
+  }
+}

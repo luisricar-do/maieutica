@@ -1,0 +1,384 @@
+{
+  "id": "0_0_fibonacci_t3",
+  "origem": "al_hossami_v2",
+  "prioridade": 3,
+  "tipo_bug": "limite",
+  "conceitos": [
+    "laco",
+    "sequencia",
+    "acumulador",
+    "condicional"
+  ],
+  "problem": "Escreva um programa que leia um inteiro n e escreva o n-esimo termo da sequencia de Fibonacci. Se n for menor ou igual a 0, escreva OOPS. Se n for 1 ou 2, escreva 1. A sequencia de Fibonacci e aquela em que cada numero e a soma dos dois anteriores: 1, 1, 2, 3, 5, 8, 13, 21, 34, 55. O programa contem um defeito. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, a, b, temp\n\n        escreva(\"Digite n: \")\n        leia(n)\n\n        se (n <= 0)\n        {\n            escreva(\"Resultado: OOPS\\n\")\n        }\n        senao se (n == 1)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao se (n == 2)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao\n        {\n            a = 0\n            b = 1\n            para (i = 0; i < n; i++)\n            {\n                temp = b\n                b = a + b\n                a = temp\n            }\n            escreva(\"Resultado: \", b, \"\\n\")\n        }\n    }\n}\n",
+  "bug_desc": "Na linha 24 o laco da n voltas, e cada volta avanca um termo da sequencia. Como b ja comeca no primeiro termo, n voltas levam ao termo n + 1: o programa escreve 8 quando n e 5, e 89 quando n e 10. Bastaria uma volta a menos.",
+  "bug_fixes": [
+    "para (i = 1; i < n; i++)",
+    "para (i = 0; i < n - 1; i++)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "-3"
+      ],
+      "saida_contem": "Resultado: OOPS\n"
+    },
+    {
+      "entrada": [
+        "0"
+      ],
+      "saida_contem": "Resultado: OOPS\n"
+    },
+    {
+      "entrada": [
+        "1"
+      ],
+      "saida_contem": "Resultado: 1\n"
+    },
+    {
+      "entrada": [
+        "2"
+      ],
+      "saida_contem": "Resultado: 1\n"
+    },
+    {
+      "entrada": [
+        "5"
+      ],
+      "saida_contem": "Resultado: 5\n"
+    },
+    {
+      "entrada": [
+        "10"
+      ],
+      "saida_contem": "Resultado: 55\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, a, b, temp\n\n        escreva(\"Digite n: \")\n        leia(n)\n\n        se (n <= 0)\n        {\n            escreva(\"Resultado: OOPS\\n\")\n        }\n        senao se (n == 1)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao se (n == 2)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao\n        {\n            a = 0\n            b = 1\n            para (i = 0; i < n; i++)\n            {\n                temp = b\n                b = a + b\n                a = temp\n            }\n            escreva(\"Resultado: \", b, \"\\n\")\n        }\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 6,
+      "timeout": false,
+      "descricao": "codigo inicial: o laco da n voltas e produz o termo seguinte ao pedido",
+      "defeitos_vigentes": [
+        "limite"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, a, b, temp\n\n        escreva(\"Digite n: \")\n        leia(n)\n\n        se (n <= 0)\n        {\n            escreva(\"Resultado: OOPS\\n\")\n        }\n        senao se (n == 1)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao se (n == 2)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao\n        {\n            a = 0\n            b = 1\n            para (i = 0; i < n; i++)\n            {\n                escreva(n, \"\\n\")\n                temp = b\n                b = a + b\n                a = temp\n            }\n            escreva(\"Resultado: \", b, \"\\n\")\n        }\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 6,
+      "timeout": false,
+      "descricao": "acrescentou escrita de depuracao, mas escreve n em vez de i",
+      "defeitos_vigentes": [
+        "limite"
+      ]
+    },
+    {
+      "id": "s2",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, a, b, temp\n\n        escreva(\"Digite n: \")\n        leia(n)\n\n        se (n <= 0)\n        {\n            escreva(\"Resultado: OOPS\\n\")\n        }\n        senao se (n == 1)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao se (n == 2)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao\n        {\n            a = 0\n            b = 1\n            para (i = 0; i < n; i++)\n            {\n                escreva(i, \"\\n\")\n                temp = b\n                b = a + b\n                a = temp\n            }\n            escreva(\"Resultado: \", b, \"\\n\")\n        }\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 6,
+      "timeout": false,
+      "descricao": "corrigiu a escrita de depuracao para mostrar o i",
+      "defeitos_vigentes": [
+        "limite"
+      ]
+    },
+    {
+      "id": "s3",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, a, b, temp\n\n        escreva(\"Digite n: \")\n        leia(n)\n\n        se (n <= 0)\n        {\n            escreva(\"Resultado: OOPS\\n\")\n        }\n        senao se (n == 1)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao se (n == 2)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao\n        {\n            a = 0\n            b = 1\n            para (i = 0; i < n; i++)\n            {\n                escreva(\"a: \", a, \" b: \", b, \" i: \", i, \"\\n\")\n                temp = b\n                b = a + b\n                a = temp\n            }\n            escreva(\"Resultado: \", b, \"\\n\")\n        }\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 6,
+      "timeout": false,
+      "descricao": "escrita de depuracao passa a mostrar a, b e i a cada volta",
+      "defeitos_vigentes": [
+        "limite"
+      ]
+    },
+    {
+      "id": "s4",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, a, b, temp\n\n        escreva(\"Digite n: \")\n        leia(n)\n\n        se (n <= 0)\n        {\n            escreva(\"Resultado: OOPS\\n\")\n        }\n        senao se (n == 1)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao se (n == 2)\n        {\n            escreva(\"Resultado: 1\\n\")\n        }\n        senao\n        {\n            a = 0\n            b = 1\n            para (i = 1; i < n; i++)\n            {\n                temp = b\n                b = a + b\n                a = temp\n            }\n            escreva(\"Resultado: \", b, \"\\n\")\n        }\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 6,
+      "casos_total": 6,
+      "timeout": false,
+      "descricao": "solucao de referencia: o laco da uma volta a menos e a depuracao sai",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "i\\s*=\\s*1;\\s*i\\s*<\\s*n",
+    "i\\s*<\\s*n\\s*-\\s*1"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      24
+    ],
+    "variaveis": [
+      "i",
+      "n",
+      "b",
+      "a"
+    ],
+    "construtos": [
+      "laco para",
+      "numero de voltas",
+      "sequencia"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Oi, eu preciso mesmo de ajuda. Este programa nao esta escrevendo o numero certo.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Ajudo com gosto. O que acontece quando voce roda com n igual a 5?",
+      "alternativas": [
+        "Ajudo com gosto. Voce consegue me dar um exemplo do programa escrevendo um numero errado?",
+        "Claro. Voce consegue listar os cinco primeiros numeros da sequencia de Fibonacci?",
+        "Voce consegue descrever o que o seu codigo faz, linha a linha?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Quando eu rodo com n igual a 5 a saida e 8, em vez de 5.",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entendi. O que voce acha que pode estar causando isso?",
+      "alternativas": [
+        "Voce consegue descrever o laco da linha 24?",
+        "Voce consegue me guiar pelos passos que o programa da para gerar a sequencia?",
+        "Voce consegue identificar algum problema no laco que gera a sequencia?",
+        "Que parte do seu codigo voce suspeita que esteja a causar isso?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Acho que talvez o problema seja o a comecar em 0 e nao em 1? Nao tenho certeza.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO",
+      "alternativas_estudante_originais": [
+        "Nao tenho certeza. Voce pode ajudar?",
+        "Acho que a causa e o laco, porque e o unico lugar onde eu calculo o b, que e o valor que escrevo no fim."
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "Vamos focar no laco. Voce consegue descrever o que o laco da linha 24 faz?",
+      "alternativas": [
+        "Voce consegue descrever quantas vezes o laco da linha 24 da a volta?",
+        "Voce consegue olhar com mais atencao para o cabecalho do laco e pensar em como ele pode estar a afetar o resultado?",
+        "Quantas voltas o laco da, e quanto valem a e b em cada uma delas?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "O laco da a volta conforme o valor de n. Nao sei bem o que mais dizer aqui.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO",
+      "alternativas_estudante_originais": [
+        "Nao sei bem como descrever isso.",
+        "Ele da n voltas.",
+        "O laco vai de 0 ate n - 1. Em cada volta ele calcula um novo numero de Fibonacci somando os dois anteriores. Esse novo numero fica em b, e o que estava em b passa para a."
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce consegue descrever quantas vezes o laco da linha 24 da a volta?",
+      "alternativas": [
+        "Quantas voltas o laco da, e quanto valem a e b em cada uma delas?",
+        "Voce consegue olhar com mais atencao para o cabecalho do laco e pensar em como ele pode estar a afetar o resultado?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "O laco vai de 1 ate n, dando n - 1 voltas.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Vamos verificar isso. Como podemos acompanhar o valor do i durante o laco?",
+      "alternativas": [
+        "Como podemos verificar isso?",
+        "Vamos acrescentar uma escrita dos valores de a, b e i a cada volta para verificar. Depois de rodar, o que voce nota?",
+        "Que valores voce acompanharia para verificar isso?",
+        "Vamos verificar. Como podemos acompanhar os valores de a, b e i durante o laco?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nao tenho bem certeza, voce pode sugerir um jeito?",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO",
+      "alternativas_estudante_originais": [
+        "Posso acrescentar escritas dentro do laco."
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce ja pensou em acrescentar uma escrita que mostre o valor do i a cada volta?",
+      "alternativas": [
+        "Voce ja pensou em acompanhar o valor do i volta a volta?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Ah, boa ideia. Deixa eu fazer isso.",
+      "estado_codigo": "s1",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Vamos examinar os valores do i. Quantas voltas o laco da no total?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Olhando a saida, eu noto que o i e sempre 5 quando n e 5. Isso nao faz sentido.",
+      "estado_codigo": "s1",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce tem certeza de que esta a olhar para os valores do i? Examine a linha 26.",
+      "alternativas": [
+        "Que variavel voce esta a escrever na linha 26?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Ops! Deixa eu corrigir isso.",
+      "estado_codigo": "s2",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Vamos olhar a saida. Quantas voltas o laco da?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Olhando a saida, o laco da 5 voltas quando n e 5, e os valores do i vao de 0 a 4, isto e, ate n - 1.",
+      "estado_codigo": "s2",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Bom. Voce consegue identificar outras variaveis que seria importante acompanhar para achar o problema?",
+      "alternativas": [
+        "Vamos acrescentar uma escrita dos valores de a e b a cada volta tambem. Depois de rodar, o que voce nota?",
+        "O que aconteceria ao termo escrito se o laco desse 6 voltas?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Acho que seria bom acompanhar o a e o b, ja que e o b que eu escrevo no fim e o a e usado para calcular o b.",
+      "estado_codigo": "s2",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Bom. Qual seria um bom jeito de acompanhar os valores de a e b?",
+      "alternativas": [
+        "Vamos acrescentar uma escrita dos valores de a e b a cada volta tambem. Depois de rodar, o que voce nota?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Acho que posso acrescentar uma escrita dessas variaveis dentro do laco!",
+      "estado_codigo": "s3",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Bom. O que voce observa nos valores de b a medida que o laco corre?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Hm, parece que esta a criar a sequencia de Fibonacci na ordem certa. Nao noto nada de errado.",
+      "estado_codigo": "s3",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "E o que voce nota no ultimo valor de b?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Ah! E 8, que e justamente o que eu escrevo, em vez de 5! Mas por que?",
+      "estado_codigo": "s3",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Como o b foi calculado na ultima volta do laco?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Acho que b era 5 e a era 3, entao b = 3 + 5, que da 8. Mas nao sei como fazer para escrever 5.",
+      "estado_codigo": "s3",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O que aconteceria ao termo escrito se o laco desse 6 voltas?",
+      "alternativas": [
+        "Boa observacao. Voce consegue pensar num jeito de mudar o laco para que ele escreva o termo certo?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Hm. Acho que seria b = 5 + 8, que da 13, o proximo numero da sequencia.",
+      "estado_codigo": "s3",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce nota alguma relacao entre o numero de voltas do laco e o termo que sai escrito?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Sim! Acho mesmo que quanto mais o laco roda, maior o termo que sai. Talvez o meu laco esteja a dar mais voltas do que devia.",
+      "estado_codigo": "s3",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce consegue pensar num jeito de mudar o laco para que ele escreva o termo certo?",
+      "alternativas": []
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 0_0_fibonacci_conversational_thread_3.txt. Adaptacoes: (a) a funcao Python virou um programa que le n e escreve o termo, e o retorno 'OOPS' virou saida escrita; (b) os prints de depuracao traduzem-se direto como escreva, inclusive o do estado em que o estudante escreve a variavel errada, que e o que o dialogo usa; a f-string do terceiro estado virou escreva com varios argumentos; (c) as referencias de linha passaram a 24, do laco, e 26, da escrita de depuracao; (d) o ultimo turno do estudante e os turnos finais do tutor foram cortados. Nota de anotacao: os estados s1, s2 e s3 nao mudam nenhum caso de teste - o estudante esta a instrumentar o codigo, nao a corrigi-lo - e por isso os tres turnos com edicao estao anotados ESTAGNACAO, de acordo com a regra objetiva. E o item do banco com a sequencia mais longa de estagnacao seguida, que e o que a contingencia de H1 precisa de medir. Conferido por execucao: o programa traduzido falha nos mesmos casos que o original e a correcao aceita o faz passar em todos. O que resta de julgamento, a naturalidade do dialogo e o movimento nos turnos sem edicao, e do autor.",
+  "estado_solucao": "s4",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "0_0_fibonacci_conversational_thread_3.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 0
+  }
+}

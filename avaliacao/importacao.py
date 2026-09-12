@@ -41,7 +41,12 @@ PRIORIDADE: dict[int, int] = {
 
 _MARCAS = ("problem", "bug_code", "bug_desc", "bug_fixes", "unit_tests", "stu_desc", "dialogue")
 _NUMERO_DE_LINHA = re.compile(r"^\s*\d+\.\s?")
-_PAPEL = re.compile(r"^(User|Assistant):\s*(.*)$")
+#: Papéis do conjunto original. ``Instructor:`` aparece duas vezes, nos fios 1 e 2 de
+#: ``compute_average``, onde o resto do conjunto usa ``Assistant:``; sem ele essas duas falas do
+#: tutor seriam coladas ao turno anterior. A Tabela 1 do artigo reporta 920 turnos de instrutor,
+#: que é a contagem de ``Assistant:`` — as duas de ``Instructor:`` ficam de fora dela.
+_PAPEL = re.compile(r"^(User|Student|Assistant|Instructor|Tutor):\s*(.*)$")
+_PAPEL_ESTUDANTE = ("User", "Student")
 
 
 def _bloco(texto: str, marca: str) -> str:
@@ -84,7 +89,7 @@ def parsear_dialogo(bruto: str) -> tuple[list[dict[str, Any]], list[str]]:
         papel = _PAPEL.match(nua)
         if papel:
             turnos.append({
-                "papel": "estudante" if papel.group(1) == "User" else "tutor",
+                "papel": "estudante" if papel.group(1) in _PAPEL_ESTUDANTE else "tutor",
                 "texto": papel.group(2).strip(),
                 "alternativas": [],
             })

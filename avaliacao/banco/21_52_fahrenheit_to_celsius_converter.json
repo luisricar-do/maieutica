@@ -160,7 +160,7 @@
     }
   ],
   "revisado_por": null,
-  "notas_traducao": "Traduzido de 21_52_fahrenheit_to_celsius_converter_socratic_dialogue.txt. Adaptacoes: (a) a funcao Python fToC virou um programa que le a temperatura e escreve o resultado, porque os casos de teste do banco sao entrada/saida; as duas cadeias devolvidas viraram as duas saidas escritas, prefixadas com 'Resultado: ' para que 'Congelando!' nao case dentro de 'Nao esta congelando!'; (b) a formula usa 5.0 / 9.0 e nao 5 / 9, porque em Portugol a divisao entre inteiros trunca e 5 / 9 daria 0; (c) a referencia de linha passou de 3 para 12; (d) o dialogo original nao tem cauda a cortar, termina no turno substantivo. Pendente de revisao do segundo docente.",
+  "notas_traducao": "Traduzido de 21_52_fahrenheit_to_celsius_converter_socratic_dialogue.txt. Adaptacoes: (a) a funcao Python fToC virou um programa que le a temperatura e escreve o resultado, porque os casos de teste do banco sao entrada/saida; as duas cadeias devolvidas viraram as duas saidas escritas, prefixadas com 'Resultado: ' para que 'Congelando!' nao case dentro de 'Nao esta congelando!'; (b) a formula usa 5.0 / 9.0 e nao 5 / 9, porque em Portugol a divisao entre inteiros trunca e 5 / 9 daria 0; (c) a referencia de linha passou de 3 para 12; (d) o dialogo original nao tem cauda a cortar, termina no turno substantivo. Conferido por execucao: o programa traduzido falha nos mesmos casos que o original e a correcao aceita o faz passar em todos. O que resta de julgamento, a naturalidade do dialogo e o movimento nos turnos sem edicao, e do autor.",
   "estado_solucao": "s1",
   "fonte": {
     "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",

@@ -204,7 +204,7 @@
     }
   ],
   "revisado_por": null,
-  "notas_traducao": "Traduzido de 63_64_good_dinner_conversational_thread_1.txt. Adaptacoes: (a) a funcao Python GoodDinner virou funcao logico bom_jantar em Portugol, com inicio() lendo as duas entradas; o valor logico e lido e escrito como verdadeiro/falso, verificado no motor da IDE; (b) not(weekend) virou nao fim_de_semana e and virou e; (c) a referencia de linha passou de 4 para 9; (d) o ultimo turno do estudante, que aplica a correcao, e o turno final do tutor foram cortados: ocorrem com o defeito ja corrigido. Pendente de revisao do segundo docente.",
+  "notas_traducao": "Traduzido de 63_64_good_dinner_conversational_thread_1.txt. Adaptacoes: (a) a funcao Python GoodDinner virou funcao logico bom_jantar em Portugol, com inicio() lendo as duas entradas; o valor logico e lido e escrito como verdadeiro/falso, verificado no motor da IDE; (b) not(weekend) virou nao fim_de_semana e and virou e; (c) a referencia de linha passou de 4 para 9; (d) o ultimo turno do estudante, que aplica a correcao, e o turno final do tutor foram cortados: ocorrem com o defeito ja corrigido. Conferido por execucao: o programa traduzido falha nos mesmos casos que o original e a correcao aceita o faz passar em todos. O que resta de julgamento, a naturalidade do dialogo e o movimento nos turnos sem edicao, e do autor.",
   "estado_solucao": "s1",
   "fonte": {
     "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",

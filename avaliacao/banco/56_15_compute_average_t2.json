@@ -1,5 +1,5 @@
 {
-  "id": "56_15_compute_average",
+  "id": "56_15_compute_average_t2",
   "origem": "al_hossami_v2",
   "prioridade": 1,
   "tipo_bug": "logica",
@@ -153,16 +153,49 @@
       "papel": "tutor",
       "texto": "Vamos supor que seja isso. Nesse caso a funcao devolveria 3, mas ela devolve 4. Vamos resolver passo a passo: 2 + 4 / 2. Qual operacao avaliamos primeiro, 2 + 4 ou 4 / 2?",
       "alternativas": [
-        "Voce lembra qual e a ordem das operacoes quando se avalia uma expressao matematica? Avaliamos + ou / primeiro?"
+        "Voce lembra a ordem das operacoes quando se avalia uma expressao matematica? Avaliamos o + ou o / primeiro?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Hm... eu achava que 2 + 4 seria avaliado primeiro, mas isso nao bate com a saida que a gente observa. Entao deve ser 4 / 2 primeiro.",
+      "alternativas_estudante_originais": [
+        "Ahh. Avaliamos 4 / 2 primeiro. Entendi, e a ordem de precedencia. Preciso por parenteses em volta da soma para forcar que ela seja feita primeiro.",
+        "Acho que 2 + 4 seria avaliado primeiro, porque a ordem das operacoes e sempre da esquerda para a direita."
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "Bom. Como voce pode mudar a expressao para que ela avalie 2 + 4 antes de 4 / 2?",
+      "alternativas": [
+        "Bom. Por que voce acha que ela esta avaliando 4 / 2 primeiro?",
+        "Bom. O que voce acha que esta faltando na expressao para que 2 + 4 seja avaliado antes de 4 / 2?",
+        "Vamos relembrar a ordem das operacoes. Voce consegue dizer que operacoes tem precedencia sobre a divisao e a multiplicacao?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Acho que preciso por parenteses em volta de 2 + 4 para forcar a soma a ser feita primeiro."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Bom. Faca a conta no papel: quanto da (2 + 4) / 2?",
+      "alternativas": [
+        "Agora, que mudanca voce precisaria fazer no seu codigo, na linha 5?",
+        "Agora, que mudanca voce precisaria fazer no seu codigo para corrigir o defeito?"
       ]
     }
   ],
   "revisado_por": null,
-  "notas_traducao": "Traduzido de 56_15_compute_average_socratic_dialogue.txt. Adaptacoes: (a) a funcao Python calculate_average(x, y) virou funcao real calcular_media em Portugol, com inicio() lendo os dois valores, porque os casos de teste do banco sao entrada/saida e nao asserts; (b) a referencia do diagnostico e do dialogo mudou de 'linha 2' para 'linha 5', posicao do retorne no programa Portugol; (c) a saida termina em quebra de linha e os casos a exigem, senao 'Media = 2' casaria dentro de 'Media = 2.5' e o estado com defeito contaria como aprovado; (d) os 2 turnos finais do tutor do original ('muito bem', 'de nada') foram cortados: ocorrem com o defeito ja corrigido e seguem a convencao dos itens tese_*, que terminam no ultimo turno substantivo e declaram a solucao em estado_solucao. O defeito de precedencia foi preservado na mesma posicao logica. Conferido por execucao: o programa traduzido falha nos mesmos casos que o original e a correcao aceita o faz passar em todos. O que resta de julgamento, a naturalidade do dialogo e o movimento nos turnos sem edicao, e do autor.",
+  "notas_traducao": "Traduzido de 56_15_compute_average_conversational_thread_2.txt. Mesmo problema, mesmo defeito e mesmos estados de codigo do item 56_15_compute_average, que vem do dialogo principal; o que muda e o caminho do dialogo, mais longo e com uma regressao no meio. Adaptacoes: as mesmas do item irmao, mais (a) o penultimo turno do tutor, que no original manda o estudante digitar a expressao no terminal do Python, virou um convite a fazer a conta no papel, porque Portugol Studio nao tem terminal interativo; (b) um turno do tutor vem rotulado Instructor: no conjunto original, onde todo o resto usa Assistant: - o importador passou a reconhecer o rotulo, e sem isso essa fala seria colada ao turno anterior. Conferido por execucao: o programa traduzido falha nos mesmos casos que o original e a correcao aceita o faz passar em todos. O que resta de julgamento, a naturalidade do dialogo e o movimento nos turnos sem edicao, e do autor.",
   "estado_solucao": "s1",
   "fonte": {
     "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
-    "arquivo": "56_15_compute_average_socratic_dialogue.txt",
+    "arquivo": "56_15_compute_average_conversational_thread_2.txt",
     "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
     "problema_id": 56
   }

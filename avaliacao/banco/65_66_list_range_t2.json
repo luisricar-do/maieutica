@@ -1,0 +1,184 @@
+{
+  "id": "65_66_list_range_t2",
+  "origem": "al_hossami_v2",
+  "prioridade": 2,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "inicializacao",
+    "minimo e maximo"
+  ],
+  "problem": "Escreva um programa que leia quantos numeros serao informados, leia esses numeros para um vetor e escreva a amplitude do vetor, isto e, a diferenca entre o maior e o menor valor. O programa contem um defeito e falha em varios casos. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, menor, maior\n        inteiro numeros[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        menor = 0\n        maior = 0\n\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n            se (numeros[i] < menor)\n            {\n                menor = numeros[i]\n            }\n        }\n\n        escreva(\"Amplitude: \", maior - menor, \"\\n\")\n    }\n}\n",
+  "bug_desc": "Nas linhas 16 e 17 menor e maior sao inicializados com 0, um valor que pode nao estar no vetor. Se todos os elementos forem positivos, menor fica em 0 e a amplitude sai maior do que e; se todos forem negativos, maior fica em 0 e o mesmo acontece. A inicializacao so funciona por acaso, quando o vetor tem valores dos dois lados do zero.",
+  "bug_fixes": [
+    "menor = numeros[0]",
+    "maior = numeros[0]"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "2",
+        "1",
+        "2"
+      ],
+      "saida_contem": "Amplitude: 1\n"
+    },
+    {
+      "entrada": [
+        "7",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "1",
+        "5"
+      ],
+      "saida_contem": "Amplitude: 4\n"
+    },
+    {
+      "entrada": [
+        "4",
+        "2",
+        "2",
+        "1",
+        "3"
+      ],
+      "saida_contem": "Amplitude: 2\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "-10",
+        "-3",
+        "-1"
+      ],
+      "saida_contem": "Amplitude: 9\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "-10",
+        "3",
+        "1"
+      ],
+      "saida_contem": "Amplitude: 13\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, menor, maior\n        inteiro numeros[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        menor = 0\n        maior = 0\n\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n            se (numeros[i] < menor)\n            {\n                menor = numeros[i]\n            }\n        }\n\n        escreva(\"Amplitude: \", maior - menor, \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 1,
+      "casos_total": 5,
+      "timeout": false,
+      "descricao": "codigo inicial: menor e maior comecam em 0, valor que pode nao estar no vetor",
+      "defeitos_vigentes": [
+        "logica"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, menor, maior\n        inteiro numeros[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        menor = numeros[0]\n        maior = numeros[0]\n\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n            se (numeros[i] < menor)\n            {\n                menor = numeros[i]\n            }\n        }\n\n        escreva(\"Amplitude: \", maior - menor, \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 5,
+      "casos_total": 5,
+      "timeout": false,
+      "descricao": "solucao de referencia: os dois comecam no primeiro elemento do vetor",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "menor\\s*=\\s*numeros\\[0\\]",
+    "maior\\s*=\\s*numeros\\[0\\]"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      16,
+      17
+    ],
+    "variaveis": [
+      "menor",
+      "maior",
+      "numeros"
+    ],
+    "construtos": [
+      "inicializacao de variavel",
+      "vetor",
+      "comparacao"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Ola! Estou trabalhando no programa da amplitude e os resultados nao sao os que eu espero."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Ola! Claro que posso ajudar. Junto com o valor que o programa escreve no fim, vamos olhar os valores de menor e de maior ao longo da execucao. Voce consegue percorrer como espera que o seu codigo funcione?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Os valores de maior e de menor comecam em 0, e o laco percorre cada elemento do vetor; se um elemento for maior do que o valor corrente de maior, ou menor do que o valor corrente de menor, a variavel correspondente recebe esse valor. Depois de todos os elementos serem verificados, o programa escreve a diferenca entre maior e menor, que e a amplitude."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "E assim mesmo que o programa deveria correr. Mas e se nao houver, no vetor, nenhum valor menor do que 0 nem nenhum maior do que 0?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO",
+      "texto": "Ah. Entao eu deveria escolher um numero bem grande para o menor e um bem pequeno para o maior?"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce conseguiria garantir que o vetor que te derem so tem valores dentro dos limites arbitrarios que voce escolher? Ha um jeito melhor de garantir que menor e maior estao sempre dentro do vetor.",
+      "alternativas": [
+        "Suponha que voce escolheu -1000 como valor inicial de maior. Voce consegue pensar num vetor em que esse valor inicial e maior do que todos os elementos?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Funcionaria se eu comecasse os dois com um elemento do proprio vetor?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Isso mesmo. Por que seria assim?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO",
+      "texto": "E ai que eu me perco. Por que comecar com um elemento do vetor muda alguma coisa na solucao?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Se voce escolhe um elemento do proprio vetor, tem a certeza de nunca cair no mesmo problema do 0: ou existe no vetor um elemento maior, ou menor, do que o seu valor inicial, ou o proprio valor inicial ja e o maior, ou o menor, do vetor."
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 65_66_list_range_conversational_thread_2.txt. Adaptacoes: (a) a funcao Python Range(array) virou um programa que le n e depois n valores para um vetor, seguindo a convencao dos itens tese_05 e tese_06; (b) o laco for-each do original virou laco por indice, que e o que Portugol Studio oferece; (c) as referencias de linha passaram a 16 e 17; (d) o ultimo turno do estudante e o turno final do tutor foram cortados. Conferido por execucao: o programa traduzido falha nos mesmos casos que o original e a correcao aceita o faz passar em todos. O que resta de julgamento, a naturalidade do dialogo e o movimento nos turnos sem edicao, e do autor.",
+  "estado_solucao": "s1",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "65_66_list_range_conversational_thread_2.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 65
+  }
+}
