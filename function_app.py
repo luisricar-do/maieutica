@@ -17,6 +17,10 @@ from agents.rag.graph import get_compiled_rag_graph
 from services.ping import ping_response
 from services.telemetry import process_telemetry_request
 from services.tutor_help import process_help_request
+from services.tutor_help_single import (
+    process_help_single_request,
+    prompts_response,
+)
 from services.tutor_help_stream import format_sse, iter_help_sse
 
 logger = logging.getLogger(__name__)
@@ -69,6 +73,49 @@ async def help_endpoint(req: Request) -> JSONResponse:
             {"error": "Erro interno ao processar a solicitação."},
             status=500,
         )
+
+
+@app.route(
+    route="help/single",
+    methods=(func.HttpMethod.POST,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def help_single_endpoint(req: Request) -> JSONResponse:
+    """
+    Uma chamada ao modelo, sem grafo: condições B e C da bancada (Capítulo 4).
+
+    Mesmo corpo de ``/api/help``, mais ``promptVariant`` (``socratic`` | ``neutral``).
+    Sem ``/stream``: a bancada é síncrona. Falha devolve erro HTTP — não há recurso ao grafo.
+    """
+    try:
+        try:
+            payload = await req.json()
+        except Exception:
+            return _json_response(
+                {"error": "Corpo da requisição deve ser JSON válido."},
+                status=400,
+            )
+
+        body, status = await process_help_single_request(payload)
+        return _json_response(body, status=status)
+
+    except Exception:
+        logger.exception("Erro ao processar /api/help/single")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+@app.route(
+    route="help/single/prompts",
+    methods=(func.HttpMethod.GET,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def help_single_prompts_endpoint(req: Request) -> JSONResponse:
+    """Prompts congelados de B e C e os seus SHA-256 (reprodutibilidade e conferência)."""
+    _ = req
+    return _json_response(prompts_response(), status=200)
 
 
 def _sse_headers() -> dict[str, str]:

@@ -1,0 +1,184 @@
+{
+  "id": "tese_01_media",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "sintaxe",
+  "conceitos": [
+    "aritmetica",
+    "precedencia",
+    "tipo"
+  ],
+  "problem": "O programa deveria ler tres numeros reais e escrever a media aritmetica desses valores. Ele contem erros e nao produz o resultado correto. Localize e corrija os defeitos para que o programa compile e calcule a media corretamente.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        real a, b, c\n        inteiro media\n\n        escreva(\"Digite tres numeros reais: \")\n        leia(a\n        leia(b)\n        leia(c)\n\n        media = a + b + c / 3\n        escreva(\"Media = \", media)\n    }\n}\n",
+  "bug_desc": "Tres defeitos: a chamada leia(a esta sem o parentese de fechamento, impedindo a compilacao; media foi declarada como inteiro e trunca a parte fracionaria; em a + b + c / 3 falta agrupar a soma, porque a divisao tem precedencia sobre a soma.",
+  "bug_fixes": [
+    "leia(a)",
+    "real media",
+    "media = (a + b + c) / 3"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "2",
+        "4",
+        "6"
+      ],
+      "saida_contem": "Media = 4"
+    },
+    {
+      "entrada": [
+        "10",
+        "10",
+        "10"
+      ],
+      "saida_contem": "Media = 10"
+    },
+    {
+      "entrada": [
+        "1",
+        "2",
+        "2"
+      ],
+      "saida_contem": "Media = 1.6"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real a, b, c\n        inteiro media\n\n        escreva(\"Digite tres numeros reais: \")\n        leia(a\n        leia(b)\n        leia(c)\n\n        media = a + b + c / 3\n        escreva(\"Media = \", media)\n    }\n}\n",
+      "errors": [
+        "Linha 8, coluna 13: Código incompleto ou inválido",
+        "Linha 9, coluna 13: Expressão inválida: ("
+      ],
+      "compilerErrorLines": [
+        8,
+        9
+      ],
+      "casos_ok": 0,
+      "casos_total": 3,
+      "timeout": false,
+      "descricao": "codigo inicial: leia(a sem fechar, media inteiro, soma sem parenteses"
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real a, b, c\n        inteiro media\n\n        escreva(\"Digite tres numeros reais: \")\n        leia(a)\n        leia(b)\n        leia(c)\n\n        media = a + b + c / 3\n        escreva(\"Media = \", media)\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 0,
+      "casos_total": 3,
+      "timeout": false,
+      "descricao": "leia(a) fechado; media ainda inteiro e soma sem parenteses"
+    },
+    {
+      "id": "s2",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real a, b, c\n        inteiro media\n\n        escreva(\"Digite tres numeros reais: \")\n        leia(a)\n        leia(b)\n        leia(c)\n\n        media = (a + b + c) / 3\n        escreva(\"Media = \", media)\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 2,
+      "casos_total": 3,
+      "timeout": false,
+      "descricao": "leia(a) fechado e soma agrupada; media ainda inteiro (trunca a fracao)"
+    },
+    {
+      "id": "s3",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real a, b, c\n        real media\n\n        escreva(\"Digite tres numeros reais: \")\n        leia(a)\n        leia(b)\n        leia(c)\n\n        media = (a + b + c) / 3\n        escreva(\"Media = \", media)\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false,
+      "descricao": "solucao de referencia: as tres correcoes aplicadas"
+    }
+  ],
+  "fix_patterns": [
+    "\\(\\s*a\\s*\\+\\s*b\\s*\\+\\s*c\\s*\\)\\s*/\\s*3",
+    "\\breal\\s+media\\b",
+    "\\bleia\\s*\\(\\s*a\\s*\\)"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      6,
+      9,
+      13
+    ],
+    "variaveis": [
+      "media",
+      "a"
+    ],
+    "construtos": [
+      "leia",
+      "precedencia",
+      "declaracao de tipo"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "O programa nao roda. Aparece um erro mas eu nao entendi o que ele quer dizer.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O compilador aponta uma linha especifica. Compare a linha que ele aponta com as duas linhas logo abaixo dela: o que voce nota de diferente entre elas?",
+      "alternativas": [
+        "Onde o compilador diz que o problema esta? Leia essa linha em voz alta e veja se ela esta completa."
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nao sei, pra mim elas estao iguais.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Conte os simbolos de abertura e de fechamento em cada uma dessas chamadas. Eles se equilibram nas tres?",
+      "alternativas": [
+        "Em cada uma dessas linhas, o que abre precisa tambem ser fechado. Isso acontece nas tres?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Ah, faltava fechar. Agora compilou, mas com 2, 4 e 6 ele escreveu 8 em vez de 4.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce fez a conta no papel para esses tres valores? Refaca a expressao da media na ordem em que o Portugol a executa e compare com o 8 que apareceu.",
+      "alternativas": [
+        "Qual operacao dessa expressao o Portugol resolve primeiro: a soma ou a divisao?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Acho que ele divide primeiro o c por 3 e so depois soma. Entao 2 + 4 + 2 da 8.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Exato. O que voce pode usar para dizer ao Portugol que a soma inteira deve acontecer antes da divisao?",
+      "alternativas": [
+        "Como voce indicaria, na propria expressao, que os tres valores devem ser somados antes de dividir?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Agora deu 4. Mas com 1, 2 e 2 ele escreve 1 e devia dar 1.67.",
+      "estado_codigo": "s2",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Olhe para a declaracao da variavel que guarda o resultado: que tipo de numero ela consegue guardar?",
+      "alternativas": [
+        "Onde a variavel da media e declarada, e o que esse tipo permite representar?"
+      ]
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Cenario da dissertacao (Tarefa 1). Dialogo de referencia e anotacao de movimento redigidos pelo autor; pendentes de revisao do segundo docente.",
+  "estado_solucao": "s3"
+}

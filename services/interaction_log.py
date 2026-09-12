@@ -82,8 +82,17 @@ def build_record(
     model: str = "",
     latency_ms: int | None = None,
     error: str | None = None,
+    prompt_variant: str = "",
+    prompt_sha256: str = "",
+    context_sha256: str = "",
+    finish_reason: str = "",
 ) -> dict[str, Any]:
-    """Uma linha do registro: pedido (sem ``studentName``), resposta e metadados."""
+    """Uma linha do registro: pedido (sem ``studentName``), resposta e metadados.
+
+    ``prompt_variant``, ``prompt_sha256``, ``context_sha256`` e ``finish_reason`` só aparecem na
+    rota de chamada única (``/api/help/single``): identificam a condição da bancada, o prompt e o
+    molde exatos da corrida, e se o turno foi cortado no limite de tokens.
+    """
     record: dict[str, Any] = {
         "ts": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "sessionId": session_id or "sem-sessao",
@@ -95,6 +104,14 @@ def build_record(
         "movementSource": movement_source,
         "model": model,
     }
+    if prompt_variant:
+        record["promptVariant"] = prompt_variant
+    if prompt_sha256:
+        record["promptSha256"] = prompt_sha256
+    if context_sha256:
+        record["contextSha256"] = context_sha256
+    if finish_reason:
+        record["finishReason"] = finish_reason
     if latency_ms is not None:
         record["latencyMs"] = latency_ms
     if error:

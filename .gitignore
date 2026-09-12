@@ -10,3 +10,6 @@ dist/
 
 
 .DS_Store
+
+# Saídas das corridas da bancada (o manifesto e as tabelas vão à mão para a tese)
+avaliacao/execucoes/

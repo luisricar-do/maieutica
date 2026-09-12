@@ -12,6 +12,8 @@ pronta — só orientação por perguntas. Pacote Poetry: `portugol-tutor-api`.
 ## Estrutura e comandos
 
 - **Raiz da API:** `function_app.py`, `host.json`, `agents/`, `services/`, `tests/`
+- **Bancada de avaliação:** `avaliacao/` — harness HTTP, juiz LLM e análise do Cap. 4 da tese
+  (stdlib apenas; ver `avaliacao/README.md`). Saídas em `avaliacao/execucoes/`, não versionadas.
 - **Comandos:** `make test` (`pytest`), `make start` / `make dev`, `make watch` (ver `Makefile`)
 - **Dependências:** Poetry (`pyproject.toml`); deploy Azure usa `requirements.txt` exportado
 - **Config local:** `local.settings.json` (não versionado); ver `local.settings.example.json`

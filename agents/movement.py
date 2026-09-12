@@ -3,7 +3,14 @@ Movimento do estudante no turno anterior: entrada determinística da política d
 
 A regra segue a contingência de Wood, Bruner e Ross (1976) na forma operacionalizada pela
 dissertação: com edição de código, decide o compilador; sem edição, decide o texto; o pedido
-explícito de resposta prevalece sobre as demais categorias.
+explícito de resposta prevalece sobre as demais categorias. O primeiro turno do estudante, que
+abre o diálogo, não recebe movimento: é ``NENHUM``, e a posição 1 do tutor fica fora de H1.
+
+Sem edição, ``PROGRESSO`` exige hipótese ou observação nova — não basta a fala ser longa. "Não
+sei", a repetição e a resposta fora do foco são ``ESTAGNACAO``. A ``REGRESSAO`` textual da
+dissertação ("hipótese incorreta afirmada") depende de julgar a correção da hipótese e está fora
+do alcance deste classificador determinístico: ela é apanhada pela classificação da medida, e a
+divergência entre as duas é reportada na análise, como prevê a Subseção de variáveis.
 
 Este classificador alimenta a **política** (o estrategista escala ou sustenta a dica). A
 classificação usada na **análise** é a do protocolo de avaliação (casos de teste do item mais
@@ -66,8 +73,45 @@ _STALL_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     )
 )
 
+#: Marcas de hipótese ou de observação nova. Sem nenhuma delas — e sem âncora no código — a
+#: fala é "resposta fora do foco", que a regra da dissertação classifica como estagnação.
+_HYPOTHESIS_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(p)
+    for p in (
+        r"\b(acho|achei|acredito|imagino|suponho|percebi|notei|reparei|descobri|entendi)\b",
+        r"\b(talvez|provavelmente|capaz)\b",
+        r"\bdeve (ser|estar|dar)\b",
+        # Só o causal "porque", que introduz uma razão. O conectivo sozinho — "por que",
+        # "pois", "então", "logo", "ou seja" — não afirma nada: aparece igualmente em "então o
+        # que eu faço agora" e em "pois é, complicado isso", que são bloqueio textual. Contá-lo
+        # como hipótese reproduz o defeito que esta regra corrige: o tutor deixa de escalar sob
+        # bloqueio. As hipóteses reais ficam cobertas pelos demais padrões e pela âncora.
+        r"\bporque\b",
+        r"\b(testei|rodei|tentei|mudei|troquei|coloquei|apaguei|corrigi|executei|rodou)\b",
+        # Negado, o verbo de desfecho é queixa, não observação: "nao funciona" não diz o que
+        # aconteceu. Quando há ação junto ("testei e nao deu certo"), o padrão de ação decide.
+        r"(?<!\bnao )\b(deu|da|escreveu|imprimiu|apareceu|compilou|funciona|funcionou|parou)\b",
+        r"\b(devia|deveria|esperava|esperado)\b",
+        r"\b(faltava|falta|faltou|sobra|sobrando|sem o|sem a)\b",
+        r"\bvi que\b",
+        r"\bo (problema|erro|defeito) (e|esta|era)\b",
+    )
+)
+
+#: Palavras que são construto do Portugol e, ao mesmo tempo, palavra corrente do português:
+#: não servem de âncora, sob pena de qualquer frase parecer ancorada no código.
+_NEUTRAS = frozenset(
+    {"para", "entao", "senao", "faca", "pare", "tipo", "nao", "com", "por", "que"}
+)
+
+#: Símbolo do código que sirva de âncora: identificador de três letras ou mais, ou número.
+_SIMBOLO = re.compile(r"[a-z_]\w{2,}|\d+")
+
 #: Abaixo disto a mensagem não carrega conteúdo novo suficiente para contar como progresso.
 _MIN_SUBSTANTIVE_CHARS = 12
+
+#: Sobreposição de palavras a partir da qual a fala é repetição do que o estudante já disse.
+_LIMIAR_REPETICAO = 0.8
 
 
 def _normalize(text: str) -> str:
@@ -90,21 +134,61 @@ def is_explicit_request(text: str) -> bool:
     return any(pattern.search(normalized) for pattern in _EXPLICIT_REQUEST_PATTERNS)
 
 
-def _classify_by_text(user_turns: list[str]) -> StudentMovement:
+def _palavras(normalized: str) -> set[str]:
+    return set(re.findall(r"[a-z_0-9]+", normalized))
+
+
+def _repete(normalized: str, anteriores: list[str]) -> bool:
+    """Repetição da própria fala, literal ou quase: a mesma coisa dita com outras palavras."""
+    atual = _palavras(normalized)
+    for previous in anteriores:
+        anterior_norm = _normalize(previous)
+        if anterior_norm == normalized:
+            return True
+        antes = _palavras(anterior_norm)
+        if not atual or not antes:
+            continue
+        uniao = atual | antes
+        if len(atual & antes) / len(uniao) >= _LIMIAR_REPETICAO:
+            return True
+    return False
+
+
+def _ancorado_no_codigo(normalized: str, code: str) -> bool:
+    """A fala cita símbolo do programa (variável, número) ou uma linha: está no foco da tarefa."""
+    if re.search(r"\blinha \d+\b", normalized):
+        return True
+    do_codigo = {s for s in _SIMBOLO.findall(_normalize(code))} - _NEUTRAS
+    da_fala = {s for s in _SIMBOLO.findall(normalized)} - _NEUTRAS
+    return bool(do_codigo & da_fala)
+
+
+def _classify_by_text(user_turns: list[str], code: str) -> StudentMovement:
+    """
+    Sem edição de código, decide o texto do último turno.
+
+    ``PROGRESSO`` é hipótese ou observação nova sobre a tarefa; "não sei", a repetição e a
+    resposta fora do foco são ``ESTAGNACAO``. O comprimento da fala, sozinho, não é progresso.
+    """
     last = user_turns[-1]
     normalized = _normalize(last)
     if not normalized:
         return "ESTAGNACAO"
     if any(pattern.search(normalized) for pattern in _STALL_PATTERNS):
         return "ESTAGNACAO"
-    if any(_normalize(previous) == normalized for previous in user_turns[:-1]):
-        # Repete a própria fala: não há conteúdo novo.
+    if _repete(normalized, user_turns[:-1]):
         return "ESTAGNACAO"
     if len(normalized) < _MIN_SUBSTANTIVE_CHARS:
         return "ESTAGNACAO"
-    # Hipótese (correta ou parcial) ou resposta com conteúdo novo. A regressão textual
-    # ("hipótese incorreta afirmada") não é decidível sem julgamento e fica para o juiz.
-    return "PROGRESSO"
+    if any(pattern.search(normalized) for pattern in _HYPOTHESIS_PATTERNS):
+        # Hipótese ou observação nova. Se ela está *errada*, a dissertação chama de regressão,
+        # mas julgar a correção da hipótese não cabe a um classificador determinístico: isso
+        # fica com a classificação da medida, e a divergência é reportada.
+        return "PROGRESSO"
+    if _ancorado_no_codigo(normalized, code):
+        return "PROGRESSO"
+    # Fala longa, sem hipótese e fora do foco da tarefa: estagnação, como manda a regra.
+    return "ESTAGNACAO"
 
 
 def _classify_by_code(previous_errors: list[str], errors: list[str]) -> StudentMovement | None:
@@ -138,19 +222,24 @@ def classify_movement(
     Classifica o último turno do estudante.
 
     Precedência: pedido explícito > regra do código (quando houve edição e o compilador
-    decide) > sinal do texto. Sem turno do estudante, ``NENHUM`` (abertura do diálogo, fora
-    de H1).
+    decide) > sinal do texto. No turno de abertura não há movimento a classificar — não existe
+    turno anterior do estudante contra o qual comparar —, e o resultado é ``NENHUM``.
     """
     user_turns = _user_turns(history)
     if not user_turns:
         return {"movement": "NENHUM", "source": "nenhum"}
 
     if is_explicit_request(user_turns[-1]):
+        # O pedido explícito prevalece sobre as demais categorias, inclusive na abertura:
+        # é o sinal de que a política precisa para não passar do nível conceitual.
         return {"movement": "PEDIDO_EXPLICITO", "source": "texto"}
+
+    if len(user_turns) == 1 and previous_code is None:
+        return {"movement": "NENHUM", "source": "nenhum"}
 
     if previous_code is not None and previous_code != code:
         by_code = _classify_by_code(previous_errors or [], errors or [])
         if by_code is not None:
             return {"movement": by_code, "source": "codigo"}
 
-    return {"movement": _classify_by_text(user_turns), "source": "texto"}
+    return {"movement": _classify_by_text(user_turns, code), "source": "texto"}

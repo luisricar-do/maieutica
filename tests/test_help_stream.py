@@ -295,7 +295,12 @@ async def test_iter_help_sse_registra_o_turno_completo(
                 {
                     "code": "x",
                     "errors": [],
-                    "history": [{"role": "user", "content": "não sei"}],
+                    "history": [
+                        # Com turno anterior do tutor: o movimento do turno de abertura é NENHUM.
+                        {"role": "user", "content": "meu programa trava e não para"},
+                        {"role": "assistant", "content": "O que muda a cada volta do laço?"},
+                        {"role": "user", "content": "não sei"},
+                    ],
                     "sessionId": "sessao-42",
                     "studentName": "Fulana",
                 }

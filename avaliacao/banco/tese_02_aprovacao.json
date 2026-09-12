@@ -1,0 +1,116 @@
+{
+  "id": "tese_02_aprovacao",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "limite",
+  "conceitos": [
+    "condicional",
+    "operador relacional",
+    "caso limite"
+  ],
+  "problem": "O programa deveria ler a nota final de um estudante (real, de 0 a 10) e informar se ele esta aprovado ou reprovado, considerando aprovado quem obtiver nota maior ou igual a 6,0. O programa compila, mas classifica erradamente alguns casos. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota > 6.0)\n        {\n            escreva(\"Aprovado\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\")\n        }\n    }\n}\n",
+  "bug_desc": "Erro relacional no limite: a condicao nota > 6.0 exclui a nota exatamente igual a 6,0, que deveria ser aprovada.",
+  "bug_fixes": [
+    "se (nota >= 6.0)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "7.5"
+      ],
+      "saida_contem": "Aprovado"
+    },
+    {
+      "entrada": [
+        "6.0"
+      ],
+      "saida_contem": "Aprovado"
+    },
+    {
+      "entrada": [
+        "4.0"
+      ],
+      "saida_contem": "Reprovado"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota > 6.0)\n        {\n            escreva(\"Aprovado\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\")\n        }\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 2,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota >= 6.0)\n        {\n            escreva(\"Aprovado\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\")\n        }\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "nota\\s*>=\\s*6"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      10
+    ],
+    "variaveis": [
+      "nota"
+    ],
+    "construtos": [
+      "se",
+      "operador relacional"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "O professor disse que tem um caso que sai errado, mas eu testei com 7 e com 4 e os dois deram certo.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce testou valores bem acima e bem abaixo do limite. Que valor ainda nao foi testado e fica exatamente na fronteira da regra?",
+      "alternativas": [
+        "A regra fala em um valor de corte. Ja testou justamente esse valor?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Testei com 6 e escreveu Reprovado. Mas eu acho que esta certo, porque 6 nao e maior que 6.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O programa esta a fazer o que voce escreveu, sim. Releia o enunciado: quem tem exatamente 6,0 deve ser aprovado ou reprovado?",
+      "alternativas": [
+        "Compare o que o enunciado exige para a nota 6,0 com o que o seu programa decidiu para ela."
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Verdade, o enunciado diz maior ou igual. Entao a condicao esta excluindo o 6.",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Isso. Que comparacao expressa em Portugol a ideia de maior ou igual?",
+      "alternativas": [
+        "Como voce escreveria, na condicao, a fronteira incluindo o proprio valor de corte?"
+      ]
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Cenario da dissertacao (Tarefa 2). Dialogo de referencia e anotacao de movimento redigidos pelo autor; pendentes de revisao do segundo docente.",
+  "estado_solucao": "s1"
+}

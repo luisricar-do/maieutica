@@ -79,6 +79,11 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   ├── test_telemetry.py
 │   ├── test_telemetry_store.py
 │   └── conftest.py
+├── avaliacao/          # Bancada de avaliação (Cap. 4): harness, juiz LLM e análise
+│   ├── banco/          # Banco de itens de depuração (um JSON por diálogo)
+│   ├── prompts/        # Prompt do juiz e instrução da condição C
+│   ├── cli.py          # `python -m avaliacao <comando>`
+│   └── README.md       # Fluxo completo da bancada
 ├── scripts/
 │   └── fetch_telemetry.py   # Baixa e consolida a telemetria (NDJSON + CSV)
 ├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/telemetry
@@ -165,6 +170,8 @@ Isto corre `func start --verbose` e **reinicia** o processo quando deteta altera
 - **GET** `http://localhost:7071/api/ping` — health check, resposta JSON: `{"pong": true}`.
 - **POST** `http://localhost:7071/api/help` — tutor socrático, resposta JSON (`message`, `diagnosis`, `actions`, `tutorMeta`). Preflight CORS é tratado pelo host quando `Host.CORS` está definido em `local.settings.json`.
 - **POST** `http://localhost:7071/api/help/stream` — mesmo corpo JSON que `/api/help`, resposta **`text/event-stream`** (SSE). Eventos típicos: `diagnosis` (JSON do analista), `action` (ações pedagógicas na IDE), `token` (fragmentos de texto do tutor), `done` (fim do stream, com `tutorMeta` opcional) ou `error` (falha de validação ou interna). O frontend em [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) consome este endpoint para exibir a resposta em tempo real.
+- **POST** `http://localhost:7071/api/help/single` — chamada única ao modelo, sem grafo, para as condições B e C da bancada. Mesmo corpo de `/api/help` mais `promptVariant` (`socratic` | `neutral`); ver [Chamada única para a bancada](#chamada-única-para-a-bancada-post-apihelpsingle).
+- **GET** `http://localhost:7071/api/help/single/prompts` — texto e SHA-256 dos dois prompts congelados e do molde de contexto.
 
 ## Testes
 
@@ -254,7 +261,7 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
 ```
 
 - **`actions`**: lista de ações de editor (mesmo formato que no SSE `event: action`), por exemplo destaques ou `mark_bug_resolved` quando o problema foi dado como resolvido.
-- **`tutorMeta`**: metadados para a UI e para a avaliação. Quando o estrategista emite `mark_bug_resolved`, vem `suggestedConversationEnd: true` e `endReason: "bug_resolved"` — a IDE pode encerrar a conversa atual e abrir uma nova. `intent` é o rótulo do roteador (`DEBUG`, `THEORY`, `CASUAL`, `OUT_OF_SCOPE`), `studentMovement` é o movimento classificado no turno anterior do estudante e `model` é o modelo que gerou o turno.
+- **`tutorMeta`**: metadados para a UI e para a avaliação. Quando o estrategista emite `mark_bug_resolved`, vem `suggestedConversationEnd: true` e `endReason: "bug_resolved"` — a IDE pode encerrar a conversa atual e abrir uma nova. `intent` é o rótulo do roteador (`DEBUG`, `THEORY`, `CASUAL`, `OUT_OF_SCOPE`), `studentMovement` é o movimento classificado no turno anterior do estudante (`PROGRESSO`, `ESTAGNACAO`, `REGRESSAO`, `PEDIDO_EXPLICITO` ou `NENHUM`; o turno de abertura, que não tem turno anterior, é sempre `NENHUM`) e `model` é o modelo que gerou o turno.
 
 **Evento SSE `done`** (`/api/help/stream`) — exemplo:
 
@@ -272,8 +279,8 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
 
 ### Registro estruturado por turno
 
-Com `INTERACTION_LOG_DIR` e/ou `INTERACTION_LOG_TO_BLOB` ativos, cada chamada a `/api/help` e a
-`/api/help/stream` grava uma linha NDJSON com o corpo recebido (sem `studentName`), a mensagem
+Com `INTERACTION_LOG_DIR` e/ou `INTERACTION_LOG_TO_BLOB` ativos, cada chamada a `/api/help`, a
+`/api/help/stream` e a `/api/help/single` grava uma linha NDJSON com o corpo recebido (sem `studentName`), a mensagem
 devolvida — no SSE, remontada a partir dos `token` —, o diagnóstico, as ações, o `tutorMeta`, o
 movimento classificado, o modelo, a latência e a marca temporal. É desse registro que se derivam
 as trajetórias da avaliação. Falha de gravação é registrada no log da aplicação e **não**
@@ -283,6 +290,102 @@ interrompe a resposta ao estudante.
 
 - `400` — `code` vazio ou JSON inválido.
 - `500` — falha interna (detalhes no log da Function).
+
+## Chamada única para a bancada (`POST /api/help/single`)
+
+Uma única chamada ao modelo, **sem grafo**, para as condições **B** (ablação da arquitetura) e
+**C** (referência neutra) da avaliação do Capítulo 4. A condição **A** é o grafo completo, em
+`/api/help`. As três saem do mesmo serviço, com o mesmo contrato, o mesmo registro e o mesmo
+proxy, para que a comparação não seja confundida por diferença de infraestrutura.
+
+Não corre aqui: roteador, analista, estrategista, comunicador, ferramentas de IDE, RAG e
+`suggest_documentation`. Não há memória entre chamadas — todo o contexto vem do corpo do pedido.
+Não há pós-processamento nem filtro na saída (o que o modelo responde é o dado da ablação) e
+não há recurso ao grafo em caso de falha: erro devolve `500` e o harness reexecuta. Não existe
+`/stream` nesta rota — a bancada é síncrona.
+
+**Request** — mesmo corpo de `/api/help`, mais `promptVariant` (obrigatório):
+
+```json
+{
+  "code": "algoritmo teste\ninicio\n  escreva(x)\nfimalgoritmo",
+  "errors": ["Variável não declarada: x"],
+  "compilerErrorLines": [3],
+  "history": [{ "role": "user", "content": "não entendi o erro" }],
+  "hintLevel": 1,
+  "sessionId": "bancada-001-b-1",
+  "promptVariant": "socratic"
+}
+```
+
+- **`promptVariant`**: `"socratic"` (condição B) ou `"neutral"` (condição C). Ausente ou
+  inválido → `400`.
+- O modelo, a temperatura e os demais parâmetros são os do **comunicador** em produção — a fala
+  que a condição A entrega ao estudante sai desse mesmo cliente.
+- As mensagens são `[system(prompt da variante), user(molde de contexto), *histórico]`. O molde
+  de contexto (código numerado, erros do compilador, linhas de erro) usa os rótulos e a ordem do
+  grafo; o histórico vai como mensagens de papel `user`/`assistant`, a forma nativa da API de
+  chat e a mesma que a condição A usa, de modo que a última mensagem é sempre o turno mais
+  recente do estudante. Sem histórico fica só o contexto — não se injeta turno sintético.
+- O array é **idêntico** nas duas variantes: entre B e C só muda o prompt de sistema. Nenhuma
+  das duas recebe descrição do defeito.
+- `hintLevel`, `studentName`, `previousCode` e `previousErrors` são aceitos por compatibilidade
+  de contrato, mas **não** entram no prompt. São entradas da política programática — `hintLevel`
+  é a saída da decisão do estrategista e os estados anteriores alimentam o classificador de
+  movimento; dá-los a B devolveria à ablação a peça que se quer retirar.
+
+**Response** — `200 OK`
+
+```json
+{
+  "message": "Texto do modelo, sem filtro.",
+  "actions": [],
+  "tutorMeta": {
+    "model": "gpt-4o-mini",
+    "promptVariant": "socratic",
+    "promptSha256": "eef99ad5…",
+    "contextSha256": "e3fd0a7a…",
+    "usage": { "promptTokens": 120, "completionTokens": 18, "totalTokens": 138 },
+    "finishReason": "stop",
+    "latencyMs": 842
+  }
+}
+```
+
+`actions` é sempre vazio e não há `diagnosis`: nenhum componente do grafo corre nesta rota.
+
+`finishReason` vem do modelo. `"length"` marca turno cortado no limite de tokens: em A o
+comunicador só traduz um plano interno, enquanto em B a mesma chamada tem de analisar, decidir e
+falar — um turno cortado seria classificado com diretividade errada e o viés cairia todo de um
+lado da comparação. A bancada reporta a taxa por condição; o limite não é corrigido aqui.
+
+### `GET /api/help/single/prompts`
+
+Devolve o texto e o SHA-256 dos dois prompts congelados e do molde de contexto — material de
+reprodutibilidade da dissertação e conferência do harness antes de uma corrida (se algum hash
+mudou, a corrida não é comparável com a anterior):
+
+```json
+{
+  "prompts": {
+    "socratic": { "text": "You are ADA, a Socratic programming logic tutor…", "sha256": "eef99ad5…" },
+    "neutral": { "text": "Você é um assistente de programação…", "sha256": "53aff9c6…" }
+  },
+  "context": { "text": "Portugol code with 1-based line numbers:…", "sha256": "e3fd0a7a…" }
+}
+```
+
+O molde de contexto tem hash próprio porque não é detalhe de implementação: a numeração das
+linhas determina o que o modelo consegue citar, logo determina o resultado. `contextSha256`
+cobre o molde dessa mensagem, não o array inteiro — o histórico vem do banco de itens.
+
+Os hashes são calculados no arranque do serviço e também registrados no log da aplicação. Os
+prompts e o molde são constantes versionadas em `services/tutor_help_single.py`: não são
+montados por interpolação nem alterados por variável de ambiente.
+
+O registro NDJSON desta rota é o de `/api/help` (mesmo formato, mesmo destino, `studentName`
+nunca gravado), acrescido de `promptVariant`, `promptSha256`, `contextSha256` e `finishReason`.
+`EVALUATION_MODE` continua a valer.
 
 ## Telemetria da avaliação (`POST /api/telemetry`)
 
@@ -356,3 +459,26 @@ telemetria, relevante para a análise de sensibilidade prevista no protocolo.
 ## Licença e contexto académico
 
 Projeto de investigação em **Ciência da Computação na Educação**, alinhado a práticas de **Design Science Research** e integração com ecossistema Portugol. Ajuste autores e metadados em `pyproject.toml` conforme a sua dissertação.
+
+## Bancada de avaliação (`avaliacao/`)
+
+O harness da avaliação do Capítulo 4 vive em [`avaliacao/`](avaliacao/README.md). Executa o tutor
+sobre um banco de itens de depuração, classifica cada turno com um juiz automático (LLM as a
+judge, modelo de família distinta da do tutor) e gera as tabelas do Capítulo 5. Só chamadas HTTP,
+sem dependências além da biblioteca padrão.
+
+```bash
+# serviço em modo de avaliação: EVALUATION_MODE=1 e INTERACTION_LOG_DIR no local.settings.json
+make start
+
+python -m avaliacao validar
+python -m avaliacao rodar --simular     # quantas chamadas a corrida dá
+python -m avaliacao rodar               # condições A (artefato) e C (referência)
+python -m avaliacao julgar              # juiz de ensaio (gpt-4o, barato)
+python -m avaliacao julgar --juiz-protocolo   # juiz do protocolo (Gemini), para a corrida da tese
+python -m avaliacao analisar            # H1, H2, descritivas, tabelas .tex
+```
+
+Cada corrida fica em `avaliacao/execucoes/<id>/` (fora do versionamento) com o manifesto de
+reprodutibilidade, os turnos, os juízos e a análise. Detalhes, formato do banco de itens e
+ressalvas metodológicas: [`avaliacao/README.md`](avaliacao/README.md).

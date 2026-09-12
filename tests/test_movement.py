@@ -118,3 +118,123 @@ def test_erro_logico_sem_erro_de_compilacao_cai_no_texto() -> None:
         previous_errors=[],
     )
     assert result == {"movement": "ESTAGNACAO", "source": "texto"}
+
+
+def test_turno_de_abertura_nao_recebe_movimento() -> None:
+    """O primeiro turno do estudante não tem turno anterior contra o qual comparar."""
+    result = classify_movement(
+        code="programa {}",
+        history=_history(("user", "O programa nao roda e eu nao entendi o erro que aparece.")),
+        errors=["Linha 8: código incompleto"],
+    )
+    assert result == {"movement": "NENHUM", "source": "nenhum"}
+
+
+def test_pedido_explicito_na_abertura_prevalece_sobre_nenhum() -> None:
+    result = classify_movement(
+        code="programa {}",
+        history=_history(("user", "Nem tentei ainda, me manda o código certo.")),
+    )
+    assert result["movement"] == "PEDIDO_EXPLICITO"
+
+
+def test_fala_longa_fora_do_foco_e_estagnacao() -> None:
+    """Comprimento não é progresso: sem hipótese e sem âncora no código, é estagnação."""
+    result = classify_movement(
+        code="programa { inteiro media }",
+        history=_history(
+            ("user", "meu programa nao roda"),
+            ("assistant", "o que o compilador aponta?"),
+            ("user", "professor, isso aqui e muito dificil, ninguem consegue fazer essa materia"),
+        ),
+        errors=["Linha 8: código incompleto"],
+        previous_code="programa { inteiro media }",
+    )
+    assert result == {"movement": "ESTAGNACAO", "source": "texto"}
+
+
+def test_repeticao_aproximada_e_estagnacao() -> None:
+    """Dizer o mesmo com outras palavras é repetição, não conteúdo novo."""
+    result = classify_movement(
+        code="igual",
+        history=_history(
+            ("user", "o programa nao imprime a media certa dos tres numeros"),
+            ("assistant", "o que você espera para a entrada 3?"),
+            ("user", "o programa nao imprime a media certa dos tres valores"),
+        ),
+        errors=[],
+        previous_code="igual",
+    )
+    assert result == {"movement": "ESTAGNACAO", "source": "texto"}
+
+
+def test_mencao_ao_simbolo_do_codigo_e_progresso() -> None:
+    """Sem marca de hipótese, mas ancorada no programa: está no foco da tarefa."""
+    result = classify_movement(
+        code="programa { inteiro media\n media = a + b + c / 3 }",
+        history=_history(
+            ("user", "nao roda"),
+            ("assistant", "o que o compilador aponta?"),
+            ("user", "a variavel media guarda so a parte sem virgula do resultado"),
+        ),
+        errors=[],
+        previous_code="programa { inteiro media\n media = a + b + c / 3 }",
+    )
+    assert result == {"movement": "PROGRESSO", "source": "texto"}
+
+
+def _bloqueio(fala: str) -> dict:
+    """Fala de bloqueio no 3.º turno, sem edição de código, sobre um programa com `se/entao`."""
+    codigo = (
+        'algoritmo "aprovacao"\n'
+        "var nota: real\n"
+        "inicio\n"
+        "  leia(nota)\n"
+        "  se (nota > 6.0) entao\n"
+        '    escreva("Aprovado")\n'
+        "  senao\n"
+        '    escreva("Reprovado")\n'
+        "  fimse\n"
+        "fimalgoritmo"
+    )
+    return classify_movement(
+        code=codigo,
+        history=_history(
+            ("user", "meu programa classifica errado"),
+            ("assistant", "o que observaste?"),
+            ("user", fala),
+        ),
+        errors=[],
+    )
+
+
+def test_conectivo_sozinho_nao_e_hipotese() -> None:
+    """O defeito que derruba H1: fala de bloqueio contada como progresso, e o tutor não escala.
+
+    "então", "pois", "ou seja", "por que" e "logo" são conectivos de discurso — aparecem tanto
+    em raciocínio como em queixa. Só o causal "porque", que introduz uma razão, marca hipótese.
+    """
+    for fala in (
+        "entao o que eu faco agora",
+        "pois e, complicado isso",
+        "ou seja, me perdi de vez",
+        "e logo depois disso o que acontece",
+        "por que isso nao funciona?",
+    ):
+        assert _bloqueio(fala)["movement"] == "ESTAGNACAO", fala
+
+    assert _bloqueio("porque a comparacao usa maior e nao maior ou igual")["movement"] == "PROGRESSO"
+
+
+def test_palavra_chave_do_portugol_nao_serve_de_ancora() -> None:
+    """`entao` está em todo programa com `se`: ancorar nela faria qualquer fala parecer no foco."""
+    assert _bloqueio("entao eu nao sei mais o que fazer aqui")["movement"] == "ESTAGNACAO"
+    # Símbolo do domínio do problema continua a ancorar.
+    assert _bloqueio("a nota 6 esta caindo no lado errado")["movement"] == "PROGRESSO"
+
+
+def test_verbo_de_desfecho_negado_e_queixa_nao_observacao() -> None:
+    assert _bloqueio("isso nao funciona de jeito nenhum")["movement"] == "ESTAGNACAO"
+    assert _bloqueio("agora funciona certo")["movement"] == "PROGRESSO"
+    # Com ação declarada, o relato vale mesmo que o desfecho seja negativo.
+    assert _bloqueio("testei e nao deu certo")["movement"] == "PROGRESSO"
