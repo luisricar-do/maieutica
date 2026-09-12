@@ -27,7 +27,6 @@ MAX_STRING_VALUE_LENGTH = 4096
 #: ``installId`` e ``sessionId`` entram no caminho do blob: só caracteres seguros.
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
-_CONDITIONS = frozenset({"control", "experimental"})
 
 
 class TelemetryBatch(TypedDict):
@@ -56,12 +55,16 @@ def _parse_optional_label(raw: object, *, max_length: int = 64) -> str | None:
     return value or None
 
 
-def _parse_condition(raw: object) -> str | None:
+def _parse_stage_label(raw: object) -> str | None:
+    """
+    Rótulo livre da etapa de coleta (ex.: ``piloto``, ``sala``).
+
+    O desenho de avaliação não tem grupos: em uso real corre apenas o artefato, e as
+    condições A e C existem só em bancada, fora da IDE. O campo permanece no protocolo
+    para separar coletas (piloto, turma, reexecução), não para marcar braço experimental.
+    """
     value = _parse_optional_label(raw)
-    if value is None:
-        return None
-    normalized = value.lower()
-    return normalized if normalized in _CONDITIONS else None
+    return value.lower() if value else None
 
 
 def _truncate_value(value: Any) -> Any:
@@ -168,7 +171,7 @@ def parse_telemetry_payload(
         "install_id": install_id,
         "session_id": session_id,
         "participant_id": _parse_optional_label(payload.get("participantId")),
-        "condition": _parse_condition(payload.get("condition")),
+        "condition": _parse_stage_label(payload.get("condition")),
         "build_sha": _parse_optional_label(payload.get("buildSha")),
         "prompt_hash": _parse_optional_label(payload.get("promptHash")),
         "events": events,

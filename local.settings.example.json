@@ -9,7 +9,10 @@
     "LITELLM_MODEL": "gpt-4o-mini",
     "LITELLM_EMBEDDING_MODEL": "azure/text-embedding-3-small",
     "TELEMETRY_BLOB_CONNECTION_STRING": "",
-    "TELEMETRY_BLOB_CONTAINER": "telemetria"
+    "TELEMETRY_BLOB_CONTAINER": "telemetria",
+    "EVALUATION_MODE": "0",
+    "INTERACTION_LOG_DIR": "",
+    "INTERACTION_LOG_TO_BLOB": ""
   },
   "Host": {
     "CORS": "*",

@@ -132,7 +132,10 @@ Defina as variáveis em **`local.settings.json`** → `Values` (copie a partir d
 |----------|-----------|
 | `LITELLM_BASE_URL` | **Obrigatória.** URL do proxy (ex.: `http://localhost:4000`). Se não terminar em `/v1`, o código acrescenta automaticamente. |
 | `LITELLM_API_KEY` | Chave Bearer esperada pelo proxy (master key / virtual key). Se vazio, tenta `OPENAI_API_KEY`; senão usa o placeholder `litellm` (só para dev sem auth). |
-| `LITELLM_MODEL` | Nome do modelo no LiteLLM (ex.: `claude-sonnet-4-20250514` ou `anthropic/claude-3-5-sonnet-latest`, conforme o teu `config.yaml`). Padrão: `claude-sonnet-4-20250514`. |
+| `LITELLM_MODEL` | Nome do modelo no LiteLLM, conforme o teu `config.yaml`. Padrão: `gpt-4o-mini` — o modelo de produção fixado para a avaliação da dissertação. O modelo efetivamente usado volta em `tutorMeta.model` e no registro de interações. |
+| `EVALUATION_MODE` | `1`/`true` congela o artefato na configuração avaliada: **sem RAG em qualquer intenção** e sem a ferramenta `suggest_documentation`. Use em bancada e nas sessões em sala. |
+| `INTERACTION_LOG_DIR` | Diretório para o registro estruturado por turno (NDJSON, um ficheiro por dia). Vazio desliga a escrita local. |
+| `INTERACTION_LOG_TO_BLOB` | `1`/`0` força ou desliga o envio do registro por turno para o Blob Storage. Omitido: segue `TELEMETRY_BLOB_CONNECTION_STRING`. |
 
 As chaves dos provedores (Anthropic, OpenAI, etc.) ficam **no LiteLLM**, não nesta API.
 
@@ -211,9 +214,20 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
   "history": [
     { "role": "user", "content": "Meu programa não termina." },
     { "role": "assistant", "content": "Vamos pensar juntos no fluxo do laço." }
-  ]
+  ],
+  "sessionId": "sessao-42",
+  "previousCode": "inteiro i\nenquanto (i < 10) {\n}",
+  "previousErrors": []
 }
 ```
+
+- **`sessionId`** (opcional): identificador de sessão gerado pela IDE, usado como chave do
+  registro estruturado. Só `[A-Za-z0-9_-]`, até 64 caracteres. O `studentName` **nunca** entra
+  no registro.
+- **`previousCode`** / **`previousErrors`** (opcionais): estado do código e erros do compilador
+  no turno anterior. Com eles o serviço classifica o **movimento do estudante** (progresso,
+  estagnação, regressão, pedido explícito) pela regra objetiva do compilador; sem eles, decide
+  pelo texto do último turno.
 
 **Response** — `200 OK` (`/api/help`)
 
@@ -231,13 +245,16 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
   "actions": [],
   "tutorMeta": {
     "suggestedConversationEnd": false,
-    "endReason": "none"
+    "endReason": "none",
+    "intent": "DEBUG",
+    "studentMovement": "ESTAGNACAO",
+    "model": "gpt-4o-mini"
   }
 }
 ```
 
 - **`actions`**: lista de ações de editor (mesmo formato que no SSE `event: action`), por exemplo destaques ou `mark_bug_resolved` quando o problema foi dado como resolvido.
-- **`tutorMeta`**: metadados para a UI. Quando o estrategista emite `mark_bug_resolved`, vem `suggestedConversationEnd: true` e `endReason: "bug_resolved"` — a IDE pode encerrar a conversa atual e abrir uma nova.
+- **`tutorMeta`**: metadados para a UI e para a avaliação. Quando o estrategista emite `mark_bug_resolved`, vem `suggestedConversationEnd: true` e `endReason: "bug_resolved"` — a IDE pode encerrar a conversa atual e abrir uma nova. `intent` é o rótulo do roteador (`DEBUG`, `THEORY`, `CASUAL`, `OUT_OF_SCOPE`), `studentMovement` é o movimento classificado no turno anterior do estudante e `model` é o modelo que gerou o turno.
 
 **Evento SSE `done`** (`/api/help/stream`) — exemplo:
 
@@ -245,10 +262,22 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
 {
   "tutorMeta": {
     "suggestedConversationEnd": false,
-    "endReason": "none"
+    "endReason": "none",
+    "intent": "DEBUG",
+    "studentMovement": "PROGRESSO",
+    "model": "gpt-4o-mini"
   }
 }
 ```
+
+### Registro estruturado por turno
+
+Com `INTERACTION_LOG_DIR` e/ou `INTERACTION_LOG_TO_BLOB` ativos, cada chamada a `/api/help` e a
+`/api/help/stream` grava uma linha NDJSON com o corpo recebido (sem `studentName`), a mensagem
+devolvida — no SSE, remontada a partir dos `token` —, o diagnóstico, as ações, o `tutorMeta`, o
+movimento classificado, o modelo, a latência e a marca temporal. É desse registro que se derivam
+as trajetórias da avaliação. Falha de gravação é registrada no log da aplicação e **não**
+interrompe a resposta ao estudante.
 
 **Erros comuns**
 
@@ -257,8 +286,10 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
 
 ## Telemetria da avaliação (`POST /api/telemetry`)
 
-Endpoint de coleta para o estudo quase-experimental: a IDE envia lotes de eventos
-e cada lote é gravado como um blob NDJSON imutável no Azure Blob Storage.
+Endpoint de coleta de eventos de uso da IDE (não confundir com o registro por turno acima):
+a IDE envia lotes de eventos e cada lote é gravado como um blob NDJSON imutável no Azure Blob
+Storage. O campo `condition` é um rótulo livre da etapa de coleta (ex.: `piloto`, `turma-2026-1`);
+o desenho de avaliação não tem grupos.
 
 **Configuração** (`local.settings.json` local; App Settings na Azure):
 
@@ -274,7 +305,7 @@ e cada lote é gravado como um blob NDJSON imutável no Azure Blob Storage.
   "installId": "inst-9f2c...",
   "sessionId": "sess-4a11...",
   "participantId": "P07",
-  "condition": "experimental",
+  "condition": "turma-2026-1",
   "buildSha": "abc1234",
   "promptHash": "sha256:...",
   "events": [
@@ -285,7 +316,7 @@ e cada lote é gravado como um blob NDJSON imutável no Azure Blob Storage.
 ```
 
 - `installId` / `sessionId`: obrigatórios, até 64 caracteres em `[A-Za-z0-9_-]` (entram no caminho do blob).
-- `condition`: `control` ou `experimental`; outros valores são gravados como `null`.
+- `condition`: rótulo livre da etapa de coleta (ex.: `piloto`, `turma-2026-1`), normalizado para minúsculas e até 64 caracteres. Não é braço experimental — o desenho de avaliação não tem grupos.
 - Cada evento exige `type` (string) e `seq` (inteiro ≥ 0); eventos inválidos são descartados e o resto do lote é aceito.
 - Máximo de 500 eventos por lote e 1 MiB por lote serializado.
 - A identidade (`installId`, `sessionId`, `participantId`, `condition`) é sempre reescrita a partir do envelope, nunca do evento.

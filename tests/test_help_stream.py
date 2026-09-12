@@ -256,3 +256,65 @@ async def test_iter_help_sse_out_of_scope_skips_analysis_and_rag() -> None:
     decoded = [c.decode("utf-8") for c in chunks]
     assert any("event: diagnosis" in d for d in decoded)
     assert any("Posso ajudar com Portugol." in d for d in decoded)
+
+
+@pytest.mark.asyncio
+async def test_iter_help_sse_registra_o_turno_completo(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("INTERACTION_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("INTERACTION_LOG_TO_BLOB", "0")
+
+    async def fake_communicator_stream(*_a, **_k):
+        yield "O que muda "
+        yield "em i?"
+
+    async def fake_analyst_node(*_a, **_k):
+        return {"diagnosis": {"errorType": "logic", "severity": "medium"}}
+
+    async def fake_strategist_node(*_a, **_k):
+        return {"actions": [], "strategist_plan": "p"}
+
+    with (
+        patch("services.tutor_help_stream.run_router", new_callable=AsyncMock) as mr,
+        patch("services.tutor_help_stream.analyst_node", new_callable=AsyncMock) as ma,
+        patch(
+            "services.tutor_help_stream.strategist_node", new_callable=AsyncMock
+        ) as ms,
+        patch(
+            "services.tutor_help_stream.run_communicator_stream",
+            fake_communicator_stream,
+        ),
+    ):
+        mr.return_value = {"intent": "DEBUG"}
+        ma.side_effect = fake_analyst_node
+        ms.side_effect = fake_strategist_node
+        chunks = [
+            c
+            async for c in iter_help_sse(
+                {
+                    "code": "x",
+                    "errors": [],
+                    "history": [{"role": "user", "content": "não sei"}],
+                    "sessionId": "sessao-42",
+                    "studentName": "Fulana",
+                }
+            )
+        ]
+
+    done_line = next(
+        line
+        for line in b"".join(chunks).decode("utf-8").split("\n")
+        if line.startswith("data: ") and "tutorMeta" in line
+    )
+    meta = json.loads(done_line.removeprefix("data: "))["tutorMeta"]
+    assert meta["studentMovement"] == "ESTAGNACAO"
+    assert meta["intent"] == "DEBUG"
+
+    linha = json.loads(
+        next(tmp_path.glob("interactions-*.ndjson")).read_text(encoding="utf-8").strip()
+    )
+    assert linha["endpoint"] == "/api/help/stream"
+    assert linha["sessionId"] == "sessao-42"
+    assert linha["response"]["message"] == "O que muda em i?"
+    assert "studentName" not in linha["request"]

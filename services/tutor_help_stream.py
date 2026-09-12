@@ -4,6 +4,7 @@ Streaming SSE do tutor: roteamento → (analista opcional) → RAG/estrag. → t
 
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
@@ -11,7 +12,12 @@ from agents.graph import analyst_node, rag_retrieve_node, strategist_node
 from agents.router import run_router
 from agents.strategist import suggested_doc_topics
 from agents.tutor import run_communicator_stream
-from services.tutor_help import build_tutor_meta_from_actions, parse_help_payload
+from services.tutor_help import (
+    TutorHelpState,
+    build_tutor_meta_from_actions,
+    log_turn,
+    parse_help_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +52,42 @@ def format_sse(event: str | None, data: dict[str, Any]) -> bytes:
     return "\n".join(parts).encode("utf-8")
 
 
+def _stream_tutor_meta(
+    actions: Any, intent: str, state: TutorHelpState
+) -> dict[str, Any]:
+    return build_tutor_meta_from_actions(
+        actions if isinstance(actions, list) else [],
+        intent=intent,
+        student_movement=state["student_movement"],
+    )
+
+
+async def _log_stream_turn(
+    payload: Any,
+    state: TutorHelpState,
+    collected: dict[str, Any],
+    intent: str,
+    started: float,
+    *,
+    error: str | None = None,
+) -> None:
+    await log_turn(
+        payload,
+        state,
+        response=collected,
+        intent=intent,
+        started=started,
+        endpoint="/api/help/stream",
+        error=error,
+    )
+
+
 async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
     """
     Gera bytes SSE. Em erro de validação ou falha interna, emite ``event: error`` e encerra.
+
+    O turno completo (pedido, mensagem remontada a partir dos ``token``, diagnóstico, ações e
+    ``tutorMeta``) é gravado no registro estruturado ao fim do fluxo, como em ``/api/help``.
     """
     initial, err_body, status = parse_help_payload(payload)
     if initial is None:
@@ -61,40 +100,36 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
         )
         return
 
+    started = time.monotonic()
+    collected: dict[str, Any] = {"message": "", "diagnosis": {}, "actions": [], "tutorMeta": {}}
+    intent = ""
+
     try:
         state: dict[str, Any] = dict(initial)
         state.update(await run_router(state))
         intent = state.get("intent") or "DEBUG"
         logger.info("help/stream: intent=%s", intent)
 
-        if intent == "CASUAL":
+        if intent in ("CASUAL", "OUT_OF_SCOPE"):
             yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
-            logger.info("help/stream CASUAL: a iniciar comunicador (stream)")
+            collected["diagnosis"] = dict(_MINIMAL_SSE_DIAGNOSIS)
+            logger.info("help/stream %s: a iniciar comunicador (stream)", intent)
             async for delta in run_communicator_stream(
                 state["strategist_plan"],
                 state["history"],
-                **_communicator_stream_kwargs(state, "CASUAL", []),
+                **_communicator_stream_kwargs(state, intent, []),
             ):
+                collected["message"] += delta
                 yield format_sse("token", {"text": delta})
-            logger.info("help/stream CASUAL: stream concluído")
-            yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions([])})
-            return
-
-        if intent == "OUT_OF_SCOPE":
-            yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
-            logger.info("help/stream OUT_OF_SCOPE: a iniciar comunicador (stream)")
-            async for delta in run_communicator_stream(
-                state["strategist_plan"],
-                state["history"],
-                **_communicator_stream_kwargs(state, "OUT_OF_SCOPE", []),
-            ):
-                yield format_sse("token", {"text": delta})
-            logger.info("help/stream OUT_OF_SCOPE: stream concluído")
-            yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions([])})
+            logger.info("help/stream %s: stream concluído", intent)
+            collected["tutorMeta"] = _stream_tutor_meta([], intent, initial)
+            yield format_sse("done", {"tutorMeta": collected["tutorMeta"]})
+            await _log_stream_turn(payload, initial, collected, intent, started)
             return
 
         if intent == "THEORY":
             yield format_sse("diagnosis", dict(_MINIMAL_SSE_DIAGNOSIS))
+            collected["diagnosis"] = dict(_MINIMAL_SSE_DIAGNOSIS)
             logger.info("help/stream THEORY: rag_retrieve …")
             state.update(await rag_retrieve_node(cast(Any, state)))
             doc_n = len(state.get("documentation_context") or [])
@@ -109,14 +144,18 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
                     state, "THEORY", state.get("documentation_context") or []
                 ),
             ):
+                collected["message"] += delta
                 yield format_sse("token", {"text": delta})
             logger.info("help/stream THEORY: stream concluído")
-            yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions([])})
+            collected["tutorMeta"] = _stream_tutor_meta([], intent, initial)
+            yield format_sse("done", {"tutorMeta": collected["tutorMeta"]})
+            await _log_stream_turn(payload, initial, collected, intent, started)
             return
 
         logger.info("help/stream DEBUG: analista …")
         state.update(await analyst_node(cast(Any, state)))
         yield format_sse("diagnosis", state["diagnosis"])
+        collected["diagnosis"] = state["diagnosis"]
         incl_doc = bool(state.get("include_documentation"))
         logger.info(
             "help/stream DEBUG: analista OK; include_documentation=%s; rag_retrieve …",
@@ -134,6 +173,7 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             "help/stream DEBUG: estrategista OK (%d ação/ões); comunicador …",
             len(actions) if isinstance(actions, list) else 0,
         )
+        collected["actions"] = actions if isinstance(actions, list) else []
         for action in actions:
             yield format_sse("action", action)
         async for delta in run_communicator_stream(
@@ -144,15 +184,26 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             ),
             suggested_doc_topics=suggested_doc_topics(actions if isinstance(actions, list) else []),
         ):
+            collected["message"] += delta
             yield format_sse("token", {"text": delta})
         logger.info("help/stream DEBUG: stream concluído")
-        yield format_sse("done", {"tutorMeta": build_tutor_meta_from_actions(actions)})
+        collected["tutorMeta"] = _stream_tutor_meta(actions, intent, initial)
+        yield format_sse("done", {"tutorMeta": collected["tutorMeta"]})
+        await _log_stream_turn(payload, initial, collected, intent, started)
     except Exception as exc:
         logger.error(
             "help/stream: falha [%s] %s",
             type(exc).__name__,
             exc,
             exc_info=True,
+        )
+        await _log_stream_turn(
+            payload,
+            initial,
+            collected,
+            intent,
+            started,
+            error=f"{type(exc).__name__}: {exc}",
         )
         yield format_sse(
             "error",

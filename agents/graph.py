@@ -4,6 +4,7 @@ from typing import Literal, TypedDict, cast
 from langgraph.graph import END, START, StateGraph
 
 from agents.analyst import Diagnosis, run_analyst
+from agents.config import evaluation_mode
 from agents.rag.query import (
     build_rag_query,
     build_theory_rag_query,
@@ -33,6 +34,11 @@ class TutorState(TypedDict):
     compiler_error_lines: list[int]
     ast_summary: str
     data_flow_context: str
+    previous_code: str
+    previous_errors: list[str]
+    student_movement: str
+    movement_source: str
+    session_id: str
 
 
 async def router_node(state: TutorState) -> dict:
@@ -53,7 +59,12 @@ async def analyst_node(state: TutorState) -> dict:
 
 
 async def rag_retrieve_node(state: TutorState) -> dict:
-    """Recupera trechos: THEORY sempre (query teórica); DEBUG se ``include_documentation``."""
+    """Recupera trechos: THEORY sempre (query teórica); DEBUG se ``include_documentation``.
+
+    Em ``EVALUATION_MODE`` não recupera nada, em nenhuma intenção.
+    """
+    if evaluation_mode():
+        return {"documentation_context": []}
     intent = state.get("intent") or ""
     if intent == "CASUAL":
         return {"documentation_context": []}
@@ -85,6 +96,7 @@ async def strategist_node(state: TutorState) -> dict:
         cursor_column=state.get("cursor_column"),
         ast_summary=str(state.get("ast_summary") or ""),
         data_flow_context=str(state.get("data_flow_context") or ""),
+        student_movement=str(state.get("student_movement") or "NENHUM"),
     )
     return {"actions": actions, "strategist_plan": strategist_plan}
 

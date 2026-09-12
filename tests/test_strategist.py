@@ -204,3 +204,35 @@ async def test_run_strategist_includes_minimal_hint_escalation_pace() -> None:
     assert "hint_level 1 (`Mínimo`)" in system_text
     assert "turns 4-5" in system_text
     assert "Learner debugging turns in current session: 3" in system_text
+
+
+@pytest.mark.asyncio
+async def test_run_strategist_injects_movement_and_contingency_rule() -> None:
+    diagnosis: Diagnosis = {
+        "errorType": "logic",
+        "errorLine": 5,
+        "affectedVariable": None,
+        "errorDescription": "Laço não termina.",
+        "hintAngle": "Compare a intenção com o resultado observado.",
+        "severity": "medium",
+    }
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        bound = _patch_bound_chat(mock_cls)
+        bound.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_strategist(
+            diagnosis,
+            [{"role": "user", "content": "Me fala logo o que está errado."}],
+            "escreva(1)",
+            student_movement="PEDIDO_EXPLICITO",
+        )
+    system_text = captured[0][0].content
+    assert "Learner movement in the previous turn" in system_text
+    assert "PEDIDO_EXPLICITO" in system_text
+    assert "CONTINGENCY RULE" in system_text
+    assert "`PROGRESSO`: keep or lower the level" in system_text

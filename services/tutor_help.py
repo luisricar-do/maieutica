@@ -3,29 +3,47 @@ Pedido de ajuda socrática: valida o payload, corre o grafo LangGraph e devolve 
 """
 
 import logging
+import re
+import time
 from typing import Any, TypedDict
 
 from agents.graph import tutor_graph
+from agents.llm import chat_model_name
+from agents.movement import classify_movement
+from services import interaction_log
 
 logger = logging.getLogger(__name__)
 
+#: ``sessionId`` entra no caminho do blob do registro: só caracteres seguros.
+_SAFE_SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
-def build_tutor_meta_from_actions(actions: Any) -> dict[str, Any]:
+
+def build_tutor_meta_from_actions(
+    actions: Any,
+    *,
+    intent: str = "",
+    student_movement: str = "",
+    model: str = "",
+) -> dict[str, Any]:
     """
-    Metadados de política de conversa para o cliente (IDE).
+    Metadados de política de conversa para o cliente (IDE) e para a avaliação.
 
     Quando o estrategista emite ``mark_bug_resolved``, a UI pode encerrar a conversa
-    atual e iniciar uma nova (ex.: overlay imersivo).
+    atual e iniciar uma nova (ex.: overlay imersivo). ``intent``, ``studentMovement`` e
+    ``model`` acompanham o turno para o harness de bancada e para a análise: permitem
+    contar o roteamento de cada prefixo e registrar a versão do modelo sem ler o log
+    do serviço.
     """
-    if not isinstance(actions, list):
-        return {"suggestedConversationEnd": False, "endReason": "none"}
-    for item in actions:
-        if isinstance(item, dict) and item.get("type") == "mark_bug_resolved":
-            return {
-                "suggestedConversationEnd": True,
-                "endReason": "bug_resolved",
-            }
-    return {"suggestedConversationEnd": False, "endReason": "none"}
+    meta: dict[str, Any] = {"suggestedConversationEnd": False, "endReason": "none"}
+    if isinstance(actions, list):
+        for item in actions:
+            if isinstance(item, dict) and item.get("type") == "mark_bug_resolved":
+                meta = {"suggestedConversationEnd": True, "endReason": "bug_resolved"}
+                break
+    meta["intent"] = intent or "DEBUG"
+    meta["studentMovement"] = student_movement or "NENHUM"
+    meta["model"] = model or chat_model_name()
+    return meta
 
 
 class TutorHelpState(TypedDict):
@@ -47,6 +65,26 @@ class TutorHelpState(TypedDict):
     compiler_error_lines: list[int]
     ast_summary: str
     data_flow_context: str
+    previous_code: str
+    previous_errors: list[str]
+    student_movement: str
+    movement_source: str
+    session_id: str
+
+
+def _parse_session_id(raw: object) -> str:
+    """Identificador de sessão gerado pela IDE; vazio quando ausente ou malformado."""
+    if not isinstance(raw, str):
+        return ""
+    value = raw.strip()
+    return value if _SAFE_SESSION_ID.match(value) else ""
+
+
+def _parse_optional_code(raw: object) -> str | None:
+    """Estado anterior do código; ``None`` quando o cliente não o envia."""
+    if not isinstance(raw, str):
+        return None
+    return raw
 
 
 def _parse_include_documentation(raw: object) -> bool:
@@ -181,6 +219,19 @@ def parse_help_payload(
     compiler_error_lines = _parse_positive_int_list(payload.get("compilerErrorLines"))
     ast_summary = _parse_ast_summary(payload.get("astSummary"))
     data_flow_context = _parse_ast_summary(payload.get("dataFlowContext"))
+    session_id = _parse_session_id(payload.get("sessionId"))
+    previous_code = _parse_optional_code(payload.get("previousCode"))
+    raw_previous_errors = payload.get("previousErrors")
+    previous_errors = (
+        [str(e) for e in raw_previous_errors] if isinstance(raw_previous_errors, list) else []
+    )
+    movement = classify_movement(
+        code=code,
+        history=history_dicts,
+        errors=errors_str,
+        previous_code=previous_code,
+        previous_errors=previous_errors,
+    )
 
     initial_state: TutorHelpState = {
         "code": code,
@@ -201,8 +252,41 @@ def parse_help_payload(
         "compiler_error_lines": compiler_error_lines,
         "ast_summary": ast_summary,
         "data_flow_context": data_flow_context,
+        "previous_code": previous_code or "",
+        "previous_errors": previous_errors,
+        "student_movement": movement["movement"],
+        "movement_source": movement["source"],
+        "session_id": session_id,
     }
     return initial_state, None, 200
+
+
+async def log_turn(
+    payload: Any,
+    state: TutorHelpState,
+    *,
+    response: dict[str, Any],
+    intent: str,
+    started: float,
+    endpoint: str = "/api/help",
+    error: str | None = None,
+) -> None:
+    """Uma linha do registro estruturado por turno (ver ``services.interaction_log``)."""
+    if not interaction_log.is_enabled():
+        return
+    record = interaction_log.build_record(
+        payload,
+        endpoint=endpoint,
+        session_id=state["session_id"],
+        response=response,
+        intent=intent,
+        student_movement=state["student_movement"],
+        movement_source=state["movement_source"],
+        model=chat_model_name(),
+        latency_ms=int((time.monotonic() - started) * 1000),
+        error=error,
+    )
+    await interaction_log.log_interaction(record)
 
 
 async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
@@ -216,22 +300,40 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
         assert err_body is not None
         return err_body, status
 
+    started = time.monotonic()
     try:
         result = await tutor_graph.ainvoke(initial_state)
-    except Exception:
+    except Exception as exc:
         logger.exception("Falha ao executar o grafo do tutor (process_help_request)")
+        await log_turn(
+            payload,
+            initial_state,
+            response={},
+            intent="",
+            started=started,
+            error=f"{type(exc).__name__}: {exc}",
+        )
         raise
 
     actions = result.get("actions") or []
     if not isinstance(actions, list):
         actions = []
 
-    return (
-        {
-            "message": result.get("tutor_response", ""),
-            "diagnosis": result.get("diagnosis", {}),
-            "actions": actions,
-            "tutorMeta": build_tutor_meta_from_actions(actions),
-        },
-        200,
+    body = {
+        "message": result.get("tutor_response", ""),
+        "diagnosis": result.get("diagnosis", {}),
+        "actions": actions,
+        "tutorMeta": build_tutor_meta_from_actions(
+            actions,
+            intent=str(result.get("intent") or ""),
+            student_movement=initial_state["student_movement"],
+        ),
+    }
+    await log_turn(
+        payload,
+        initial_state,
+        response=body,
+        intent=str(result.get("intent") or ""),
+        started=started,
     )
+    return body, 200

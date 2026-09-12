@@ -12,6 +12,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL = "gpt-4o-mini"
 
 
+def chat_model_name() -> str:
+    """Modelo de chat em uso (registrado na resposta e no log para reprodutibilidade)."""
+    return os.getenv("LITELLM_MODEL", DEFAULT_MODEL)
+
+
 def _normalize_litellm_base_url(url: str) -> str:
     u = url.strip().rstrip("/")
     if not u.endswith("/v1"):
@@ -37,7 +42,7 @@ def create_chat_client(*, max_tokens: int, temperature: float) -> BaseChatModel:
         or os.getenv("OPENAI_API_KEY")
         or "litellm"
     )
-    model = os.getenv("LITELLM_MODEL", DEFAULT_MODEL)
+    model = chat_model_name()
     base_url = _normalize_litellm_base_url(litellm_base)
     logger.debug(
         "LLM via proxy OpenAI-compatível (base_url=%s, model=%s)",

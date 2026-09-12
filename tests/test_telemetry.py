@@ -89,11 +89,12 @@ def test_parse_rejects_batch_with_only_invalid_events() -> None:
     assert status == 400
 
 
-def test_parse_normalizes_condition_and_ignores_unknown_values() -> None:
-    batch, _, _ = parse_telemetry_payload(_payload(condition="CONTROL"))
-    assert batch["condition"] == "control"
-    batch, _, _ = parse_telemetry_payload(_payload(condition="grupo-x"))
-    assert batch["condition"] is None
+def test_parse_normalizes_stage_label() -> None:
+    # Sem braços experimentais: o rótulo separa coletas (piloto, turma), não grupos.
+    batch, _, _ = parse_telemetry_payload(_payload(condition="Piloto"))
+    assert batch["condition"] == "piloto"
+    batch, _, _ = parse_telemetry_payload(_payload(condition="turma-2026-1"))
+    assert batch["condition"] == "turma-2026-1"
     batch, _, _ = parse_telemetry_payload(_payload(condition=None))
     assert batch["condition"] is None
 
