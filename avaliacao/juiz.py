@@ -257,7 +257,19 @@ def _falhas_como_dicionario(bruto: Any) -> dict[str, bool]:
     return {nome: False for nome in FALHAS}
 
 
-def _normalizar(payload: dict[str, Any]) -> dict[str, Any]:
+def _objeto(payload: Any) -> dict[str, Any]:
+    """O veredito às vezes chega embrulhado numa lista; o objeto é o que interessa."""
+    if isinstance(payload, dict):
+        return payload
+    if isinstance(payload, (list, tuple)):
+        for elemento in payload:
+            if isinstance(elemento, dict):
+                return elemento
+    return {}
+
+
+def _normalizar(payload: Any) -> dict[str, Any]:
+    payload = _objeto(payload)
     falhas_brutas = payload.get("falhas")
     diretividade = payload.get("diretividade")
     fidelidade = payload.get("fidelidade")

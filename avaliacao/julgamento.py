@@ -7,6 +7,8 @@ enviada ao juiz.
 
 from __future__ import annotations
 
+import logging
+
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,8 @@ from avaliacao.config import Config
 from avaliacao.executor import ARQUIVO_TURNOS
 from avaliacao.itens import Prefixo, expandir_prefixos, turnos_de_referencia
 from avaliacao.registro import anexar, ler_ndjson
+
+logger = logging.getLogger(__name__)
 
 ARQUIVO_JUIZOS = "juizos.jsonl"
 
@@ -59,7 +63,15 @@ def julgar_execucao(
         item = por_id[pendencia["item_id"]]
         veredito: dict[str, Any] = {}
         for tentativa in range(1, tentativas + 1):
-            veredito = juiz.julgar(cfg, item, pendencia["contexto"], pendencia["turno"])
+            try:
+                veredito = juiz.julgar(cfg, item, pendencia["contexto"], pendencia["turno"])
+            except Exception as exc:  # noqa: BLE001 — um veredito não derruba a corrida
+                # Sem isto, uma única resposta em forma inesperada mata as duas mil chamadas
+                # restantes: a exceção sobe da piscina de threads e nada é reaproveitado além do
+                # que já estava gravado. O erro passa a ser do turno, contado em ``erros``, e a
+                # corrida segue — que é o que o laço de tentativas e o resumo já pressupunham.
+                logger.exception("juiz falhou em %s", pendencia["meta"].get("prefixo_id", "?"))
+                veredito = {"erro": f"{type(exc).__name__}: {exc}"[:300]}
             veredito["tentativas"] = tentativa
             if not veredito.get("erro") and veredito.get("diretividade") is not None:
                 break

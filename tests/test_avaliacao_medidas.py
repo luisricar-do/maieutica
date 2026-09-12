@@ -447,3 +447,33 @@ def test_falhas_do_juiz_aceitam_objeto_lista_ou_texto():
     assert _falhas_como_dicionario("excessivamente_direta") == esperado
     assert all(v is False for v in _falhas_como_dicionario(None).values())
     assert all(v is False for v in _falhas_como_dicionario([]).values())
+
+
+def test_veredito_em_lista_e_lido_como_objeto():
+    """O Gemini às vezes embrulha o veredito numa lista; o objeto é o que interessa."""
+    from avaliacao.juiz import _normalizar
+
+    veredito = _normalizar([{"diretividade": 2, "fidelidade": 3, "falhas": ["prematura"]}])
+    assert veredito["diretividade"] == 2
+    assert veredito["falhas"]["prematura"] is True
+    assert _normalizar([])["diretividade"] is None
+
+
+def test_falha_de_um_veredito_nao_derruba_a_corrida(monkeypatch, tmp_path):
+    """Uma resposta em forma inesperada conta como erro do turno, não mata as restantes.
+
+    Sem isto a exceção sobe da piscina de threads e as duas mil chamadas seguintes não chegam a
+    acontecer — foi o que aconteceu duas vezes na corrida reportável.
+    """
+    from avaliacao import juiz, julgamento
+
+    chamadas = {"n": 0}
+
+    def julgar_instavel(cfg, item, contexto, turno):
+        chamadas["n"] += 1
+        if chamadas["n"] == 1:
+            raise AttributeError("'list' object has no attribute 'get'")
+        return {"diretividade": 1, "fidelidade": 2, "erro": "", "tokens": {}}
+
+    monkeypatch.setattr(juiz, "julgar", julgar_instavel)
+    assert chamadas["n"] == 0
