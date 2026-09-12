@@ -462,18 +462,37 @@ def test_veredito_em_lista_e_lido_como_objeto():
 def test_falha_de_um_veredito_nao_derruba_a_corrida(monkeypatch, tmp_path):
     """Uma resposta em forma inesperada conta como erro do turno, não mata as restantes.
 
-    Sem isto a exceção sobe da piscina de threads e as duas mil chamadas seguintes não chegam a
-    acontecer — foi o que aconteceu duas vezes na corrida reportável.
+    Sem isto a exceção sobe da piscina de threads e as chamadas seguintes não chegam a
+    acontecer — foi o que aconteceu duas vezes na corrida reportável, ao 127.º e ao 282.º
+    de cerca de dois mil juízos.
     """
+    import json
+    from pathlib import Path
+
     from avaliacao import juiz, julgamento
+    from avaliacao.config import Config
+    from avaliacao.itens import carregar_banco
+
+    itens = [i for i in carregar_banco(Path("avaliacao/banco")) if i["id"] == "tese_01_media"]
+    destino = tmp_path / "exec"
+    destino.mkdir()
+    (destino / "turnos.jsonl").write_text("", encoding="utf-8")
 
     chamadas = {"n": 0}
 
     def julgar_instavel(cfg, item, contexto, turno):
         chamadas["n"] += 1
-        if chamadas["n"] == 1:
+        if chamadas["n"] % 3 == 1:
             raise AttributeError("'list' object has no attribute 'get'")
         return {"diretividade": 1, "fidelidade": 2, "erro": "", "tokens": {}}
 
     monkeypatch.setattr(juiz, "julgar", julgar_instavel)
-    assert chamadas["n"] == 0
+    resumo = julgamento.julgar_execucao(
+        Config(), destino, itens, incluir_referencia=True, limite=4, tentativas=2
+    )
+
+    # A exceção não escapou: houve trabalho feito e o resumo fechou.
+    assert chamadas["n"] > 0
+    assert resumo["ok"] + resumo["erros"] > 0
+    linhas = [json.loads(l) for l in (destino / "juizos.jsonl").read_text().splitlines() if l]
+    assert linhas, "nenhum veredito gravado: a corrida morreu na primeira exceção"
