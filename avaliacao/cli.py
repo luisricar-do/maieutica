@@ -2,6 +2,7 @@
 
 Etapas, na ordem em que se usam:
 
+    python -m avaliacao importar         # rascunhos a partir do conjunto de Al-Hossami
     python -m avaliacao estados          # erros do compilador e casos de teste, uma vez
     python -m avaliacao validar          # banco de itens e padrões de correção
     python -m avaliacao prefixos         # o que será enviado, sem chamar nada
@@ -21,9 +22,10 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from avaliacao import analise, condicoes, exportacao, juiz, validacao_humana
+from avaliacao import analise, condicoes, exportacao, importacao, juiz, validacao_humana
 from avaliacao.config import (
     BANCO_DIR,
+    TRADUCAO_DIR,
     EXECUCOES_PADRAO,
     JUIZ_MODELO_PROTOCOLO,
     REEXECUCOES_PADRAO,
@@ -52,6 +54,32 @@ def main(argv: list[str] | None = None) -> int:
 
 
 # --------------------------------------------------------------------------- comandos
+
+
+def _cmd_importar(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
+    fonte = Path(args.fonte).expanduser().resolve()
+    if not fonte.is_dir():
+        raise SystemExit(f"conjunto original não encontrado em {fonte} (use --fonte)")
+    alvos = sorted(fonte.glob(f"{args.dialogo}*.txt")) if args.dialogo else sorted(fonte.glob("*.txt"))
+    if not alvos:
+        raise SystemExit(f"nenhum diálogo casa com {args.dialogo!r} em {fonte}")
+
+    commit = importacao.commit_do_conjunto(fonte)
+    destino = Path(args.saida)
+    print(f"conjunto: {fonte}\ncommit:   {commit or '(fora de git)'}\n")
+    for caminho in alvos:
+        item = importacao.importar(caminho, commit=commit)
+        arquivo = importacao.escrever(item, destino)
+        faltas = importacao.pendencias(item)
+        turnos_tutor = sum(1 for t in item["dialogo"] if t["papel"] == "tutor")
+        print(
+            f"  {item['id']:<34} prio={item['prioridade']}  "
+            f"{turnos_tutor} turnos do tutor, {len(item['estados_codigo'])} estados  -> {arquivo.name}"
+        )
+        for falta in faltas:
+            print(f"      pendente: {falta}")
+    print(f"\n{len(alvos)} rascunho(s) em {destino}. Traduza e mova para {args.banco}.")
+    return 0
 
 
 def _cmd_validar(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
@@ -391,6 +419,16 @@ def _parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = principal.add_subparsers(dest="comando", required=True)
+
+    importar = sub.add_parser(
+        "importar",
+        help="gera rascunhos de item a partir do conjunto de Al-Hossami (tradução à parte)",
+        parents=[comum],
+    )
+    importar.add_argument("--fonte", required=True, help="diretório v2_sigcse/final_dataset do conjunto original")
+    importar.add_argument("--dialogo", default="", help="prefixo do nome do diálogo; vazio importa todos")
+    importar.add_argument("--saida", default=str(TRADUCAO_DIR), help="diretório dos rascunhos")
+    importar.set_defaults(funcao=_cmd_importar)
 
     validar = sub.add_parser("validar", help="valida o banco de itens", parents=[comum])
     validar.set_defaults(funcao=_cmd_validar)

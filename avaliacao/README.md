@@ -33,11 +33,12 @@ As duas hipóteses que a bancada testa:
 ## Fluxo
 
 ```
-estados → validar → rodar → julgar → analisar → [exportar] → amostra-humana → kappa → congelar
+[importar] → estados → validar → rodar → julgar → analisar → [exportar] → amostra-humana → kappa → congelar
 ```
 
 | Comando | O que faz |
 |---|---|
+| `importar` | lê um diálogo do conjunto de Al-Hossami e emite o esqueleto do item; o que depende de tradução sai marcado `PENDENTE` |
 | `estados` | compila cada estado de código e roda os casos de teste **uma vez**, com o motor da IDE fora do navegador, e grava `errors`/`compilerErrorLines`/`casos_ok` no item |
 | `validar` | verifica o banco: campos, movimentos anotados e, sobretudo, que nenhuma `fix_pattern` dispara num turno de referência |
 | `prefixos` | mostra o que seria enviado (sem chamar nada); `--payload` imprime um corpo de `/api/help` |
@@ -193,6 +194,7 @@ acrescenta:
 | `estado_solucao` | estado terminal, com todas as correções aplicadas; não aparece no diálogo e é o único que pode não ser usado por um turno |
 | `fix_patterns` | regex das correções aceitas → detector objetivo do nível 3 |
 | `anchor_tokens` | linhas, variáveis e construtos do defeito → ancoragem |
+| `fonte` | só nos itens traduzidos: procedência (conjunto, arquivo, commit, id do problema) |
 | `dialogo[].movimento` | movimento anotado de cada turno do estudante (o de abertura é `NENHUM`) |
 | `revisado_por` | segundo docente; `null` enquanto não revisado |
 
@@ -204,6 +206,33 @@ sem reposição e semente fixa.
 anotação de movimento redigidos pelo autor e ainda **sem revisão do segundo docente**. Faltam os
 18 a 22 diálogos traduzidos do *benchmark* e os outros três cenários da dissertação para chegar
 aos 24 a 28 itens previstos.
+
+
+### Itens traduzidos do conjunto original
+
+```bash
+python -m avaliacao importar --fonte <.../v2_sigcse/final_dataset> --dialogo 61_62_is_even
+```
+
+Escreve rascunhos em `traducao/` (não versionado). Cada rascunho traz o texto original em inglês
+no bloco `fonte`, para a revisão comparar tradução e fonte, e lista o que falta. Traduza, mova
+para `banco/` reduzindo `fonte` à procedência (`importacao.fonte_ponteiro`) e rode `estados` e
+`validar`.
+
+Três convenções que não são óbvias e custam caro se forem esquecidas:
+
+- **Texto do item sem acentos**, como os itens `tese_*`. Mensagens do compilador mantêm a
+  acentuação literal da IDE.
+- **A saída do programa termina em quebra de linha** e os casos de teste a exigem. Sem isso
+  `"Media = 2"` casa dentro de `"Media = 2.5"` e um estado com defeito conta como caso aprovado
+  — e `casos_ok` é a regra objetiva do movimento, logo o falso positivo entra direto em H1.
+- **Onde há edição de código, o `movimento` anotado segue a regra objetiva**, não a leitura do
+  texto; `validar` levanta a divergência como aviso.
+
+No conjunto original, 18% dos turnos do tutor acontecem depois de o defeito estar corrigido
+(cortesia de encerramento). Eles são cortados na tradução: o diálogo termina no último turno
+substantivo e o estado final é declarado em `estado_solucao`. `validar` avisa quando um item
+ainda tem essa cauda.
 
 ## Decisões do protocolo que o código implementa
 

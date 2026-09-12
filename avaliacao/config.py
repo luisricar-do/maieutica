@@ -16,6 +16,7 @@ from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent
 BANCO_DIR = RAIZ / "banco"
+TRADUCAO_DIR = RAIZ / "traducao"
 PROMPTS_DIR = RAIZ / "prompts"
 EXECUCOES_DIR = RAIZ / "execucoes"
 

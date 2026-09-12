@@ -269,3 +269,26 @@ def test_tese_01_pontua_tipo_no_estado_em_que_so_o_tipo_resta():
     # corrigidos, o que resta é de tipo — e é contra isso que o analista tem de ser pontuado.
     assert set(por_estado["s0"]) == {"sintaxe", "tipo", "logica"}
     assert por_estado["s2"] == ["tipo"]
+
+
+def test_saida_esperada_com_quebra_de_linha_nao_casa_por_prefixo():
+    """``Media = 2`` não pode contar como aprovado quando o programa escreveu ``Media = 2.5``.
+
+    O caso aprovado alimenta ``casos_ok``, que é a regra objetiva do movimento do estudante; um
+    falso positivo aqui vira PROGRESSO onde houve estagnação.
+    """
+    from avaliacao.estados import _passou
+
+    correto = {"executed": True, "timedOut": False, "stdout": "Media = 2\n"}
+    com_defeito = {"executed": True, "timedOut": False, "stdout": "Media = 2.5\n"}
+    caso = {"saida_contem": "Media = 2\n"}
+
+    assert _passou(caso, correto)
+    assert not _passou(caso, com_defeito)
+
+
+def test_saida_esperada_sem_quebra_de_linha_continua_aparando_espacos():
+    from avaliacao.estados import _passou
+
+    resultado = {"executed": True, "timedOut": False, "stdout": "Media = 4"}
+    assert _passou({"saida_contem": "  Media = 4  "}, resultado)

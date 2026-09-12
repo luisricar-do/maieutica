@@ -84,12 +84,18 @@ def precomputar_item(item: dict[str, Any], runner: Path) -> dict[str, Any]:
 
 
 def _passou(caso: dict[str, Any], resultado: dict[str, Any]) -> bool:
-    """Um caso passa quando o programa executa, termina e a saída bate com o esperado."""
+    """Um caso passa quando o programa executa, termina e a saída bate com o esperado.
+
+    A quebra de linha final do esperado é **preservada**: sem ela, ``"Media = 2"`` casa dentro de
+    ``"Media = 2.5"`` e um estado com defeito conta como caso aprovado. Como ``casos_ok`` é a
+    regra objetiva do movimento do estudante (Subseção 5.2), esse falso positivo entraria direto
+    em H1. Só espaços e tabulações são aparados.
+    """
     if not resultado.get("executed") or resultado.get("timedOut"):
         return False
     saida = resultado.get("stdout") or ""
-    esperado = str(caso.get("saida_contem", "")).strip()
-    proibido = str(caso.get("saida_nao_contem", "")).strip()
+    esperado = str(caso.get("saida_contem", "")).strip(" \t")
+    proibido = str(caso.get("saida_nao_contem", "")).strip(" \t")
     if esperado and esperado not in saida:
         return False
     return not (proibido and proibido in saida)

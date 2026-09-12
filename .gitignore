@@ -13,3 +13,7 @@ dist/
 
 # Saídas das corridas da bancada (o manifesto e as tabelas vão à mão para a tese)
 avaliacao/execucoes/
+
+# Rascunhos da importação do conjunto de Al-Hossami: texto original em inglês,
+# derivados e regeneráveis por `python -m avaliacao importar`.
+avaliacao/traducao/

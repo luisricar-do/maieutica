@@ -1,0 +1,172 @@
+{
+  "id": "60_61_largest_number_t3",
+  "origem": "al_hossami_v2",
+  "prioridade": 1,
+  "tipo_bug": "limite",
+  "conceitos": [
+    "condicional",
+    "comparacao",
+    "limite",
+    "funcao"
+  ],
+  "problem": "Escreva a funcao maior(a, b, c) que recebe tres numeros inteiros e devolve o maior dos tres. O programa le os tres valores e escreve o resultado. Ele contem um defeito e falha em alguns casos. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao inteiro maior(inteiro a, inteiro b, inteiro c)\n    {\n        se (a > b e a > c)\n        {\n            retorne a\n        }\n        senao se (b > a e b > c)\n        {\n            retorne b\n        }\n        senao\n        {\n            retorne c\n        }\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b, c\n        escreva(\"Digite tres numeros inteiros: \")\n        leia(a)\n        leia(b)\n        leia(c)\n        escreva(\"Maior = \", maior(a, b, c), \"\\n\")\n    }\n}\n",
+  "bug_desc": "Quando a e b sao iguais, nenhuma das duas primeiras condicoes e verdadeira, porque ambas usam comparacao estrita, e o senao devolve c independentemente de c ser ou nao o maior. Por exemplo, com 2, 2 e 1 a funcao devolve 1.",
+  "bug_fixes": [
+    "se (a >= b e a >= c)",
+    "senao se (b >= a e b >= c)",
+    "senao se (c >= a e c >= b)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "1",
+        "2",
+        "3"
+      ],
+      "saida_contem": "Maior = 3\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "2",
+        "1"
+      ],
+      "saida_contem": "Maior = 3\n"
+    },
+    {
+      "entrada": [
+        "2",
+        "2",
+        "1"
+      ],
+      "saida_contem": "Maior = 2\n"
+    },
+    {
+      "entrada": [
+        "1",
+        "1",
+        "1"
+      ],
+      "saida_contem": "Maior = 1\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inteiro maior(inteiro a, inteiro b, inteiro c)\n    {\n        se (a > b e a > c)\n        {\n            retorne a\n        }\n        senao se (b > a e b > c)\n        {\n            retorne b\n        }\n        senao\n        {\n            retorne c\n        }\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b, c\n        escreva(\"Digite tres numeros inteiros: \")\n        leia(a)\n        leia(b)\n        leia(c)\n        escreva(\"Maior = \", maior(a, b, c), \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 3,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "codigo inicial: comparacoes estritas e um senao que devolve c sem testar",
+      "defeitos_vigentes": [
+        "limite"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inteiro maior(inteiro a, inteiro b, inteiro c)\n    {\n        se (a > b e a > c)\n        {\n            retorne a\n        }\n        senao se (b > a e b > c)\n        {\n            retorne b\n        }\n        senao se (c > a e c > b)\n        {\n            retorne c\n        }\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b, c\n        escreva(\"Digite tres numeros inteiros: \")\n        leia(a)\n        leia(b)\n        leia(c)\n        escreva(\"Maior = \", maior(a, b, c), \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 2,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "senao virou condicao testada; com valores iguais nenhum ramo devolve nada",
+      "defeitos_vigentes": [
+        "limite",
+        "fluxo_dados"
+      ]
+    },
+    {
+      "id": "s2",
+      "codigo": "programa\n{\n    funcao inteiro maior(inteiro a, inteiro b, inteiro c)\n    {\n        se (a >= b e a >= c)\n        {\n            retorne a\n        }\n        senao se (b >= a e b >= c)\n        {\n            retorne b\n        }\n        senao se (c >= a e c >= b)\n        {\n            retorne c\n        }\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b, c\n        escreva(\"Digite tres numeros inteiros: \")\n        leia(a)\n        leia(b)\n        leia(c)\n        escreva(\"Maior = \", maior(a, b, c), \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "solucao de referencia: comparacoes nao estritas nos tres ramos",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "\\ba\\s*>=\\s*b\\b",
+    "\\bb\\s*>=\\s*a\\b"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      5,
+      9,
+      13
+    ],
+    "variaveis": [
+      "a",
+      "b",
+      "c"
+    ],
+    "construtos": [
+      "comparacao",
+      "operador relacional",
+      "se/senao"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Oi! Faz um tempo que estou na funcao maior e nao consigo ver por que ela nao funciona. Pelo que eu entendo ela esta certa, mas nao passa em todos os casos de teste."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Ola! Voce consegue me explicar, passo a passo, como a sua funcao funciona?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Consigo. A minha funcao primeiro verifica se a primeira entrada e a maior, depois se a segunda e a maior, e se nenhuma das duas for, ela assume que a ultima e a maior, ja que nem a primeira nem a segunda sao."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Certo, voce entende bem o fluxo de controle do programa. Mas por que voce poderia assumir que a ultima entrada e a maior so porque a primeira nao e e a segunda tambem nao e?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s1",
+      "movimento": "REGRESSAO",
+      "texto": "Ah, entendi. Entao se eu fizer essa mudanca fica correto, ja que eu nao posso fazer essa suposicao?"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Ainda esta incorreto, mas voce corrigiu um dos problemas. O que acontece se as tres entradas forem iguais? O que a funcao faz?",
+      "alternativas": [
+        "Voce consegue me dizer uma situacao em que a sua funcao agora nao escreve nada?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO",
+      "texto": "Ela nao escreveria nada, certo? E o que eu faco nesse caso? Nenhuma das minhas condicoes cobre isso. Preciso acrescentar mais um caso?"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Nao acho que seja preciso. Acho que da para modificar as condicoes que voce ja tem. Como voce verificaria se um numero e maior do que outro ou igual a ele?",
+      "alternativas": []
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 60_61_largest_number_conversational_thread_3.txt. Adaptacoes: (a) a funcao Python Largest(a, b, c) virou funcao inteiro maior em Portugol, com inicio() lendo os tres valores; (b) as referencias de linha do diagnostico passaram a 5, 9 e 13, posicoes das tres condicoes no programa Portugol; (c) no original, o estado intermediario devolve None quando nenhum ramo casa; em Portugol a funcao compila e o programa simplesmente nao escreve nada, verificado no motor da IDE, e o diálogo foi ajustado de 'devolve None' para 'nao escreve nada' - mesma consequencia pedagogica, manifestacao diferente; (d) 1 turno final do tutor do original foi cortado: ocorre com o defeito ja corrigido. Nota: o turno 4 edita o codigo e faz o programa passar em MENOS casos (3/4 para 2/4), e por isso esta anotado REGRESSAO, de acordo com a regra objetiva - o proprio tutor do original diz 'ainda esta incorreto, mas corrigiu um dos problemas'. Pendente de revisao do segundo docente.",
+  "estado_solucao": "s2",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "60_61_largest_number_conversational_thread_3.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 60
+  }
+}

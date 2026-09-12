@@ -344,7 +344,40 @@ def avisos_item(item: dict[str, Any]) -> list[str]:
                 f"({id_anterior}→{id_atual}) — decidido pelo texto; confirme que é deliberado"
             )
         anterior, id_anterior = atual, id_atual
+
+    avisos.extend(_avisos_pos_solucao(item, ident, estados))
     return avisos
+
+
+def _avisos_pos_solucao(
+    item: dict[str, Any], ident: str, estados: dict[Any, dict[str, Any]]
+) -> list[str]:
+    """Turnos do tutor que ocorrem com o defeito já corrigido.
+
+    Cada um vira um prefixo-ouro em que não há mais o que depurar: no conjunto original são
+    cortesia de encerramento ("muito bem", "de nada"), e a diretividade medida ali não fala
+    da política de intervenção. Os itens da dissertação terminam no último turno substantivo do
+    tutor e declaram a solução em ``estado_solucao``, sem narrá-la no diálogo.
+    """
+    solucao = item.get("estado_solucao")
+    if solucao not in estados:
+        return []
+    dialogo = item.get("dialogo", [])
+    corte = next(
+        (i for i, t in enumerate(dialogo)
+         if t.get("papel") == "estudante" and t.get("estado_codigo") == solucao),
+        None,
+    )
+    if corte is None:
+        return []
+    tutores = [i for i, t in enumerate(dialogo[corte:], start=corte) if t.get("papel") == "tutor"]
+    if not tutores:
+        return []
+    return [
+        f"{ident}: {len(tutores)} turno(s) do tutor (posições {tutores}) ocorrem depois de o "
+        f"estudante alcançar {solucao}, o estado_solucao — viram prefixos-ouro sem defeito a "
+        "depurar; confirme que é deliberado"
+    ]
 
 
 def expandir_prefixos(
