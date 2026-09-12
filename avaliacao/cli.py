@@ -21,7 +21,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from avaliacao import analise, condicoes, juiz, validacao_humana
+from avaliacao import analise, condicoes, exportacao, juiz, validacao_humana
 from avaliacao.config import (
     BANCO_DIR,
     EXECUCOES_PADRAO,
@@ -252,7 +252,9 @@ def _cmd_analisar(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
 
 def _cmd_amostra(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
     diretorio = diretorio_execucao(args.execucao, criar=False)
-    resumo = validacao_humana.gerar_amostra(diretorio, itens, tamanho=args.tamanho)
+    resumo = validacao_humana.gerar_amostra(
+        diretorio, itens, tamanho=args.tamanho, tamanho_referencia=args.tamanho_referencia
+    )
     print(json.dumps(resumo, ensure_ascii=False, indent=2))
     return 0
 
@@ -302,6 +304,16 @@ def _hashes_congelados(cfg: Config, diretorio: Path) -> dict[str, str]:
             + ". Os turnos gravados não foram gerados por este prompt — não congele."
         )
     return novos
+
+
+def _cmd_exportar(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
+    """Emparelhamento gerado × referências para as métricas de sobreposição (código original)."""
+    diretorio = diretorio_execucao(args.execucao, criar=False)
+    if not diretorio.is_dir():
+        raise SystemExit(f"execução não encontrada: {diretorio}")
+    resumo = exportacao.exportar_sobreposicao(diretorio, itens)
+    print(json.dumps(resumo, ensure_ascii=False, indent=2))
+    return 0
 
 
 def _cmd_congelar(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
@@ -429,9 +441,21 @@ def _parser() -> argparse.ArgumentParser:
     )
     analisar.set_defaults(funcao=_cmd_analisar)
 
+    exportar = sub.add_parser(
+        "exportar",
+        help="emparelhamento gerado × referências para BLEU-4/ROUGE-L/BERTScore",
+        parents=[comum],
+    )
+    exportar.add_argument("--execucao", default="")
+    exportar.set_defaults(funcao=_cmd_exportar)
+
     amostra = sub.add_parser("amostra-humana", help="planilha cega para codificação humana", parents=[comum])
     amostra.add_argument("--execucao", default="")
-    amostra.add_argument("--tamanho", type=int, default=150)
+    amostra.add_argument("--tamanho", type=int, default=validacao_humana.TAMANHO_GERADOS,
+                         help="turnos gerados na planilha (~150 + ~30 pela condição B)")
+    amostra.add_argument("--tamanho-referencia", type=int,
+                         default=validacao_humana.TAMANHO_REFERENCIA,
+                         help="turnos de referência humanos, na mesma planilha cega")
     amostra.set_defaults(funcao=_cmd_amostra)
 
     kappa = sub.add_parser("kappa", help="concordância entre humanos e com o juiz", parents=[comum])

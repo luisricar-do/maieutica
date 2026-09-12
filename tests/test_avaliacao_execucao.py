@@ -182,11 +182,18 @@ def test_planilha_humana_e_cega_e_kappa_fecha_o_ciclo(tmp_path, monkeypatch):
     _juiz_com_niveis_variados(monkeypatch)
     julgamento.julgar_execucao(CFG, tmp_path, [item_minimo()])
 
-    resumo = validacao_humana.gerar_amostra(tmp_path, [item_minimo()], tamanho=3)
+    resumo = validacao_humana.gerar_amostra(
+        tmp_path, [item_minimo()], tamanho=3, tamanho_referencia=2
+    )
     destino = tmp_path / "validacao_humana"
-    assert resumo["amostra"] == 3
+    assert resumo["gerados"] == 3
+    assert resumo["referencia"] == 2
+    assert resumo["amostra"] == 5
     cabecalho = (destino / "codificador_1.csv").read_text(encoding="utf-8").splitlines()[0]
     assert "condicao" not in cabecalho and "diretividade" in cabecalho
+    # Turnos de referência e gerados partilham a mesma folha e as mesmas colunas: nada na
+    # planilha diz ao codificador de onde veio o turno.
+    assert "unidade" not in cabecalho and "referencia" not in cabecalho
 
     mapa = json.loads((destino / "mapa_amostra.json").read_text(encoding="utf-8"))
     do_juiz = {j["chave"]: j["diretividade"] for j in ler_ndjson(tmp_path / julgamento.ARQUIVO_JUIZOS)}
@@ -197,8 +204,12 @@ def test_planilha_humana_e_cega_e_kappa_fecha_o_ciclo(tmp_path, monkeypatch):
     for nome in ("codificador_1.csv", "codificador_2.csv"):
         (destino / nome).write_text("\n".join(linhas) + "\n", encoding="utf-8")
 
+    # O mapa (que o codificador não vê) é o único sítio onde a origem aparece.
+    chaves = set(mapa.values())
+    assert sum(1 for c in chaves if c.endswith("::referencia")) == 2
+
     kappa = validacao_humana.calcular_kappa(tmp_path, [item_minimo()])
-    assert kappa["n_amostra"] == 3
+    assert kappa["n_amostra"] == 5
     assert kappa["consenso_juiz"]["diretividade"] == 1.0
     assert kappa["abaixo_da_aceitacao"] == []
     # As variáveis constantes na subamostra não têm κ: ficam pendentes em vez de passar caladas.
@@ -314,3 +325,41 @@ def test_hashes_do_servico_aborta_com_servico_fora(monkeypatch):
     monkeypatch.setattr(http, "get_json", lambda url, **_: http.Resposta(0, "", 5, erro="recusada"))
     with pytest.raises(SystemExit):
         condicoes.hashes_do_servico(CFG)
+
+
+def test_exportacao_emparelha_gerado_com_as_referencias_da_posicao(tmp_path, monkeypatch):
+    """As métricas de sobreposição rodam no código do benchmark original; aqui só a ponte."""
+    from avaliacao import exportacao
+
+    _prepara_turnos(tmp_path, monkeypatch)
+    resumo = exportacao.exportar_sobreposicao(tmp_path, [item_minimo()])
+
+    linhas = list(ler_ndjson(tmp_path / exportacao.ARQUIVO_SOBREPOSICAO))
+    assert resumo["pares"] == len(linhas) > 0
+    assert resumo["por_condicao"] == {"A": len(linhas)}
+    for linha in linhas:
+        assert linha["hipotese"].strip()
+        assert linha["referencias"] and all(r.strip() for r in linha["referencias"])
+        assert linha["k"] >= 1
+
+
+def test_exportacao_ignora_prefixos_de_pressao(tmp_path, monkeypatch):
+    """Prefixo de pressão é artificial e não tem turno humano: não há contra o que medir."""
+    from avaliacao import exportacao
+
+    prefixos = {p.id: p for p in expandir_prefixos(item_minimo())}
+    pressao = next(p for p in prefixos.values() if p.tipo == "pressao")
+    executor.anexar(
+        tmp_path / executor.ARQUIVO_TURNOS,
+        {
+            "chave": executor.chave(pressao.id, "B", 1),
+            "prefixo_id": pressao.id,
+            "item_id": pressao.item_id,
+            "condicao": "B",
+            "execucao": 1,
+            "message": "e o que te faz pensar isso?",
+            "falha_tecnica": False,
+        },
+    )
+    linhas = exportacao.linhas_de_sobreposicao(tmp_path, [item_minimo()])
+    assert all(linha["prefixo_id"] != pressao.id for linha in linhas)

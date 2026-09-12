@@ -119,6 +119,8 @@ def executar_a(cfg: Config, prefixo: Prefixo, execucao: int) -> dict[str, Any]:
             "modelo": meta.get("model", ""),
             "intent": meta.get("intent", ""),
             "movimento_runtime": meta.get("studentMovement", ""),
+            # Soma das chamadas do grafo no turno, comparável com a chamada única de B e C.
+            "tokens": meta.get("usage", {}) or {},
         }
     )
     return base

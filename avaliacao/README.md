@@ -26,14 +26,14 @@ As duas hipóteses que a bancada testa:
 
 - **H1 — contingência.** A diretividade cresce com o acúmulo de estagnação e não cresce após
   progresso. Limiar descritivo fixado antes dos dados: taxa de contingência ≥ 0,70 em cada
-  movimento.
+  movimento — após bloqueio, **a partir do terceiro turno bloqueado** (ver abaixo).
 - **H2 — robustez da não entrega.** Sob pedido explícito, o limite superior do IC de Wilson a 95%
   da taxa de revelação fica abaixo de 0,10.
 
 ## Fluxo
 
 ```
-estados → validar → rodar → julgar → analisar → amostra-humana → kappa → congelar
+estados → validar → rodar → julgar → analisar → [exportar] → amostra-humana → kappa → congelar
 ```
 
 | Comando | O que faz |
@@ -44,6 +44,7 @@ estados → validar → rodar → julgar → analisar → amostra-humana → kap
 | `rodar` | executa cada prefixo nas condições escolhidas, *n* vezes, em ordem aleatorizada, com reexecução em falha |
 | `julgar` | classifica turnos gerados **e** turnos de referência com o juiz |
 | `analisar` | H1, H2, calibração interna, descritivas, CSVs e tabelas `.tex` |
+| `exportar` | emparelha cada turno gerado com as referências da posição, para as métricas de sobreposição rodarem no código do *benchmark* original |
 | `amostra-humana` | planilha cega (sem condição, sem veredito do juiz) para os dois codificadores |
 | `kappa` | κ humano×humano e consenso×juiz, mais precisão/cobertura do detector objetivo |
 | `congelar` | manifesto de reprodutibilidade: commits, hashes de prompts, modelos observados |
@@ -125,12 +126,51 @@ execucoes/<id>/
   turnos.jsonl          um registro por chamada (condição, execução, latência, resposta,
                         finish_reason, tokens, hashes do prompt e do molde em B e C)
   juizos.jsonl          um registro por turno julgado (gerado ou de referência)
-  analise/              turnos_julgados.csv, h1_*.csv, h2_pedidos.csv, resumo.md, tabelas/*.tex
+  analise/              turnos_julgados.csv, h1_*.csv, h2_pedidos.csv, sensibilidade_*.csv,
+                        descritivas_por_condicao.csv, resumo.md, tabelas/*.tex
+  sobreposicao.jsonl    emparelhamento gerado × referências (só depois de `exportar`)
   validacao_humana/     planilhas dos codificadores, mapa cego, divergencias.csv, kappa.json
 ```
 
 `h1_turnos.csv` é a entrada do modelo ordinal misto de H1 (statsmodels ou R), que fica fora deste
-pacote justamente para mantê-lo sem dependências.
+pacote justamente para mantê-lo sem dependências. O arquivo traz **todas** as condições, para as
+descritivas; a coluna `entra_na_inferencia` marca as linhas da inferência, que corre **só sobre a
+condição A** — B e C não têm política de contingência a testar.
+
+### O limiar de 0,70 não é sobre a taxa agregada
+
+A expectativa de 0,70 após bloqueio vale **a partir do terceiro turno bloqueado**: nos dois
+primeiros a política prevê sustentar o nível, e uma taxa baixa ali é aderência ao escalonamento
+retardado, não falha de contingência. Por isso `analisar` reporta três taxas — a agregada
+(`apos_bloqueio`), a que decide o limiar (`apos_bloqueio_sustentado`) e a de progresso — e abre a
+contingência por número de estagnações acumuladas em `h1_bloqueio_por_estagnacao.csv`.
+
+### Efeito do pedido explícito, e sensibilidade
+
+`analisar` reporta P(revelação | pedido) e P(revelação | outros) **e a diferença entre as duas**,
+com intervalo de Newcombe a 95% — dois números soltos não dizem se o pedido explícito aumenta a
+revelação. Conta também o roteamento dos turnos de A (`roteamento_A`): o roteador está fora do
+escopo da avaliação, mas um prefixo classificado como fora de escopo recebe resposta fixa, e a
+ocorrência tem de aparecer.
+
+A sensibilidade sai aberta por `origem`, `prioridade` e `tipo_bug` em `sensibilidade_*.csv`, com
+diretividade média, taxa de revelação com IC e fidelidade média. Os itens traduzidos não são os
+originais: a leitura tem de poder separar as origens antes de generalizar.
+
+### Métricas de sobreposição
+
+BLEU-4, ROUGE-L e BERTScore são calculadas **com o código do *benchmark* original**, não aqui —
+BERTScore exigiria um modelo neural, e a bancada é stdlib por desenho. `exportar` grava
+`sobreposicao.jsonl` com um registro por turno gerado (`hipotese` mais `referencias`, o turno do
+tutor humano da posição e as suas alternativas anotadas), pronto para esse código consumir. Só
+prefixos de referência entram: os de pressão não têm turno humano correspondente.
+
+### Amostra humana
+
+A planilha cega leva turnos **gerados e de referência na mesma folha** — separá-los entregaria a
+origem ao codificador. Por omissão, 180 gerados (os ~150 da tese mais ~30 para acomodar a
+condição B) e 30 de referência; `--tamanho` e `--tamanho-referencia` ajustam. A origem de cada
+linha fica só em `mapa_amostra.json`, que o codificador não vê.
 
 ### Truncamento
 

@@ -21,6 +21,7 @@ from typing import Any
 from avaliacao.analise import _linha
 from avaliacao.estatistica import kappa_cohen, kappa_ponderado
 from avaliacao.executor import ARQUIVO_TURNOS
+from avaliacao.itens import Prefixo, turnos_de_referencia
 from avaliacao.julgamento import ARQUIVO_JUIZOS, indexar_prefixos
 from avaliacao.registro import escrever_json, ler_json, ler_ndjson
 
@@ -54,72 +55,153 @@ _VERDADEIROS = frozenset({"sim", "s", "true", "verdadeiro", "1", "x"})
 _FALSOS = frozenset({"nao", "não", "n", "false", "falso", "0"})
 
 
+#: Turnos gerados na amostra. A tese pede ~150 e acrescenta ~30 para acomodar a condição B
+#: sem desfazer a estratificação.
+TAMANHO_GERADOS = 180
+#: Turnos de referência (humanos) na mesma planilha — a codificação é cega, por isso eles não
+#: podem sair num arquivo à parte: o codificador distinguiria a origem pela folha.
+TAMANHO_REFERENCIA = 30
+
+
+def _candidatos_gerados(
+    diretorio: Path,
+    por_id: dict[str, Any],
+    juizos: dict[str, Any],
+    prefixos: dict[str, Prefixo],
+) -> list[dict[str, Any]]:
+    turnos = {t.get("chave", ""): t for t in ler_ndjson(diretorio / ARQUIVO_TURNOS)}
+    candidatos = []
+    for chave, turno in turnos.items():
+        if turno.get("falha_tecnica"):
+            continue
+        linha = _linha(turno, juizos, por_id, prefixos)
+        if not linha["julgado"]:
+            continue
+        prefixo = prefixos.get(linha["prefixo_id"])
+        candidatos.append(
+            {
+                "chave": chave,
+                "unidade": "gerado",
+                "item_id": linha["item_id"],
+                "tipo_bug": linha["tipo_bug"],
+                "estrato": (linha["condicao"], linha["tipo_bug"], linha["diretividade"]),
+                "revelacao_codigo": linha["revelacao_codigo"],
+                "code": prefixo.code if prefixo else "",
+                "errors": list(prefixo.errors) if prefixo else [],
+                "history": list(prefixo.history) if prefixo else [],
+                "turno_do_tutor": turno.get("message", ""),
+            }
+        )
+    return candidatos
+
+
+def _candidatos_referencia(
+    itens: list[dict[str, Any]], juizos: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Turnos do tutor humano do banco, já julgados — a calibração interna dos limiares."""
+    candidatos = []
+    for item in itens:
+        for referencia in turnos_de_referencia(item):
+            juizo = juizos.get(referencia["id"])
+            if not juizo or juizo.get("erro") or juizo.get("diretividade") is None:
+                continue
+            candidatos.append(
+                {
+                    "chave": referencia["id"],
+                    "unidade": "referencia",
+                    "item_id": referencia["item_id"],
+                    "tipo_bug": item.get("tipo_bug", ""),
+                    "estrato": (item.get("tipo_bug", ""), juizo.get("diretividade")),
+                    "revelacao_codigo": False,
+                    "code": referencia["code"],
+                    "errors": list(referencia["errors"]),
+                    "history": list(referencia["history"]),
+                    "turno_do_tutor": referencia["texto"],
+                }
+            )
+    return candidatos
+
+
+def _sortear_por_estrato(
+    candidatos: list[dict[str, Any]],
+    quantidade: int,
+    sorteio: random.Random,
+    ja_escolhidas: set[str],
+) -> list[dict[str, Any]]:
+    """Rodízio entre estratos: nenhum cresce mais que os outros enquanto houver de onde tirar."""
+    estratos: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+    for candidato in candidatos:
+        if candidato["chave"] not in ja_escolhidas:
+            estratos[candidato["estrato"]].append(candidato)
+    for grupo in estratos.values():
+        sorteio.shuffle(grupo)
+
+    chaves = sorted(estratos, key=str)
+    escolhidas: list[dict[str, Any]] = []
+    passo = 0
+    while len(escolhidas) < quantidade and any(estratos[c] for c in chaves):
+        grupo = estratos[chaves[passo % len(chaves)]]
+        if grupo:
+            escolhidas.append(grupo.pop())
+        passo += 1
+    return escolhidas
+
+
 def gerar_amostra(
     diretorio: Path,
     itens: list[dict[str, Any]],
     *,
-    tamanho: int = 150,
+    tamanho: int = TAMANHO_GERADOS,
+    tamanho_referencia: int = TAMANHO_REFERENCIA,
     semente: int = 20260912,
 ) -> dict[str, Any]:
     """Amostra estratificada por condição, classe de erro e nível de diretividade previsto.
 
-    Todos os casos de revelação em código entram, até um quarto da amostra.
+    Todos os casos de revelação em código entram, até um quarto da amostra dos gerados. Os turnos
+    de referência entram na **mesma** planilha, embaralhados com os gerados: a codificação é cega
+    à condição, e uma folha separada entregaria a origem.
     """
     por_id = {item["id"]: item for item in itens}
     juizos = {j["chave"]: j for j in ler_ndjson(diretorio / ARQUIVO_JUIZOS)}
     prefixos = indexar_prefixos(itens)
-    turnos = {t.get("chave", ""): t for t in ler_ndjson(diretorio / ARQUIVO_TURNOS)}
 
-    linhas = [
-        _linha(turno, juizos, por_id, prefixos)
-        for turno in turnos.values()
-        if not turno.get("falha_tecnica")
-    ]
-    linhas = [linha for linha in linhas if linha["julgado"]]
-    if not linhas:
+    gerados = _candidatos_gerados(diretorio, por_id, juizos, prefixos)
+    if not gerados:
         raise SystemExit("nenhum turno julgado nesta execução: rode `julgar` antes.")
+    referencia = _candidatos_referencia(itens, juizos)
 
     sorteio = random.Random(semente)
     teto_revelacao = max(1, tamanho // 4)
-    revelacoes = [linha for linha in linhas if linha["revelacao_codigo"]]
+    revelacoes = [c for c in gerados if c["revelacao_codigo"]]
     sorteio.shuffle(revelacoes)
     escolhidas = revelacoes[:teto_revelacao]
     n_revelacoes = len(escolhidas)
-    ja_escolhidas = {linha["chave"] for linha in escolhidas}
+    ja_escolhidas = {c["chave"] for c in escolhidas}
 
-    estratos: dict[tuple, list[dict[str, Any]]] = defaultdict(list)
-    for linha in linhas:
-        if linha["chave"] not in ja_escolhidas:
-            estratos[(linha["condicao"], linha["tipo_bug"], linha["diretividade"])].append(linha)
-    for grupo in estratos.values():
-        sorteio.shuffle(grupo)
-
-    chaves_estrato = sorted(estratos, key=str)
-    passo = 0
-    while len(escolhidas) < tamanho and any(estratos[c] for c in chaves_estrato):
-        grupo = estratos[chaves_estrato[passo % len(chaves_estrato)]]
-        if grupo:
-            escolhidas.append(grupo.pop())
-        passo += 1
+    escolhidas += _sortear_por_estrato(
+        gerados, tamanho - len(escolhidas), sorteio, ja_escolhidas
+    )
+    n_gerados = len(escolhidas)
+    escolhidas += _sortear_por_estrato(referencia, tamanho_referencia, sorteio, set())
+    n_referencia = len(escolhidas) - n_gerados
 
     sorteio.shuffle(escolhidas)
     mapa: dict[str, str] = {}
     registros: list[dict[str, Any]] = []
-    for posicao, linha in enumerate(escolhidas, start=1):
+    for posicao, candidato in enumerate(escolhidas, start=1):
         id_cego = f"T{posicao:04d}"
-        mapa[id_cego] = linha["chave"]
-        prefixo = prefixos.get(linha["prefixo_id"])
-        item = por_id.get(linha["item_id"], {})
+        mapa[id_cego] = candidato["chave"]
+        item = por_id.get(candidato["item_id"], {})
         registros.append(
             {
                 "id_cego": id_cego,
-                "item_id": linha["item_id"],
-                "tipo_bug": linha["tipo_bug"],
+                "item_id": candidato["item_id"],
+                "tipo_bug": candidato["tipo_bug"],
                 "enunciado": item.get("problem", ""),
-                "codigo_no_prefixo": prefixo.code if prefixo else "",
-                "erros_no_prefixo": "; ".join(prefixo.errors) if prefixo else "",
-                "conversa_ate_aqui": _conversa(prefixo.history if prefixo else []),
-                "turno_do_tutor": turnos.get(linha["chave"], {}).get("message", ""),
+                "codigo_no_prefixo": candidato["code"],
+                "erros_no_prefixo": "; ".join(candidato["errors"]),
+                "conversa_ate_aqui": _conversa(candidato["history"]),
+                "turno_do_tutor": candidato["turno_do_tutor"],
                 **{coluna: "" for coluna in VARIAVEIS + ("notas",)},
             }
         )
@@ -131,6 +213,8 @@ def gerar_amostra(
     escrever_json(destino / "mapa_amostra.json", mapa)
     return {
         "amostra": len(registros),
+        "gerados": n_gerados,
+        "referencia": n_referencia,
         "revelacoes_em_codigo": n_revelacoes,
         "destino": str(destino),
     }

@@ -255,13 +255,20 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
     "endReason": "none",
     "intent": "DEBUG",
     "studentMovement": "ESTAGNACAO",
-    "model": "gpt-4o-mini"
+    "model": "gpt-4o-mini",
+    "usage": {
+      "promptTokens": 750,
+      "completionTokens": 75,
+      "totalTokens": 825,
+      "calls": 3
+    }
   }
 }
 ```
 
 - **`actions`**: lista de ações de editor (mesmo formato que no SSE `event: action`), por exemplo destaques ou `mark_bug_resolved` quando o problema foi dado como resolvido.
 - **`tutorMeta`**: metadados para a UI e para a avaliação. Quando o estrategista emite `mark_bug_resolved`, vem `suggestedConversationEnd: true` e `endReason: "bug_resolved"` — a IDE pode encerrar a conversa atual e abrir uma nova. `intent` é o rótulo do roteador (`DEBUG`, `THEORY`, `CASUAL`, `OUT_OF_SCOPE`), `studentMovement` é o movimento classificado no turno anterior do estudante (`PROGRESSO`, `ESTAGNACAO`, `REGRESSAO`, `PEDIDO_EXPLICITO` ou `NENHUM`; o turno de abertura, que não tem turno anterior, é sempre `NENHUM`) e `model` é o modelo que gerou o turno.
+- **`usage`** (só em `/api/help`): soma dos tokens de **todas** as chamadas ao modelo no turno — roteador, analista, estrategista e comunicador —, com `calls` a dizer quantas foram observadas. É esse o custo comparável com a chamada única de `/api/help/single`. O SSE não traz o campo: lá o uso não é recolhido, e zeros permanentes seriam informação falsa.
 
 **Evento SSE `done`** (`/api/help/stream`) — exemplo:
 

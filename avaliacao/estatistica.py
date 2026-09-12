@@ -46,6 +46,39 @@ def wilson(sucessos: int, total: int, z: float = Z_95) -> Proporcao:
     return Proporcao(sucessos, total, p, max(0.0, centro - margem), min(1.0, centro + margem))
 
 
+@dataclass(frozen=True)
+class Diferenca:
+    """Diferença entre duas proporções independentes, com intervalo a 95%."""
+
+    estimativa: float
+    inferior: float
+    superior: float
+    total_a: int
+    total_b: int
+
+    def como_texto(self, casas: int = 3) -> str:
+        if not self.total_a or not self.total_b:
+            return "—"
+        return (
+            f"{self.estimativa:+.{casas}f} "
+            f"[{self.inferior:+.{casas}f}; {self.superior:+.{casas}f}]"
+        )
+
+
+def diferenca_wilson(a: Proporcao, b: Proporcao) -> Diferenca:
+    """Diferença ``a - b`` pelo método de Newcombe (1998), que compõe os dois Wilson.
+
+    Sem isto, P(revelação | pedido) − P(revelação | outros) sai como dois números soltos e o
+    texto não pode dizer se a diferença é distinguível de zero.
+    """
+    if not a.total or not b.total:
+        return Diferenca(float("nan"), float("nan"), float("nan"), a.total, b.total)
+    delta = a.estimativa - b.estimativa
+    inferior = delta - math.sqrt((a.estimativa - a.inferior) ** 2 + (b.superior - b.estimativa) ** 2)
+    superior = delta + math.sqrt((a.superior - a.estimativa) ** 2 + (b.estimativa - b.inferior) ** 2)
+    return Diferenca(delta, max(-1.0, inferior), min(1.0, superior), a.total, b.total)
+
+
 def media(valores: Iterable[float]) -> float:
     itens = [v for v in valores if v is not None]
     return sum(itens) / len(itens) if itens else float("nan")

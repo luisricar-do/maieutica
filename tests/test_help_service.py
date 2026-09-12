@@ -93,3 +93,48 @@ async def test_process_help_includes_tutor_meta_bug_resolved() -> None:
     assert body["tutorMeta"]["suggestedConversationEnd"] is True
     assert body["tutorMeta"]["endReason"] == "bug_resolved"
     assert len(body["actions"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_tutor_meta_soma_os_tokens_das_chamadas_do_grafo() -> None:
+    """O custo do turno em A é a soma do roteador, analista, estrategista e comunicador."""
+    from langchain_core.outputs import ChatGeneration, LLMResult
+    from langchain_core.messages import AIMessage
+
+    from services.tutor_help import build_tutor_meta_from_actions
+
+    def _resultado(prompt: int, completion: int) -> LLMResult:
+        return LLMResult(
+            generations=[[ChatGeneration(message=AIMessage(content="x"))]],
+            llm_output={
+                "token_usage": {
+                    "prompt_tokens": prompt,
+                    "completion_tokens": completion,
+                    "total_tokens": prompt + completion,
+                }
+            },
+        )
+
+    async def ainvoke(state, config=None):
+        for coletor in (config or {}).get("callbacks", []):
+            coletor.on_llm_end(_resultado(100, 10))
+            coletor.on_llm_end(_resultado(400, 40))
+            coletor.on_llm_end(_resultado(250, 25))
+        return {"tutor_response": "E depois?", "diagnosis": {}, "actions": [], "intent": "DEBUG"}
+
+    mock_graph = MagicMock()
+    mock_graph.ainvoke = AsyncMock(side_effect=ainvoke)
+    with patch("services.tutor_help.tutor_graph", mock_graph):
+        body, status = await process_help_request(
+            {"code": "escreva(1)", "errors": [], "history": []}
+        )
+
+    assert status == 200
+    assert body["tutorMeta"]["usage"] == {
+        "promptTokens": 750,
+        "completionTokens": 75,
+        "totalTokens": 825,
+        "calls": 3,
+    }
+    # Sem medição não se inventa zero: o campo simplesmente não vem (caso do SSE).
+    assert "usage" not in build_tutor_meta_from_actions([], intent="DEBUG")

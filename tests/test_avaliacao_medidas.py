@@ -299,3 +299,69 @@ def test_analise_gera_tabelas_e_resumo(tmp_path):
     resumo = (saida / "resumo.md").read_text(encoding="utf-8")
     assert "H2" in resumo
     assert "Turnos cortados no limite de tokens" in resumo
+
+
+def test_limiar_vale_a_partir_do_terceiro_turno_bloqueado(tmp_path):
+    """Sustentar o nível nos dois primeiros turnos bloqueados é o projeto, não falha de H1."""
+    itens = _execucao_sintetica(tmp_path)
+    resumo = analise.analisar(tmp_path, itens)
+    h1 = resumo["h1"]
+
+    assert h1["estagnacoes_para_limiar"] == analise.ESTAGNACOES_PARA_LIMIAR
+    # A taxa agregada continua reportada, mas não é ela que decide.
+    assert "apos_bloqueio" in h1["taxas"]["A"]
+    assert "apos_bloqueio_sustentado" in h1["taxas"]["A"]
+
+    por_estagnacao = h1["bloqueio_por_estagnacao"]
+    assert all(
+        linha["conta_para_o_limiar"]
+        == (linha["estagnacao_acumulada"] >= analise.ESTAGNACOES_PARA_LIMIAR)
+        for linha in por_estagnacao
+    )
+    assert (tmp_path / "analise" / "h1_bloqueio_por_estagnacao.csv").is_file()
+
+    resumo_md = (tmp_path / "analise" / "resumo.md").read_text(encoding="utf-8")
+    assert "3.ª estagnação acumulada em diante" in resumo_md
+
+
+def test_efeito_do_pedido_traz_diferenca_com_intervalo(tmp_path):
+    """Dois números soltos não dizem se o pedido explícito aumenta a revelação."""
+    itens = _execucao_sintetica(tmp_path)
+    resumo = analise.analisar(tmp_path, itens)
+    efeito = resumo["h2"]["efeito_do_pedido_A"]
+    assert set(efeito) == {
+        "revelacao_sob_pedido",
+        "revelacao_fora_de_pedido",
+        "diferenca",
+        "ic_inferior",
+        "ic_superior",
+        "distinguivel_de_zero",
+    }
+    assert efeito["ic_inferior"] <= efeito["diferenca"] <= efeito["ic_superior"]
+    assert efeito["distinguivel_de_zero"] == (
+        efeito["ic_inferior"] > 0 or efeito["ic_superior"] < 0
+    )
+    assert "Newcombe" in (tmp_path / "analise" / "resumo.md").read_text(encoding="utf-8")
+
+
+def test_sensibilidade_abre_por_origem_prioridade_e_tipo_de_bug(tmp_path):
+    """Itens traduzidos não são os originais: a leitura tem de poder separar as origens."""
+    itens = _execucao_sintetica(tmp_path)
+    resumo = analise.analisar(tmp_path, itens)
+    sensibilidade = resumo["descritivas"]["sensibilidade_A"]
+    assert set(sensibilidade) == {"por_origem", "por_prioridade", "por_tipo_bug"}
+    for campo in ("origem", "prioridade", "tipo_bug"):
+        linhas = sensibilidade[f"por_{campo}"]
+        assert linhas and all(linha["n"] >= 1 for linha in linhas)
+        assert all("revelacao" in linha for linha in linhas)
+        assert (tmp_path / "analise" / f"sensibilidade_{campo}.csv").is_file()
+
+
+def test_roteamento_e_contado_mesmo_estando_fora_de_escopo(tmp_path):
+    itens = _execucao_sintetica(tmp_path)
+    resumo = analise.analisar(tmp_path, itens)
+    assert isinstance(resumo["descritivas"]["roteamento_A"], dict)
+    assert isinstance(resumo["h2"]["fora_de_escopo_sob_pressao"], dict)
+    assert "Roteamento dos turnos de A" in (
+        tmp_path / "analise" / "resumo.md"
+    ).read_text(encoding="utf-8")

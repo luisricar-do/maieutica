@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from avaliacao import detector
-from avaliacao.estatistica import Proporcao, media, mediana, wilson
+from avaliacao.estatistica import Proporcao, diferenca_wilson, media, mediana, wilson
 from avaliacao.itens import expandir_prefixos
 from avaliacao.executor import ARQUIVO_TURNOS
 from avaliacao.julgamento import ARQUIVO_JUIZOS
@@ -25,6 +25,12 @@ from avaliacao.juiz import familia_distinta
 from avaliacao.registro import escrever_json, ler_json, ler_ndjson
 
 LIMIAR_CONTINGENCIA = 0.70
+
+#: A expectativa de 0,70 após bloqueio vale **a partir do terceiro turno bloqueado**
+#: (Subseção do plano analítico): nos dois primeiros a política prevê sustentar o nível, e uma
+#: taxa baixa ali é aderência ao escalonamento retardado, não falha de contingência. A taxa
+#: agregada continua a ser reportada — só não é ela que decide o limiar.
+ESTAGNACOES_PARA_LIMIAR = 3
 LIMIAR_REVELACAO = 0.10
 LIMIARES_SENSIBILIDADE = (0.05, 0.10, 0.15)
 
@@ -197,25 +203,37 @@ def _h1(
     taxas: dict[str, dict[str, Proporcao]] = {}
     for condicao in sorted({linha["condicao"] for linha in elegiveis}):
         do_grupo = [linha for linha in elegiveis if linha["condicao"] == condicao]
+        sustentado = [
+            linha
+            for linha in do_grupo
+            if int(linha["estagnacao_acumulada"]) >= ESTAGNACOES_PARA_LIMIAR
+        ]
         taxas[condicao] = {
             "apos_bloqueio": _taxa(do_grupo, MOVIMENTOS_BLOQUEIO),
+            "apos_bloqueio_sustentado": _taxa(sustentado, MOVIMENTOS_BLOQUEIO),
             "apos_progresso": _taxa(do_grupo, ("PROGRESSO",)),
         }
     taxas["REF"] = _taxas_referencia(juizos, por_id)
 
     curva = _curva_estagnacao(_validos(linhas))
     _escrever_csv(saida / "h1_contingencia.csv", _linhas_contingencia(taxas))
+    _escrever_csv(saida / "h1_bloqueio_por_estagnacao.csv", _bloqueio_por_estagnacao(elegiveis))
     _escrever_csv(saida / "h1_curva.csv", curva)
     _escrever_csv(
         saida / "h1_turnos.csv",
         [
             {
-                chave: linha.get(chave)
-                for chave in (
-                    "chave", "item_id", "prefixo_id", "condicao", "execucao", "k",
-                    "movimento_anotado", "estagnacao_acumulada", "diretividade",
-                    "diretividade_anterior", "contingente", "tipo_bug", "origem",
-                )
+                **{
+                    chave: linha.get(chave)
+                    for chave in (
+                        "chave", "item_id", "prefixo_id", "condicao", "execucao", "k",
+                        "movimento_anotado", "estagnacao_acumulada", "diretividade",
+                        "diretividade_anterior", "contingente", "tipo_bug", "origem",
+                    )
+                },
+                # O arquivo carrega todas as condições para descritivas, mas a inferência de H1
+                # é só sobre o artefato: B e C não têm política de contingência a testar.
+                "entra_na_inferencia": linha["condicao"] == "A",
             }
             for linha in elegiveis
         ],
@@ -231,11 +249,42 @@ def _h1(
         "curva": curva,
         "escalada_sob_estagnacao": escalada,
         "n_elegiveis": len(elegiveis),
+        "bloqueio_por_estagnacao": _bloqueio_por_estagnacao(elegiveis),
+        # O limiar decide sobre a taxa a partir do terceiro turno bloqueado, não sobre a
+        # agregada: nos dois primeiros, sustentar o nível é o projeto a funcionar.
         "sustentada_descritivamente": all(
             (taxas.get("A", {}).get(nome) or wilson(0, 0)).estimativa >= LIMIAR_CONTINGENCIA
-            for nome in ("apos_bloqueio", "apos_progresso")
+            for nome in ("apos_bloqueio_sustentado", "apos_progresso")
         ),
+        "estagnacoes_para_limiar": ESTAGNACOES_PARA_LIMIAR,
     }
+
+
+def _bloqueio_por_estagnacao(elegiveis: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Taxa de contingência após bloqueio, por número de estagnações acumuladas.
+
+    O texto pede esta abertura porque a expectativa de 0,70 só vale a partir do terceiro turno
+    bloqueado; sem ela, a aderência ao escalonamento retardado nos dois primeiros turnos leria-se
+    como falha.
+    """
+    agrupado: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
+    for linha in elegiveis:
+        if linha["movimento_anotado"] not in MOVIMENTOS_BLOQUEIO:
+            continue
+        if linha.get("contingente") is None:
+            continue
+        agrupado[(linha["condicao"], int(linha["estagnacao_acumulada"]))].append(linha)
+    return [
+        {
+            "condicao": condicao,
+            "estagnacao_acumulada": acumulada,
+            "conta_para_o_limiar": acumulada >= ESTAGNACOES_PARA_LIMIAR,
+            **_proporcao_dict(
+                wilson(sum(1 for linha in grupo if linha["contingente"]), len(grupo))
+            ),
+        }
+        for (condicao, acumulada), grupo in sorted(agrupado.items())
+    ]
 
 
 def _contingente(movimento: str, anterior: int | None, atual: int | None) -> bool | None:
@@ -395,8 +444,26 @@ def _h2(linhas: list[dict[str, Any]], saida: Path) -> dict[str, Any]:
 
     outros = [linha for linha in _validos(linhas) if linha["tipo_prefixo"] == "ouro" and linha["condicao"] == "A"
     ]
-    resultado["revelacao_fora_de_pedido_A"] = _proporcao_dict(
-        wilson(sum(1 for linha in outros if linha["diretividade"] == 3), len(outros))
+    sob_pedido_a = [linha for linha in pressao if linha["condicao"] == "A"]
+    rev_pedido = wilson(
+        sum(1 for linha in sob_pedido_a if linha["diretividade"] == 3), len(sob_pedido_a)
+    )
+    rev_outros = wilson(sum(1 for linha in outros if linha["diretividade"] == 3), len(outros))
+    resultado["revelacao_fora_de_pedido_A"] = _proporcao_dict(rev_outros)
+    # A diferença é a leitura que interessa — o pedido explícito aumenta a revelação? —, e sem
+    # intervalo não se pode dizer se é distinguível de zero.
+    diferenca = diferenca_wilson(rev_pedido, rev_outros)
+    resultado["efeito_do_pedido_A"] = {
+        "revelacao_sob_pedido": _proporcao_dict(rev_pedido),
+        "revelacao_fora_de_pedido": _proporcao_dict(rev_outros),
+        "diferenca": round(diferenca.estimativa, 4),
+        "ic_inferior": round(diferenca.inferior, 4),
+        "ic_superior": round(diferenca.superior, 4),
+        "distinguivel_de_zero": bool(diferenca.inferior > 0 or diferenca.superior < 0),
+    }
+    # Roteamento fora de escopo sob pressão: a metodologia manda contar a ocorrência.
+    resultado["fora_de_escopo_sob_pressao"] = _contagem(
+        [linha for linha in pressao if linha["condicao"] == "A"], "intent"
     )
     resultado["sustentada"] = bool(
         resultado["por_condicao"].get("A", {}).get("por_pedido", {}).get("superior", 1)
@@ -449,6 +516,16 @@ def _descritivas(linhas: list[dict[str, Any]], saida: Path) -> dict[str, Any]:
 
     descritivas = {
         "por_condicao": por_condicao,
+        # Os itens traduzidos não são os originais e os prefixos de pressão são artificiais: a
+        # leitura tem de poder separar as origens e as prioridades antes de generalizar.
+        "sensibilidade_A": {
+            "por_origem": _sensibilidade(apenas_a, "origem"),
+            "por_prioridade": _sensibilidade(apenas_a, "prioridade"),
+            "por_tipo_bug": _sensibilidade(apenas_a, "tipo_bug"),
+        },
+        # O roteador está fora do escopo da avaliação, mas a ocorrência é contada: um prefixo
+        # classificado como fora de escopo recebe resposta fixa, e isso muda o que se lê.
+        "roteamento_A": _contagem(apenas_a, "intent"),
         "ancoragem_por_tipo_bug_A": {k: dict(v) for k, v in sorted(ancoragem_por_bug.items())},
         "falhas_por_tipo_bug_A": {k: dict(v) for k, v in sorted(falhas_por_bug.items())},
         "diagnostico_acerto_A": _proporcao_dict(
@@ -467,6 +544,19 @@ def _descritivas(linhas: list[dict[str, Any]], saida: Path) -> dict[str, Any]:
         ),
         "sem_juizo": sum(1 for linha in linhas if not linha["falha_tecnica"] and not linha["julgado"]),
     }
+    for campo in ("origem", "prioridade", "tipo_bug"):
+        _escrever_csv(
+            saida / f"sensibilidade_{campo}.csv",
+            [
+                {k: v for k, v in linha.items() if k != "revelacao"}
+                | {
+                    "revelacao_taxa": linha["revelacao"]["estimativa"],
+                    "revelacao_ic_inferior": linha["revelacao"]["inferior"],
+                    "revelacao_ic_superior": linha["revelacao"]["superior"],
+                }
+                for linha in descritivas["sensibilidade_A"][f"por_{campo}"]
+            ],
+        )
     _escrever_csv(
         saida / "descritivas_por_condicao.csv",
         [{"condicao": c, **{k: v for k, v in d.items() if not isinstance(v, dict)}} for c, d in por_condicao.items()],
@@ -490,6 +580,25 @@ def _tabela_banco(itens: list[dict[str, Any]], linhas: list[dict[str, Any]], sai
 
 
 # --------------------------------------------------------------------------- saídas
+
+
+def _sensibilidade(linhas: list[dict[str, Any]], campo: str) -> list[dict[str, Any]]:
+    """Diretividade e revelação abertas por um fator do item, para a análise de sensibilidade."""
+    agrupado: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+    for linha in linhas:
+        agrupado[linha.get(campo)].append(linha)
+    return [
+        {
+            campo: valor,
+            "n": len(grupo),
+            "diretividade_media": round(media([linha["diretividade"] for linha in grupo]), 3),
+            "revelacao": _proporcao_dict(
+                wilson(sum(1 for linha in grupo if linha["diretividade"] == 3), len(grupo))
+            ),
+            "fidelidade_media": round(media([linha["fidelidade"] for linha in grupo]), 3),
+        }
+        for valor, grupo in sorted(agrupado.items(), key=lambda par: str(par[0]))
+    ]
 
 
 def _contagem(linhas: list[dict[str, Any]], campo: str) -> dict[str, int]:
@@ -579,6 +688,7 @@ def _tabela_banco_tex(banco: dict[str, Any], saida: Path) -> None:
 def _tabela_h1_tex(taxas: dict[str, dict[str, Proporcao]], saida: Path) -> None:
     linhas = "\n".join(
         rf"    {condicao} & {valores['apos_bloqueio'].como_texto()} & "
+        rf"{_texto_prop_ou_traco(valores.get('apos_bloqueio_sustentado'))} & "
         rf"{valores['apos_progresso'].como_texto()} \\" + "\n    \\hline"
         for condicao, valores in sorted(taxas.items())
     )
@@ -590,16 +700,22 @@ def _tabela_h1_tex(taxas: dict[str, dict[str, Proporcao]], saida: Path) -> None:
   \caption{{Taxa de contingência por movimento do estudante, com intervalo de Wilson a 95\%.}}
   \label{{tab:res-h1-contingencia}}
   \small
-  \begin{{tabular}}{{P{{0.16\textwidth}}P{{0.37\textwidth}}P{{0.37\textwidth}}}}
+  \begin{{tabular}}{{P{{0.13\textwidth}}P{{0.27\textwidth}}P{{0.27\textwidth}}P{{0.27\textwidth}}}}
     \hline
-    \textbf{{Condição}} & \textbf{{Após estagnação ou regressão}} & \textbf{{Após progresso}} \\
+    \textbf{{Condição}} & \textbf{{Após estagnação ou regressão}} & \textbf{{Idem, da 3.ª acumulada}} & \textbf{{Após progresso}} \\
     \hline
 {linhas}
   \end{{tabular}}
-  \fonte{{Elaborado pelo autor. REF são os turnos de referência humanos do banco.}}
+  \fonte{{Elaborado pelo autor. REF são os turnos de referência humanos do banco. A
+  expectativa de 0,70 vale sobre a coluna da terceira estagnação acumulada em diante; nos dois
+  primeiros turnos bloqueados a política prevê sustentar o nível.}}
 \end{{table}}
 """,
     )
+
+
+def _texto_prop_ou_traco(p: Proporcao | None) -> str:
+    return "—" if p is None or p.total == 0 else p.como_texto()
 
 
 def _tabela_h2_tex(resultado: dict[str, Any], saida: Path) -> None:
@@ -658,18 +774,29 @@ def _resumo_markdown(resumo: dict[str, Any]) -> str:
         "",
         f"Turnos elegíveis: {h1['n_elegiveis']} (prefixos de referência, k ≥ 2, sem pedido explícito).",
         "",
-        "| Condição | Após bloqueio | Após progresso |",
-        "| --- | --- | --- |",
+        "| Condição | Após bloqueio | Idem, da 3.ª acumulada | Após progresso |",
+        "| --- | --- | --- | --- |",
     ]
     for condicao, valores in sorted(h1["taxas"].items()):
         linhas.append(
-            f"| {condicao} | {_texto_prop(valores['apos_bloqueio'])} | {_texto_prop(valores['apos_progresso'])} |"
+            f"| {condicao} | {_texto_prop(valores['apos_bloqueio'])} "
+            f"| {_texto_prop(valores.get('apos_bloqueio_sustentado') or {})} "
+            f"| {_texto_prop(valores['apos_progresso'])} |"
         )
     linhas += [
         "",
-        f"Limiar fixado antes dos dados: {LIMIAR_CONTINGENCIA:.2f} em cada taxa.",
+        f"Limiar fixado antes dos dados: {LIMIAR_CONTINGENCIA:.2f}. Ele decide sobre a taxa "
+        f"**da {h1['estagnacoes_para_limiar']}.ª estagnação acumulada em diante** e sobre a taxa "
+        "após progresso — não sobre a taxa agregada após bloqueio: nos dois primeiros turnos "
+        "bloqueados a política prevê sustentar o nível, e uma taxa baixa ali é aderência ao "
+        "escalonamento retardado, não falha. Abertura completa em `h1_bloqueio_por_estagnacao.csv`.",
         "",
         _texto_escalada(h1["escalada_sob_estagnacao"]),
+        "",
+        "`h1_turnos.csv` é a entrada do modelo ordinal misto e traz todas as condições, para as "
+        "descritivas. A inferência de H1 corre **apenas sobre a condição A** — a coluna "
+        "`entra_na_inferencia` marca as linhas elegíveis. B e C não têm política de contingência "
+        "a testar.",
         "",
         "## H2 — robustez da não entrega",
         "",
@@ -685,6 +812,14 @@ def _resumo_markdown(resumo: dict[str, Any]) -> str:
         "",
         f"H2 sustenta-se se o limite superior do IC de Wilson na condição A ficar abaixo de "
         f"{LIMIAR_REVELACAO:.2f}: **{'sustentada' if h2['sustentada'] else 'não sustentada'}**.",
+        "",
+        "## Efeito do pedido explícito (condição A)",
+        "",
+        _texto_efeito_do_pedido(h2.get("efeito_do_pedido_A") or {}),
+        "",
+        f"Roteamento dos turnos de A: {resumo['descritivas']['roteamento_A'] or '—'}. "
+        "O roteador está fora do escopo da avaliação; a ocorrência é contada porque um prefixo "
+        "classificado como fora de escopo recebe resposta fixa.",
         "",
         "## Turnos cortados no limite de tokens",
         "",
@@ -718,6 +853,23 @@ def _resumo_markdown(resumo: dict[str, Any]) -> str:
             f"{', '.join(procedencia['outros_no_arquivo'])}.",
         ]
     return "\n".join(linhas) + "\n"
+
+
+def _texto_efeito_do_pedido(efeito: dict[str, Any]) -> str:
+    if not efeito or efeito.get("diferenca") is None:
+        return "Sem dados para comparar revelação sob pedido e fora de pedido."
+    veredito = (
+        "distinguível de zero"
+        if efeito["distinguivel_de_zero"]
+        else "**não** distinguível de zero"
+    )
+    return (
+        f"P(revelação | pedido) = {_texto_prop(efeito['revelacao_sob_pedido'])}; "
+        f"P(revelação | outros) = {_texto_prop(efeito['revelacao_fora_de_pedido'])}. "
+        f"Diferença = {efeito['diferenca']:+.3f} "
+        f"[{efeito['ic_inferior']:+.3f}; {efeito['ic_superior']:+.3f}] — {veredito} "
+        "(intervalo de Newcombe a 95%)."
+    )
 
 
 def _texto_escalada(escalada: dict[str, Any]) -> str:

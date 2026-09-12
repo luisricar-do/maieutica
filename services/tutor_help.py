@@ -10,6 +10,7 @@ from typing import Any, TypedDict
 from agents.graph import tutor_graph
 from agents.llm import chat_model_name
 from agents.movement import classify_movement
+from agents.usage import TokenUsageCollector
 from services import interaction_log
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ def build_tutor_meta_from_actions(
     intent: str = "",
     student_movement: str = "",
     model: str = "",
+    usage: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """
     Metadados de política de conversa para o cliente (IDE) e para a avaliação.
@@ -43,6 +45,11 @@ def build_tutor_meta_from_actions(
     meta["intent"] = intent or "DEBUG"
     meta["studentMovement"] = student_movement or "NENHUM"
     meta["model"] = model or chat_model_name()
+    if usage is not None:
+        # Soma das chamadas do grafo no turno — roteador, analista, estrategista, comunicador.
+        # É esse o custo que se compara com a chamada única das condições B e C. Ausente no
+        # SSE, onde o uso não é recolhido: zeros permanentes seriam informação falsa.
+        meta["usage"] = dict(usage)
     return meta
 
 
@@ -301,8 +308,9 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
         return err_body, status
 
     started = time.monotonic()
+    usage = TokenUsageCollector()
     try:
-        result = await tutor_graph.ainvoke(initial_state)
+        result = await tutor_graph.ainvoke(initial_state, config={"callbacks": [usage]})
     except Exception as exc:
         logger.exception("Falha ao executar o grafo do tutor (process_help_request)")
         await log_turn(
@@ -327,6 +335,7 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
             actions,
             intent=str(result.get("intent") or ""),
             student_movement=initial_state["student_movement"],
+            usage=usage.as_dict(),
         ),
     }
     await log_turn(
