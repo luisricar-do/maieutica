@@ -58,7 +58,15 @@ ESCALAS_ORDINAIS: dict[str, tuple[int, ...]] = {
 VARIAVEIS_ORDINAIS = ("diretividade", "fidelidade")
 VARIAVEIS_BOOLEANAS = ("irrelevante", "repetida", "excessivamente_direta", "prematura")
 VARIAVEIS_TEXTUAIS = ("movimento_estudante", "ancorado")
+#: Variáveis que o juiz classifica e com as quais faz sentido compará-lo.
 VARIAVEIS = VARIAVEIS_ORDINAIS + VARIAVEIS_TEXTUAIS + VARIAVEIS_BOOLEANAS
+
+#: Variáveis codificadas **só** pelo humano, porque a rubrica em vigor não as pede ao juiz
+#: (``prompts/juiz-revisto.md`` explica a lacuna). Entram na planilha e no κ intra-avaliador, mas
+#: **não** no κ humano×juiz: comparar com um juiz a quem a pergunta nunca foi feita produziria
+#: uma concordância inventada, calculada contra um "não" que ele nunca disse.
+VARIAVEIS_SO_HUMANAS = ("incorreta",)
+TODAS_AS_VARIAVEIS = VARIAVEIS + VARIAVEIS_SO_HUMANAS
 
 COLUNAS_CONTEXTO = (
     "id_cego",
@@ -70,7 +78,7 @@ COLUNAS_CONTEXTO = (
     "conversa_ate_aqui",
     "turno_do_tutor",
 )
-COLUNAS_CODIFICACAO = COLUNAS_CONTEXTO + VARIAVEIS + ("notas",)
+COLUNAS_CODIFICACAO = COLUNAS_CONTEXTO + TODAS_AS_VARIAVEIS + ("notas",)
 
 _VERDADEIROS = frozenset({"sim", "s", "true", "verdadeiro", "1", "x"})
 _FALSOS = frozenset({"nao", "não", "n", "false", "falso", "0"})
@@ -223,7 +231,7 @@ def gerar_amostra(
                 "erros_no_prefixo": "; ".join(candidato["errors"]),
                 "conversa_ate_aqui": _conversa(candidato["history"]),
                 "turno_do_tutor": candidato["turno_do_tutor"],
-                **{coluna: "" for coluna in VARIAVEIS + ("notas",)},
+                **{coluna: "" for coluna in TODAS_AS_VARIAVEIS + ("notas",)},
             }
         )
 
@@ -314,10 +322,11 @@ def calcular_kappa(diretorio: Path, itens: list[dict[str, Any]]) -> dict[str, An
         "recodificacao_pendente": not pares,
         "intra_avaliador": {},
         "humano_juiz": {},
+        "so_humanas": {},
     }
     divergencias: list[dict[str, Any]] = []
 
-    for variavel in VARIAVEIS:
+    for variavel in TODAS_AS_VARIAVEIS:
         funcao = _funcao_kappa(variavel)
 
         primeira = [_valor(codificacao[a], variavel) for a, _ in pares]
@@ -334,6 +343,15 @@ def calcular_kappa(diretorio: Path, itens: list[dict[str, Any]]) -> dict[str, An
                         "recodificacao": depois,
                     }
                 )
+
+        if variavel in VARIAVEIS_SO_HUMANAS:
+            marcados = [i for i in ids if _valor(codificacao[i], variavel) is True]
+            resultado["so_humanas"][variavel] = {
+                "marcados": len(marcados),
+                "de": sum(1 for i in ids if _valor(codificacao[i], variavel) is not None),
+                "ids": marcados,
+            }
+            continue
 
         # A codificação de registro é a primeira rodada: a recodificação mede estabilidade, não
         # corrige o que ficou para trás.
@@ -428,7 +446,8 @@ def _ler(caminho: Path) -> dict[str, dict[str, str]]:
         return {
             linha["id_cego"]: linha
             for linha in csv.DictReader(arquivo)
-            if linha.get("id_cego") and any(str(linha.get(v, "")).strip() for v in VARIAVEIS)
+            if linha.get("id_cego")
+            and any(str(linha.get(v, "")).strip() for v in TODAS_AS_VARIAVEIS)
         }
 
 
@@ -451,7 +470,7 @@ def _valor(linha: dict[str, str], variavel: str) -> Any:
             return None
         # Fora da escala declarada é erro de preenchimento: entra como célula em branco.
         return valor if valor in ESCALAS_ORDINAIS[variavel] else None
-    if variavel in VARIAVEIS_BOOLEANAS:
+    if variavel in VARIAVEIS_BOOLEANAS + VARIAVEIS_SO_HUMANAS:
         minusculo = bruto.casefold()
         if minusculo in _VERDADEIROS:
             return True
