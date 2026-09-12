@@ -95,11 +95,18 @@ def _passou(caso: dict[str, Any], resultado: dict[str, Any]) -> bool:
     return not (proibido and proibido in saida)
 
 
-def precomputar_banco(diretorio: Path, runner: Path) -> list[dict[str, Any]]:
-    """Reescreve cada arquivo do banco com os estados pré-computados."""
+def precomputar_banco(
+    diretorio: Path, runner: Path, *, ids: set[str] | None = None
+) -> list[dict[str, Any]]:
+    """Reescreve cada arquivo do banco com os estados pré-computados.
+
+    ``ids`` restringe aos itens escolhidos (``--itens``); sem ele, o banco inteiro.
+    """
     resumo = []
     for caminho in sorted(diretorio.glob("*.json")):
         item = json.loads(caminho.read_text(encoding="utf-8"))
+        if ids is not None and item.get("id") not in ids:
+            continue
         precomputar_item(item, runner)
         caminho.write_text(
             json.dumps(item, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

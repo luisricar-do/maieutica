@@ -88,7 +88,8 @@ def _cmd_estados(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
 
     runner = estados.caminho_runner(args.runner)
     print(f"motor headless: {runner}")
-    resumo = estados.precomputar_banco(Path(args.banco), runner)
+    escolhidos = {item["id"] for item in itens} if getattr(args, "itens", "") else None
+    resumo = estados.precomputar_banco(Path(args.banco), runner, ids=escolhidos)
     print(json.dumps(resumo, ensure_ascii=False, indent=2))
     return 0
 

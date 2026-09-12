@@ -1,0 +1,205 @@
+{
+  "id": "tese_05_maior_vetor",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "limite",
+  "conceitos": [
+    "vetor",
+    "indice",
+    "fronteira do laco",
+    "acumulador"
+  ],
+  "problem": "O programa deveria ler um inteiro n (3 <= n <= 10), ler n numeros inteiros em um vetor e imprimir o maior valor. O programa pede mais numeros do que os n solicitados e, em certos casos, interrompe a execucao com falha de acesso ao vetor ou imprime um valor que nao pertence a lista digitada. Localize e corrija os defeitos.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i <= n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+  "bug_desc": "Dois defeitos. Indice fora dos limites: o laco de leitura usa i <= n e acessa numeros[n], uma posicao alem dos n elementos pretendidos, cujos indices validos vao de 0 a n-1; a condicao correta e i < n. Com n menor que 10 o programa apenas pede um numero a mais; com n igual a 10 o acesso a numeros[10] ultrapassa o vetor declarado e a execucao falha. Inicializacao do maior valor: maior = 0 falha quando todos os valores sao negativos, pois 0 nao pertence ao vetor e seria devolvido indevidamente; deve-se inicializar maior = numeros[0] e percorrer a partir de i = 1.",
+  "bug_fixes": [
+    "para (i = 0; i < n; i++)",
+    "maior = numeros[0]",
+    "para (i = 1; i < n; i++)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "5",
+        "3",
+        "9",
+        "1",
+        "9",
+        "2"
+      ],
+      "saida_contem": "Maior valor: 9"
+    },
+    {
+      "entrada": [
+        "4",
+        "-1",
+        "-5",
+        "-2",
+        "-3"
+      ],
+      "saida_contem": "Maior valor: -1"
+    },
+    {
+      "entrada": [
+        "10",
+        "4",
+        "8",
+        "15",
+        "16",
+        "23",
+        "42",
+        "7",
+        "1",
+        "9",
+        "2"
+      ],
+      "saida_contem": "Maior valor: 42"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i <= n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+      "descricao": "codigo inicial: laco de leitura com i <= n e maior inicializado em 0",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 0,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+      "descricao": "fronteira corrigida para i < n; maior ainda inicializado em 0",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 2,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s2",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = numeros[n]\n        para (i = 1; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+      "descricao": "tentativa do estudante: maior = numeros[n], recaida no erro de fronteira",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 0,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s3",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = numeros[0]\n        para (i = 1; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+      "descricao": "solucao de referencia: maior = numeros[0] e busca a partir de i = 1",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "maior\\s*=\\s*numeros\\s*\\[\\s*0\\s*\\]",
+    "i\\s*=\\s*1\\s*;\\s*i\\s*<\\s*n"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      12,
+      18
+    ],
+    "variaveis": [
+      "numeros",
+      "maior",
+      "i",
+      "n"
+    ],
+    "construtos": [
+      "fronteira do laco",
+      "indice de vetor",
+      "inicializacao de acumulador"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Eu disse que queria 5 numeros mas ele pede 6. E quando eu peco 10 o programa quebra no meio.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Conte com o dedo as voltas do primeiro laco quando n vale 5: comece em i igual a 0 e pare onde a condicao mandar. Quantas voltas deram?",
+      "alternativas": [
+        "Escreva no papel os valores que i assume no laco de leitura para n igual a 5. Quantos sao?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nao sei contar isso direito, essa parte de indice me confunde.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Compare as duas condicoes de parada do programa: a do laco que le e a do laco que procura o maior. Elas sao iguais?",
+      "alternativas": [
+        "Ponha as duas linhas de para lado a lado. O que muda de uma para a outra?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Agora vi, o primeiro usa menor ou igual e o segundo usa so menor. Troquei para menor e parou de pedir numero a mais e de quebrar com 10.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Ficou certo para esses casos. Agora rode com quatro numeros todos negativos, como -1, -5, -2 e -3, e veja o que ele responde.",
+      "alternativas": [
+        "Antes de encerrar, experimente uma lista so com numeros negativos."
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Deu zero, e zero nao esta na minha lista. Nao faco ideia de onde esse zero saiu.",
+      "estado_codigo": "s1",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Antes de o segundo laco comecar, a variavel que guarda o maior ja recebe um valor de partida. De onde vem esse valor, e ele pertence a lista que voce digitou?",
+      "alternativas": [
+        "Olhe a linha imediatamente antes do laco de busca: ela escolhe um ponto de partida. Esse ponto de partida veio da sua lista?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Entendi, ele parte de um valor que nao e meu. Fiz ele partir de um elemento do vetor e comecar a busca na segunda posicao, mas agora o caso dos dez numeros parou de bater.",
+      "estado_codigo": "s2",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "A ideia esta certa, o indice escolhido e que nao. Pense em quais indices existem de fato num vetor com n elementos, e diga qual deles guarda o primeiro numero digitado.",
+      "alternativas": [
+        "Voce ja corrigiu uma vez esse mesmo detalhe no laco de leitura. Qual e o primeiro indice valido do vetor?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Verdade, cai no mesmo erro de antes. O primeiro e o indice zero, nao o n. Troquei e agora os tres casos batem, inclusive o dos negativos.",
+      "estado_codigo": "s3",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Exato, e note que foi o mesmo engano em outro lugar. O que voce olharia primeiro da proxima vez que um vetor der resultado estranho?",
+      "alternativas": [
+        "Isso. Repare que o defeito era o mesmo de antes, so que noutra linha."
+      ]
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Cenario da dissertacao (Tarefa 5). Dialogo de referencia e anotacao de movimento redigidos pelo autor; pendentes de revisao do segundo docente. A REGRESSAO do quinto turno do estudante e decidida pela regra objetiva do codigo (menos casos de teste passam), nao pelo texto: e a unica do banco nessas condicoes.",
+  "estado_solucao": "s3"
+}

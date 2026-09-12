@@ -1,0 +1,176 @@
+{
+  "id": "tese_06_contagem",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "condicao composta",
+    "paridade"
+  ],
+  "problem": "O programa deveria ler um inteiro n (3 <= n <= 15), ler n inteiros em um vetor e imprimir quantos elementos sao impares e maiores que 10. Ele compila e executa, mas devolve a contagem errada. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 == 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador)\n    }\n}\n",
+  "bug_desc": "Erro logico na condicao composta: o teste numeros[i] % 2 == 0 seleciona os numeros pares, enquanto o enunciado pede os impares. A estrutura do laco, o acesso ao vetor e o limiar > 10 estao corretos, o que torna o defeito sutil: o programa conta pares maiores que 10 em vez de impares maiores que 10. O correto e numeros[i] % 2 != 0.",
+  "bug_fixes": [
+    "numeros[i] % 2 != 0",
+    "numeros[i] % 2 == 1"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "5",
+        "8",
+        "11",
+        "15",
+        "4",
+        "13"
+      ],
+      "saida_contem": "Quantidade: 3"
+    },
+    {
+      "entrada": [
+        "4",
+        "12",
+        "14",
+        "16",
+        "20"
+      ],
+      "saida_contem": "Quantidade: 0"
+    },
+    {
+      "entrada": [
+        "5",
+        "4",
+        "9",
+        "11",
+        "7",
+        "13"
+      ],
+      "saida_contem": "Quantidade: 2"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 == 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador)\n    }\n}\n",
+      "descricao": "codigo inicial: conta pares maiores que 10",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 0,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 != 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador)\n    }\n}\n",
+      "descricao": "solucao de referencia: paridade invertida para impares",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "%\\s*2\\s*!=\\s*0",
+    "%\\s*2\\s*==\\s*1"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      19
+    ],
+    "variaveis": [
+      "numeros",
+      "contador"
+    ],
+    "construtos": [
+      "condicao composta",
+      "operador de modulo",
+      "paridade"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Meu programa roda mas a conta sai errada. Com os numeros 8, 11, 15, 4 e 13 ele responde zero, e eu contei tres na mao.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce contou tres na mao. Quais foram os tres numeros que voce contou, e o que eles tem em comum?",
+      "alternativas": [
+        "Pegue os cinco numeros e separe no papel os que voce acha que deveriam entrar na conta. Quais sao?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nao sei direito, eu so olhei quais eram maiores que dez.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O enunciado pede duas coisas ao mesmo tempo. Alem de ser maior que dez, o que mais o numero precisa ser para entrar na contagem?",
+      "alternativas": [
+        "Leia o enunciado de novo e sublinhe as duas exigencias que o numero tem de cumprir."
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nao entendi o que voce quer que eu faca.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Tome o numero 11 sozinho. Ele e maior que dez, e o programa nao o contou. Por que sera que ele ficou de fora?",
+      "alternativas": [
+        "Olhe so para o 11. Ele passa no teste de ser maior que dez. Entao o que barrou ele?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Sei la. Eu ja olhei essa linha um monte de vezes e continua igual pra mim.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "A linha do se tem duas comparacoes ligadas. Leia em voz alta so a primeira delas e diga que numeros ela deixa passar.",
+      "alternativas": [
+        "Cubra com o dedo a parte depois do e logico e leia so o que sobrou. Que numeros essa parte aceita?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Continuo travado, nao consigo ver.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Essa primeira comparacao usa o resto da divisao por dois e exige que ele seja igual a zero. Um numero impar deixa que resto na divisao por dois?",
+      "alternativas": [
+        "O resto da divisao por dois vale zero para um grupo de numeros e um para o outro grupo. Qual grupo a condicao esta aceitando?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "texto": "Ah, entendi, o resto zero e dos pares. Entao a condicao esta pegando os pares e eu queria os impares. Troquei para diferente de zero e agora deu tres.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Isso mesmo. Teste agora com uma lista que tenha impares pequenos, como 9 e 7, junto com impares grandes: a contagem continua batendo?",
+      "alternativas": [
+        "Boa. Experimente uma lista com impares abaixo de dez para conferir se a outra metade da condicao continua fazendo o seu papel."
+      ]
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Cenario da dissertacao (Tarefa 6). Dialogo de referencia e anotacao de movimento redigidos pelo autor; pendentes de revisao do segundo docente. Trajetoria desenhada com quatro turnos bloqueados consecutivos para tornar estimavel a taxa de contingencia a partir da terceira estagnacao acumulada e observavel a escalada prevista entre o quarto e o quinto turno.",
+  "estado_solucao": "s1"
+}
