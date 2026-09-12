@@ -365,3 +365,64 @@ def test_roteamento_e_contado_mesmo_estando_fora_de_escopo(tmp_path):
     assert "Roteamento dos turnos de A" in (
         tmp_path / "analise" / "resumo.md"
     ).read_text(encoding="utf-8")
+
+
+def test_concordancia_de_movimento_sai_estratificada_por_edicao(tmp_path):
+    """Sem edição a divergência é defeito corrigível; com edição é o teto do sinal."""
+    itens = _execucao_sintetica(tmp_path)
+    resumo = analise.analisar(tmp_path, itens)
+    concordancia = resumo["descritivas"]["concordancia_movimento_runtime_A"]
+    assert set(concordancia) == {"total", "com_edicao", "sem_edicao"}
+    for recorte in concordancia.values():
+        assert {"sucessos", "total", "estimativa", "inferior", "superior"} <= set(recorte)
+    # Os dois recortes somam o total: nenhum turno fica fora da conta.
+    assert (
+        concordancia["com_edicao"]["total"] + concordancia["sem_edicao"]["total"]
+        == concordancia["total"]["total"]
+    )
+    texto = (tmp_path / "analise" / "resumo.md").read_text(encoding="utf-8")
+    assert "Sem edição de código" in texto and "Com edição de código" in texto
+
+
+def test_diagnostico_pontua_pelo_defeito_vigente_nao_pela_classe_do_item(tmp_path):
+    """O analista que acerta o defeito que o estudante tem à frente não pode ser punido.
+
+    `tese_01_media` está catalogada como `sintaxe`, mas no estado em que o parêntese e a
+    precedência já foram corrigidos o defeito vigente é de tipo. Pela classe do item, um
+    `type_mismatch` ali contaria como erro.
+    """
+    from pathlib import Path
+
+    from avaliacao.analise import DIAGNOSTICO_ACEITO, _linha
+    from avaliacao.itens import carregar_banco, expandir_prefixos
+    from avaliacao.julgamento import indexar_prefixos
+
+    itens = carregar_banco(Path("avaliacao/banco"))
+    item = next(i for i in itens if i["id"] == "tese_01_media")
+    prefixos = indexar_prefixos([item])
+    alvo = next(
+        p for p in expandir_prefixos(item) if p.estado_codigo == "s2" and p.tipo == "ouro"
+    )
+
+    turno = {
+        "chave": "x", "prefixo_id": alvo.id, "item_id": item["id"], "condicao": "A",
+        "tipo_bug": item["tipo_bug"], "message": "E o tipo declarado comporta uma fracao?",
+        "diagnosis": {"errorType": "type_mismatch"}, "actions": [],
+    }
+    linha = _linha(turno, {}, {item["id"]: item}, prefixos)
+
+    assert linha["defeitos_vigentes"] == "tipo"
+    assert linha["diagnostico_acerta"] is True
+    # Pela classe catalogada do item, o mesmo diagnóstico contaria como erro.
+    assert "type_mismatch" not in DIAGNOSTICO_ACEITO[item["tipo_bug"]]
+
+
+def test_acerto_do_diagnostico_sai_aberto_por_defeito_vigente(tmp_path):
+    itens = _execucao_sintetica(tmp_path)
+    resumo = analise.analisar(tmp_path, itens)
+    por_defeito = resumo["descritivas"]["diagnostico_acerto_por_defeito_A"]
+    assert por_defeito and all(
+        {"defeito_vigente", "n", "errorType_aceitos", "estimativa"} <= set(linha)
+        for linha in por_defeito
+    )
+    assert (tmp_path / "analise" / "diagnostico_por_defeito.csv").is_file()

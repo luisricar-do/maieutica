@@ -57,7 +57,12 @@
       "casos_ok": 0,
       "casos_total": 3,
       "timeout": false,
-      "descricao": "codigo inicial: leia(a sem fechar, media inteiro, soma sem parenteses"
+      "descricao": "codigo inicial: leia(a sem fechar, media inteiro, soma sem parenteses",
+      "defeitos_vigentes": [
+        "sintaxe",
+        "tipo",
+        "logica"
+      ]
     },
     {
       "id": "s1",
@@ -67,7 +72,11 @@
       "casos_ok": 0,
       "casos_total": 3,
       "timeout": false,
-      "descricao": "leia(a) fechado; media ainda inteiro e soma sem parenteses"
+      "descricao": "leia(a) fechado; media ainda inteiro e soma sem parenteses",
+      "defeitos_vigentes": [
+        "tipo",
+        "logica"
+      ]
     },
     {
       "id": "s2",
@@ -77,7 +86,10 @@
       "casos_ok": 2,
       "casos_total": 3,
       "timeout": false,
-      "descricao": "leia(a) fechado e soma agrupada; media ainda inteiro (trunca a fracao)"
+      "descricao": "leia(a) fechado e soma agrupada; media ainda inteiro (trunca a fracao)",
+      "defeitos_vigentes": [
+        "tipo"
+      ]
     },
     {
       "id": "s3",
@@ -87,7 +99,8 @@
       "casos_ok": 3,
       "casos_total": 3,
       "timeout": false,
-      "descricao": "solucao de referencia: as tres correcoes aplicadas"
+      "descricao": "solucao de referencia: as tres correcoes aplicadas",
+      "defeitos_vigentes": []
     }
   ],
   "fix_patterns": [

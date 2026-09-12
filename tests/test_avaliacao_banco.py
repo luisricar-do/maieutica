@@ -30,8 +30,10 @@ def item_minimo() -> dict:
         "bug_desc": "O laço não termina.",
         "bug_fixes": ["i = i + 1"],
         "estados_codigo": [
-            {"id": "s0", "codigo": "programa { }", "errors": [], "compilerErrorLines": []},
-            {"id": "s1", "codigo": "programa { i = i + 1 }", "errors": [], "compilerErrorLines": []},
+            {"id": "s0", "codigo": "programa { }", "errors": [], "compilerErrorLines": [],
+             "defeitos_vigentes": ["laco_infinito"]},
+            {"id": "s1", "codigo": "programa { i = i + 1 }", "errors": [], "compilerErrorLines": [],
+             "defeitos_vigentes": ["logica"]},
         ],
         "fix_patterns": [r"i\s*=\s*i\s*\+\s*1"],
         "anchor_tokens": {"linhas": [3], "variaveis": ["i"], "construtos": ["enquanto"]},
@@ -117,7 +119,8 @@ def test_estado_de_codigo_orfao_e_rejeitado():
     """Estado que nenhum turno usa quer dizer turno apontando para o estado errado."""
     item = item_minimo()
     item["estados_codigo"].append(
-        {"id": "s2", "codigo": "programa { i = 1 }", "errors": [], "compilerErrorLines": []}
+        {"id": "s2", "codigo": "programa { i = 1 }", "errors": [], "compilerErrorLines": [],
+         "defeitos_vigentes": ["logica"]}
     )
     assert any("s2 não é usado" in p for p in validar_item(item))
 
@@ -125,7 +128,8 @@ def test_estado_de_codigo_orfao_e_rejeitado():
 def test_estado_solucao_declarado_nao_precisa_aparecer_no_dialogo():
     item = item_minimo()
     item["estados_codigo"].append(
-        {"id": "s2", "codigo": "programa { i = 1 }", "errors": [], "compilerErrorLines": []}
+        {"id": "s2", "codigo": "programa { i = 1 }", "errors": [], "compilerErrorLines": [],
+         "defeitos_vigentes": []}
     )
     item["estado_solucao"] = "s2"
     assert validar_item(item) == []
@@ -232,3 +236,36 @@ def test_classificador_do_servico_reproduz_as_regras_do_banco():
                 assert movimento == "PEDIDO_EXPLICITO", prefixo.id
             elif prefixo.k == 1:
                 assert movimento == "NENHUM", prefixo.id
+
+
+def test_estado_declara_os_defeitos_que_ainda_estao_nele():
+    """Pontuar o diagnóstico pela classe do item erra nos estados já parcialmente corrigidos."""
+    faltando = item_minimo()
+    del faltando["estados_codigo"][0]["defeitos_vigentes"]
+    assert any("sem defeitos_vigentes" in e for e in validar_item(faltando))
+
+    # A solução não pode ter defeito vigente.
+    mau = item_minimo()
+    mau["estado_solucao"] = mau["estados_codigo"][0]["id"]
+    assert any("não pode ter defeito vigente" in e for e in validar_item(mau))
+    # Classe fora do vocabulário é erro.
+    outro = item_minimo()
+    outro["estados_codigo"][0]["defeitos_vigentes"] = ["typo"]
+    assert any("classe inválida" in e for e in validar_item(outro))
+
+
+def test_tese_01_pontua_tipo_no_estado_em_que_so_o_tipo_resta():
+    """O caso que motivou a mudança: quatro dos seis itens são multi-bug com classe única."""
+    from pathlib import Path
+
+    from avaliacao.itens import carregar_banco, expandir_prefixos
+
+    itens = carregar_banco(Path("avaliacao/banco"))
+    item = next(i for i in itens if i["id"] == "tese_01_media")
+    assert item["tipo_bug"] == "sintaxe"
+
+    por_estado = {p.estado_codigo: p.defeitos_vigentes for p in expandir_prefixos(item)}
+    # No estado inicial convivem os três defeitos; quando o parêntese e a precedência já foram
+    # corrigidos, o que resta é de tipo — e é contra isso que o analista tem de ser pontuado.
+    assert set(por_estado["s0"]) == {"sintaxe", "tipo", "logica"}
+    assert por_estado["s2"] == ["tipo"]

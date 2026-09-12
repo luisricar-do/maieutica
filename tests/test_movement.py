@@ -238,3 +238,63 @@ def test_verbo_de_desfecho_negado_e_queixa_nao_observacao() -> None:
     assert _bloqueio("agora funciona certo")["movement"] == "PROGRESSO"
     # Com ação declarada, o relato vale mesmo que o desfecho seja negativo.
     assert _bloqueio("testei e nao deu certo")["movement"] == "PROGRESSO"
+
+
+def test_afirmar_que_esta_certo_sem_edicao_e_regressao() -> None:
+    """A ``REGRESSAO`` textual na única forma que uma regra determinística alcança.
+
+    O episódio está aberto por construção — o estudante trouxe um defeito e não mexeu no código.
+    Endossar o comportamento atual é adotar um modelo errado, e isso decide-se pela forma da
+    fala, não por julgar o conteúdo da hipótese.
+    """
+    resultado = classify_movement(
+        code="se (nota > 6.0) entao",
+        history=_history(
+            ("user", "meu programa classifica errado quem tira exatamente 6"),
+            ("assistant", "o que aconteceu quando testaste com 6?"),
+            (
+                "user",
+                "Testei com 6 e escreveu Reprovado. Mas eu acho que esta certo, "
+                "porque 6 nao e maior que 6.",
+            ),
+        ),
+        errors=[],
+    )
+    assert resultado["movement"] == "REGRESSAO"
+    assert resultado["source"] == "texto"
+
+
+def test_duvida_sobre_estar_certo_nao_e_regressao() -> None:
+    """Perguntar ou hesitar não é afirmar: a regra exige asserção."""
+    for fala, esperado in (
+        ("Sera que esta certo assim?", "ESTAGNACAO"),
+        ("Nao sei se esta certo ou nao.", "ESTAGNACAO"),
+        ("Voce acha que esta certo?", "ESTAGNACAO"),
+    ):
+        resultado = classify_movement(
+            code="se (nota > 6.0) entao",
+            history=_history(
+                ("user", "meu programa classifica errado"),
+                ("assistant", "o que observaste?"),
+                ("user", fala),
+            ),
+            errors=[],
+        )
+        assert resultado["movement"] == esperado, fala
+
+
+def test_afirmar_que_esta_certo_apos_edicao_deixa_o_codigo_decidir() -> None:
+    """Com edição, "agora está certo" é relato de correção — quem decide é o compilador."""
+    resultado = classify_movement(
+        code="novo codigo corrigido",
+        history=_history(
+            ("user", "nao compila"),
+            ("assistant", "o que o compilador aponta?"),
+            ("user", "Mexi na linha e agora esta certo, parou de acusar erro."),
+        ),
+        errors=[],
+        previous_code="codigo antigo",
+        previous_errors=["Linha 3, coluna 1: erro"],
+    )
+    assert resultado["movement"] == "PROGRESSO"
+    assert resultado["source"] == "codigo"

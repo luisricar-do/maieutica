@@ -40,7 +40,11 @@
       "compilerErrorLines": [],
       "casos_ok": 0,
       "casos_total": 2,
-      "timeout": true
+      "timeout": true,
+      "defeitos_vigentes": [
+        "laco_infinito",
+        "logica"
+      ]
     },
     {
       "id": "s1",
@@ -49,7 +53,10 @@
       "compilerErrorLines": [],
       "casos_ok": 0,
       "casos_total": 2,
-      "timeout": false
+      "timeout": false,
+      "defeitos_vigentes": [
+        "logica"
+      ]
     },
     {
       "id": "s2",
@@ -58,7 +65,8 @@
       "compilerErrorLines": [],
       "casos_ok": 2,
       "casos_total": 2,
-      "timeout": false
+      "timeout": false,
+      "defeitos_vigentes": []
     }
   ],
   "fix_patterns": [

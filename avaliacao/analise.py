@@ -130,6 +130,18 @@ def _linha(
     diretividade_juiz = juizo.get("diretividade")
     diretividade = 3 if marca.revelacao_codigo else diretividade_juiz
     diagnostico = (turno.get("diagnosis") or {}).get("errorType", "")
+    # O diagnóstico é pontuado contra o defeito **vigente no estado do código**, não contra a
+    # classe catalogada do item. Quatro dos seis itens têm mais de um defeito, e a classe do
+    # item descreve só o primeiro: nos estados em que ele já foi corrigido, exigir a classe do
+    # item pontuaria como errado um analista que acertou o defeito que o estudante tem à frente.
+    classes_vigentes = (
+        list(prefixo.defeitos_vigentes)
+        if prefixo is not None and prefixo.defeitos_vigentes
+        else [str(turno.get("tipo_bug", ""))]
+    )
+    aceitos: set[str] = set()
+    for classe in classes_vigentes:
+        aceitos |= DIAGNOSTICO_ACEITO.get(classe, set())
     falhas = juizo.get("falhas") or {}
     mensagem = turno.get("message", "") or ""
 
@@ -148,6 +160,13 @@ def _linha(
         "movimento_anotado": turno.get("movimento_anterior", ""),
         "movimento_juiz": juizo.get("movimento_estudante", ""),
         "movimento_runtime": turno.get("movimento_runtime", ""),
+        # Com e sem edição de código, o classificador de runtime tem informação diferente: sem
+        # edição decide o texto, com edição decide o compilador — que é cego a defeito lógico.
+        "houve_edicao": bool(
+            prefixo is not None
+            and prefixo.previous_code is not None
+            and prefixo.previous_code != prefixo.code
+        ),
         "estagnacao_acumulada": turno.get("estagnacao_acumulada", 0),
         "diretividade": diretividade,
         "diretividade_juiz": diretividade_juiz,
@@ -162,7 +181,8 @@ def _linha(
         "ancorado": juizo.get("ancorado", ""),
         "intent": turno.get("intent", ""),
         "diagnostico": diagnostico,
-        "diagnostico_acerta": diagnostico in DIAGNOSTICO_ACEITO.get(turno.get("tipo_bug", ""), set()),
+        "defeitos_vigentes": "|".join(classes_vigentes),
+        "diagnostico_acerta": diagnostico in aceitos,
         "interrogativa": "?" in mensagem,
         "comprimento": len(mensagem),
         "latencia_ms": turno.get("latencia_ms", 0),
@@ -531,19 +551,23 @@ def _descritivas(linhas: list[dict[str, Any]], saida: Path) -> dict[str, Any]:
         "diagnostico_acerto_A": _proporcao_dict(
             wilson(sum(1 for linha in apenas_a if linha["diagnostico_acerta"]), len(apenas_a))
         ),
+        # Aberto por classe de defeito vigente: é aqui que a linha "tipo -> type_mismatch" do
+        # mapa de diagnóstico passa a ser exercida, nos estados em que o defeito de tipo é o
+        # que resta.
+        "diagnostico_acerto_por_defeito_A": _acerto_por_defeito(apenas_a),
         "escalou_ajuda_direta_A": sum(1 for linha in apenas_a if linha["escalou_ajuda_direta"]),
         "comentario_revela_A": sum(1 for linha in apenas_a if linha["comentario_revela"]),
-        "concordancia_movimento_runtime_A": _proporcao_dict(
-            wilson(
-                sum(1 for linha in apenas_a if linha["movimento_runtime"] == linha["movimento_anotado"]),
-                sum(1 for linha in apenas_a if linha["movimento_runtime"]),
-            )
-        ),
+        # Estratificada por haver ou não edição de código. Um número único mistura duas coisas
+        # de natureza diferente: sem edição, a divergência é defeito do classificador, e some
+        # quando ele melhora; com edição, é o teto do sinal — o serviço não roda os casos de
+        # teste por desenho, logo não vê defeito que o compilador não acusa.
+        "concordancia_movimento_runtime_A": _concordancia_movimento(apenas_a),
         "falha_tecnica": _proporcao_dict(
             wilson(sum(1 for linha in linhas if linha["falha_tecnica"]), len(linhas))
         ),
         "sem_juizo": sum(1 for linha in linhas if not linha["falha_tecnica"] and not linha["julgado"]),
     }
+    _escrever_csv(saida / "diagnostico_por_defeito.csv", descritivas["diagnostico_acerto_por_defeito_A"])
     for campo in ("origem", "prioridade", "tipo_bug"):
         _escrever_csv(
             saida / f"sensibilidade_{campo}.csv",
@@ -580,6 +604,51 @@ def _tabela_banco(itens: list[dict[str, Any]], linhas: list[dict[str, Any]], sai
 
 
 # --------------------------------------------------------------------------- saídas
+
+
+def _acerto_por_defeito(linhas: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Acerto do diagnóstico por classe de defeito vigente no estado do código.
+
+    Um turno com mais de um defeito vigente entra na conta de cada classe: o analista acerta se
+    nomear qualquer um dos defeitos que o estudante tem à frente.
+    """
+    agrupado: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for linha in linhas:
+        for classe in str(linha.get("defeitos_vigentes", "")).split("|"):
+            if classe:
+                agrupado[classe].append(linha)
+    return [
+        {
+            "defeito_vigente": classe,
+            "n": len(grupo),
+            "errorType_aceitos": sorted(DIAGNOSTICO_ACEITO.get(classe, set())),
+            **_proporcao_dict(
+                wilson(sum(1 for linha in grupo if linha["diagnostico_acerta"]), len(grupo))
+            ),
+        }
+        for classe, grupo in sorted(agrupado.items())
+    ]
+
+
+def _concordancia_movimento(linhas: list[dict[str, Any]]) -> dict[str, Any]:
+    """Concordância entre o movimento do runtime e o anotado, aberta por edição de código."""
+
+    def taxa(grupo: list[dict[str, Any]]) -> Proporcao:
+        com_runtime = [linha for linha in grupo if linha["movimento_runtime"]]
+        return wilson(
+            sum(
+                1
+                for linha in com_runtime
+                if linha["movimento_runtime"] == linha["movimento_anotado"]
+            ),
+            len(com_runtime),
+        )
+
+    return {
+        "total": _proporcao_dict(taxa(linhas)),
+        "com_edicao": _proporcao_dict(taxa([x for x in linhas if x["houve_edicao"]])),
+        "sem_edicao": _proporcao_dict(taxa([x for x in linhas if not x["houve_edicao"]])),
+    }
 
 
 def _sensibilidade(linhas: list[dict[str, Any]], campo: str) -> list[dict[str, Any]]:
@@ -821,6 +890,12 @@ def _resumo_markdown(resumo: dict[str, Any]) -> str:
         "O roteador está fora do escopo da avaliação; a ocorrência é contada porque um prefixo "
         "classificado como fora de escopo recebe resposta fixa.",
         "",
+        "## Movimento em runtime × anotação",
+        "",
+        _texto_concordancia(
+            resumo["descritivas"].get("concordancia_movimento_runtime_A") or {}
+        ),
+        "",
         "## Turnos cortados no limite de tokens",
         "",
         "| Condição | Truncadas |",
@@ -853,6 +928,26 @@ def _resumo_markdown(resumo: dict[str, Any]) -> str:
             f"{', '.join(procedencia['outros_no_arquivo'])}.",
         ]
     return "\n".join(linhas) + "\n"
+
+
+def _texto_concordancia(dados: dict[str, Any]) -> str:
+    if not dados:
+        return "Sem turnos com movimento de runtime registrado."
+    return "\n".join(
+        [
+            "| Recorte | Concordância |",
+            "| --- | --- |",
+            f"| Total | {_texto_prop(dados['total'])} |",
+            f"| Sem edição de código | {_texto_prop(dados['sem_edicao'])} |",
+            f"| Com edição de código | {_texto_prop(dados['com_edicao'])} |",
+            "",
+            "Sem edição o movimento é decidido pelo texto, e uma divergência ali é defeito do "
+            "classificador — corrigível. Com edição decide o compilador, que é cego a defeito "
+            "que não impede a compilação; como o serviço não roda os casos de teste por desenho, "
+            "a divergência ali é o teto do sinal de runtime, não falha. Um número único mistura "
+            "as duas e deixa de querer dizer alguma coisa.",
+        ]
+    )
 
 
 def _texto_efeito_do_pedido(efeito: dict[str, Any]) -> str:

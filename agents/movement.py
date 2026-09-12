@@ -7,10 +7,17 @@ explícito de resposta prevalece sobre as demais categorias. O primeiro turno do
 abre o diálogo, não recebe movimento: é ``NENHUM``, e a posição 1 do tutor fica fora de H1.
 
 Sem edição, ``PROGRESSO`` exige hipótese ou observação nova — não basta a fala ser longa. "Não
-sei", a repetição e a resposta fora do foco são ``ESTAGNACAO``. A ``REGRESSAO`` textual da
-dissertação ("hipótese incorreta afirmada") depende de julgar a correção da hipótese e está fora
-do alcance deste classificador determinístico: ela é apanhada pela classificação da medida, e a
-divergência entre as duas é reportada na análise, como prevê a Subseção de variáveis.
+sei", a repetição e a resposta fora do foco são ``ESTAGNACAO``.
+
+A ``REGRESSAO`` textual da dissertação é "hipótese incorreta afirmada". Julgar se uma hipótese
+qualquer está errada não cabe a um classificador determinístico, mas uma subclasse cabe: **sem
+edição de código, afirmar que o programa está certo é regressão**. O episódio está aberto por
+construção — o estudante trouxe um defeito e não mexeu no código —, logo endossar o
+comportamento atual é adotar um modelo errado e parar de depurar, e isso se decide pela forma da
+fala, não pelo conteúdo da hipótese. Pergunta ("será que está certo?") e hesitação ("não sei se
+está certo") não contam. O que sobra — hipótese errada sobre *onde* está o defeito — continua
+fora de alcance, fica com a classificação da medida, e a divergência é reportada na análise
+estratificada por haver ou não edição de código.
 
 Este classificador alimenta a **política** (o estrategista escala ou sustenta a dica). A
 classificação usada na **análise** é a do protocolo de avaliação (casos de teste do item mais
@@ -107,6 +114,21 @@ _NEUTRAS = frozenset(
 #: Símbolo do código que sirva de âncora: identificador de três letras ou mais, ou número.
 _SIMBOLO = re.compile(r"[a-z_]\w{2,}|\d+")
 
+#: Afirmação de que o programa está correto. Sem edição de código, é a ``REGRESSAO`` textual
+#: da dissertação na única forma que um classificador determinístico alcança.
+_AFIRMA_CORRETO: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(p)
+    for p in (
+        r"(?<!se )\b(esta|ta|e|era|fica|parece) (certo|correto|certinho|corretinho)\b",
+        r"\bnao (tem|ha|vejo) (nada de |nenhum )?(errado|erro|problema)\b",
+        r"(?<!se )\b(esta|ta) (funcionando|funcionado) (certo|bem|direito)\b",
+        r"\btudo certo\b",
+    )
+)
+
+#: Marcas de dúvida: com elas a frase é pergunta ou hesitação, não afirmação.
+_DUVIDA = re.compile(r"\bsera\b|\bcomo eu sei\b|\bnao sei\b|\bsera que\b")
+
 #: Abaixo disto a mensagem não carrega conteúdo novo suficiente para contar como progresso.
 _MIN_SUBSTANTIVE_CHARS = 12
 
@@ -161,6 +183,27 @@ def _ancorado_no_codigo(normalized: str, code: str) -> bool:
     do_codigo = {s for s in _SIMBOLO.findall(_normalize(code))} - _NEUTRAS
     da_fala = {s for s in _SIMBOLO.findall(normalized)} - _NEUTRAS
     return bool(do_codigo & da_fala)
+
+
+def afirma_que_esta_correto(text: str) -> bool:
+    """A fala **afirma** que o programa está certo (não pergunta, não hesita).
+
+    Decide-se por frase: "Escreveu Reprovado. Mas acho que está certo" afirma; "Será que está
+    certo?" e "não sei se está certo" não.
+    """
+    normalized = _normalize(text)
+    for frase in re.split(r"[.!?]+", normalized):
+        frase = frase.strip()
+        if not frase or _DUVIDA.search(frase):
+            continue
+        if not any(pattern.search(frase) for pattern in _AFIRMA_CORRETO):
+            continue
+        inicio = normalized.find(frase)
+        fim = inicio + len(frase)
+        if inicio >= 0 and normalized[fim : fim + 1] == "?":
+            continue
+        return True
+    return False
 
 
 def _classify_by_text(user_turns: list[str], code: str) -> StudentMovement:
@@ -237,9 +280,15 @@ def classify_movement(
     if len(user_turns) == 1 and previous_code is None:
         return {"movement": "NENHUM", "source": "nenhum"}
 
-    if previous_code is not None and previous_code != code:
+    houve_edicao = previous_code is not None and previous_code != code
+    if houve_edicao:
         by_code = _classify_by_code(previous_errors or [], errors or [])
         if by_code is not None:
             return {"movement": by_code, "source": "codigo"}
+
+    # Só sem edição: com edição, "agora está certo" costuma ser relato de correção, e quem
+    # decide é o código. É por isso que esta regra não pode viver dentro de ``_classify_by_text``.
+    if not houve_edicao and afirma_que_esta_correto(user_turns[-1]):
+        return {"movement": "REGRESSAO", "source": "texto"}
 
     return {"movement": _classify_by_text(user_turns, code), "source": "texto"}

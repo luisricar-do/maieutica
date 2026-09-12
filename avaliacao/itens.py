@@ -59,6 +59,11 @@ class Prefixo:
     compiler_error_lines: list[int] = field(default_factory=list)
     previous_code: str | None = None
     previous_errors: list[str] | None = None
+    estado_codigo: str = ""
+    #: Classes de defeito ainda presentes no estado vigente. O diagnóstico do analista é
+    #: pontuado contra elas, não contra a classe do item: quatro dos seis itens têm mais de um
+    #: defeito, e a classe catalogada descreve só o primeiro.
+    defeitos_vigentes: list[str] = field(default_factory=list)
     movimento_anterior: str = "NENHUM"
     estagnacao_acumulada: int = 0
     referencia: str = ""
@@ -103,6 +108,7 @@ def validar_item(item: dict[str, Any]) -> list[str]:
             erros.append(f"{ident}: estado {chave}: errors deve ser lista")
         if not isinstance(estado.get("compilerErrorLines", []), list):
             erros.append(f"{ident}: estado {chave}: compilerErrorLines deve ser lista")
+        erros.extend(_validar_defeitos_vigentes(item, ident, chave, estado))
 
     dialogo = item.get("dialogo", [])
     if not dialogo:
@@ -137,6 +143,30 @@ def validar_item(item: dict[str, Any]) -> list[str]:
     ):
         erros.append(f"{ident}: anchor_tokens precisa de linhas, variáveis ou construtos")
     return erros
+
+
+def _validar_defeitos_vigentes(
+    item: dict[str, Any], ident: str, chave: Any, estado: dict[str, Any]
+) -> list[str]:
+    """Todo estado declara que classes de defeito ainda estão nele.
+
+    É contra essa lista, e não contra a classe catalogada do item, que o diagnóstico do analista
+    é pontuado: quatro dos seis itens têm mais de um defeito, e nos estados em que o primeiro já
+    foi corrigido a classe do item deixa de descrever o que o estudante tem à frente.
+    """
+    vigentes = estado.get("defeitos_vigentes")
+    if vigentes is None:
+        return [f"{ident}: estado {chave} sem defeitos_vigentes"]
+    if not isinstance(vigentes, list):
+        return [f"{ident}: estado {chave}: defeitos_vigentes deve ser lista"]
+    invalidos = [c for c in vigentes if c not in TIPOS_BUG]
+    if invalidos:
+        return [f"{ident}: estado {chave}: classe inválida em defeitos_vigentes: {invalidos}"]
+    if chave == item.get("estado_solucao") and vigentes:
+        return [f"{ident}: estado_solucao {chave} não pode ter defeito vigente: {vigentes}"]
+    if chave != item.get("estado_solucao") and not vigentes:
+        return [f"{ident}: estado {chave} sem defeito vigente, mas não é a solução declarada"]
+    return []
 
 
 def _validar_estados_usados(
@@ -428,6 +458,8 @@ def _contexto(item: dict[str, Any], turnos: list[dict[str, Any]]) -> dict[str, A
         "code": vigente.get("codigo", ""),
         "errors": list(vigente.get("errors", [])),
         "compiler_error_lines": list(vigente.get("compilerErrorLines", [])),
+        "estado_codigo": vigente.get("id", ""),
+        "defeitos_vigentes": list(vigente.get("defeitos_vigentes", [])),
         "previous_code": anterior.get("codigo") if anterior else None,
         "previous_errors": list(anterior.get("errors", [])) if anterior else None,
         "movimento_anterior": movimento,

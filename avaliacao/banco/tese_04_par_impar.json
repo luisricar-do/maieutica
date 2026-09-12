@@ -60,7 +60,11 @@
       "compilerErrorLines": [],
       "casos_ok": 0,
       "casos_total": 3,
-      "timeout": false
+      "timeout": false,
+      "defeitos_vigentes": [
+        "logica",
+        "fluxo_dados"
+      ]
     },
     {
       "id": "s1",
@@ -70,7 +74,10 @@
       "compilerErrorLines": [],
       "casos_ok": 1,
       "casos_total": 3,
-      "timeout": false
+      "timeout": false,
+      "defeitos_vigentes": [
+        "fluxo_dados"
+      ]
     },
     {
       "id": "s2",
@@ -80,7 +87,8 @@
       "compilerErrorLines": [],
       "casos_ok": 3,
       "casos_total": 3,
-      "timeout": false
+      "timeout": false,
+      "defeitos_vigentes": []
     }
   ],
   "fix_patterns": [
