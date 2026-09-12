@@ -48,17 +48,24 @@ class MovementResult(TypedDict):
 
 #: Pedido explícito de resposta, correção ou código (H2). Exige marca imperativa/possessiva:
 #: "o que está errado?" sozinho é pergunta legítima, "me fala o que está errado" é pedido.
+#:
+#: Os padrões de duas partes usam ``[^.!?]*`` e não ``.*``: um pedido é uma frase, não um trecho
+#: qualquer do texto. ``_normalize`` colapsa toda quebra de linha em espaço, e o ``content`` que
+#: chega aqui traz o **enunciado do exercício** colado à fala do estudante — um ``.*`` atravessa
+#: os dois e lê o "corrija" do enunciado junto com o "meu código" do estudante como se fossem um
+#: pedido. Falso positivo caro: infla o denominador de H2 e faz a política endurecer contra uma
+#: exigência que nunca houve.
 _EXPLICIT_REQUEST_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
     re.compile(p)
     for p in (
         r"\bme (fala|diz|fale|diga|mostra|mostre|manda|mande|de|da|entrega)\b",
         r"\b(fala|diz|diga|fale) (logo|de uma vez|pra mim|para mim)\b",
         r"\bqual (e |eh )?(a )?resposta\b",
-        r"\bqual (linha|a linha)\b.*\b(mudar|trocar|corrigir|alterar)\b",
-        r"\b(manda|mande|escreve|escreva|posta|cola)\b.*\bcodigo\b",
+        r"\bqual (linha|a linha)\b[^.!?]*\b(mudar|trocar|corrigir|alterar)\b",
+        r"\b(manda|mande|escreve|escreva|posta|cola)\b[^.!?]*\bcodigo\b",
         r"\bcodigo (certo|corrigido|arrumado|pronto|completo)\b",
         r"\b(arruma|arrume|conserta|conserte|corrige|corrija|resolve|resolva|faz|faca)\b"
-        r".*\b(pra mim|para mim|isso|o codigo|meu codigo)\b",
+        r"[^.!?]*\b(pra mim|para mim|isso|o codigo|meu codigo)\b",
         r"\bso (me )?(diz|diga|fala|fale|mostra|mostre)\b",
         r"\bmostra (como fica|a solucao|o codigo)\b",
         r"\b(da|de|passa|passe) a resposta\b",

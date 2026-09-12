@@ -1,0 +1,154 @@
+{
+  "id": "64_65_count_ones_t3",
+  "origem": "al_hossami_v2",
+  "prioridade": 1,
+  "tipo_bug": "limite",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "indice",
+    "contagem"
+  ],
+  "problem": "Escreva um programa que leia quantos numeros serao informados, leia esses numeros para um vetor e escreva quantos elementos do vetor sao iguais a 1. O programa contem um defeito e a contagem sai errada. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, j, cont\n        inteiro numeros[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        cont = 0\n        para (j = 1; j < n; j++)\n        {\n            se (numeros[j] == 1)\n            {\n                cont = cont + 1\n            }\n        }\n\n        escreva(\"Quantidade de uns: \", cont, \"\\n\")\n    }\n}\n",
+  "bug_desc": "Na linha 17, o laco de contagem comeca em j = 1 e por isso da n - 1 voltas em vez de n. Consequentemente o programa nunca examina a primeira posicao do vetor, que e a de indice 0, e deixa de contar o elemento que estiver ali.",
+  "bug_fixes": [
+    "para (j = 0; j < n; j++)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "5",
+        "1",
+        "1",
+        "1",
+        "0",
+        "0"
+      ],
+      "saida_contem": "Quantidade de uns: 3\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "1",
+        "0",
+        "0"
+      ],
+      "saida_contem": "Quantidade de uns: 1\n"
+    },
+    {
+      "entrada": [
+        "0"
+      ],
+      "saida_contem": "Quantidade de uns: 0\n"
+    },
+    {
+      "entrada": [
+        "1",
+        "3"
+      ],
+      "saida_contem": "Quantidade de uns: 0\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, j, cont\n        inteiro numeros[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        cont = 0\n        para (j = 1; j < n; j++)\n        {\n            se (numeros[j] == 1)\n            {\n                cont = cont + 1\n            }\n        }\n\n        escreva(\"Quantidade de uns: \", cont, \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 2,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "codigo inicial: a contagem comeca no indice 1 e pula a primeira posicao",
+      "defeitos_vigentes": [
+        "limite"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, j, cont\n        inteiro numeros[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        cont = 0\n        para (j = 0; j < n; j++)\n        {\n            se (numeros[j] == 1)\n            {\n                cont = cont + 1\n            }\n        }\n\n        escreva(\"Quantidade de uns: \", cont, \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "solucao de referencia: a contagem comeca no indice 0",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "\\bj\\s*=\\s*0\\b"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      17
+    ],
+    "variaveis": [
+      "j",
+      "n",
+      "numeros"
+    ],
+    "construtos": [
+      "laco para",
+      "indice de vetor",
+      "limite do laco"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Ola! Eu estava trabalhando no programa que conta quantos elementos do vetor sao iguais a 1, e a contagem sai sempre errada, mas nao sei o que estou fazendo de errado."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Ola! Voce consegue explicar o que o seu laco de contagem faz?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Ele percorre o j de 1 ate n - 1 e, para cada j, verifica se numeros[j] e igual a 1; se for, soma um no contador."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Quando voce escreve para (j = 1; j < n; j++), o j assume cada valor de 1 ate n - 1. Ha um valor de inicio melhor para percorrer o vetor inteiro?",
+      "alternativas": [
+        "Em Portugol, qual e o indice da primeira posicao de um vetor?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Ah, da para comecar o j em 0?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Da sim. Voce consegue explicar a diferenca pratica entre o laco que voce tinha e esse?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Acho que o laco anterior so dava n - 1 voltas, e esse da n. Entao eu deveria ter comecado no 0 desde o inicio?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Isso mesmo. Os vetores em Portugol comecam no indice 0, e nao no 1."
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 64_65_count_ones_conversational_thread_3.txt. Adaptacoes: (a) a funcao Python CountOnes(integers) virou um programa que le n e depois n valores para um vetor, seguindo a convencao dos itens tese_05 e tese_06, porque Portugol Studio usa vetor de tamanho fixo e os casos de teste do banco sao entrada/saida; (b) no original o estudante corrige trocando o laco por 'for integer in integers', que nao tem equivalente em Portugol Studio; a correcao passa a ser o indice inicial do laco, que e o que o proprio bug_fixes do original diz ('replace 1 with 0 in the range call'), e o dialogo foi ajustado para esse caminho; (c) o laco de leitura usa i e o de contagem usa j, para que a correcao seja distinguivel do codigo inicial: com a mesma variavel nos dois lacos, a fix_pattern casaria tambem o laco de leitura e o detector de revelacao acusaria qualquer turno que citasse a linha corrente; (d) 1 turno final do tutor foi cortado, ocorre com o defeito ja corrigido. Pendente de revisao do segundo docente.",
+  "estado_solucao": "s1",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "64_65_count_ones_conversational_thread_3.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 64
+  }
+}

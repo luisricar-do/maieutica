@@ -1,0 +1,142 @@
+{
+  "id": "59_60_product",
+  "origem": "al_hossami_v2",
+  "prioridade": 2,
+  "tipo_bug": "sintaxe",
+  "conceitos": [
+    "funcao",
+    "valor de retorno",
+    "aritmetica"
+  ],
+  "problem": "Escreva a funcao produto(a, b) que recebe dois numeros inteiros e devolve o produto dos dois. O programa le os dois valores e escreve o produto. Ele contem um defeito e nem chega a rodar. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao inteiro produto(inteiro a, inteiro b)\n    {\n        a * b\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b\n        escreva(\"Digite dois numeros inteiros: \")\n        leia(a)\n        leia(b)\n        escreva(\"Produto = \", produto(a, b), \"\\n\")\n    }\n}\n",
+  "bug_desc": "Na linha 5 a multiplicacao a * b e calculada mas o resultado nao e devolvido a quem chamou a funcao. Como a funcao foi declarada com tipo de retorno inteiro e nenhum caminho dela executa retorne, o Portugol recusa o programa com a mensagem de que a funcao deve retornar um valor.",
+  "bug_fixes": [
+    "retorne a * b"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "1",
+        "2"
+      ],
+      "saida_contem": "Produto = 2\n"
+    },
+    {
+      "entrada": [
+        "2",
+        "4"
+      ],
+      "saida_contem": "Produto = 8\n"
+    },
+    {
+      "entrada": [
+        "4",
+        "4"
+      ],
+      "saida_contem": "Produto = 16\n"
+    },
+    {
+      "entrada": [
+        "5",
+        "5"
+      ],
+      "saida_contem": "Produto = 25\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inteiro produto(inteiro a, inteiro b)\n    {\n        a * b\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b\n        escreva(\"Digite dois numeros inteiros: \")\n        leia(a)\n        leia(b)\n        escreva(\"Produto = \", produto(a, b), \"\\n\")\n    }\n}\n",
+      "errors": [
+        "Linha 3, coluna 5: A função 'produto' deve retornar um valor"
+      ],
+      "compilerErrorLines": [
+        3
+      ],
+      "casos_ok": 0,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "codigo inicial: a funcao calcula o produto e nao o devolve; nao compila",
+      "defeitos_vigentes": [
+        "sintaxe"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inteiro produto(inteiro a, inteiro b)\n    {\n        retorne a * b\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b\n        escreva(\"Digite dois numeros inteiros: \")\n        leia(a)\n        leia(b)\n        escreva(\"Produto = \", produto(a, b), \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "solucao de referencia: retorne antes da multiplicacao",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "\\bretorne\\s+a\\s*\\*\\s*b\\b"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      5
+    ],
+    "variaveis": [
+      "a",
+      "b"
+    ],
+    "construtos": [
+      "funcao",
+      "retorne",
+      "valor de retorno"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Ola, estou com problema na funcao produto. Juro que fiz certo, mas o programa nem roda e eu nao consigo descobrir por que."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Certo. Voce consegue me explicar em detalhe o que a sua funcao produto faz?",
+      "alternativas": [
+        "Voce ja leu a mensagem que aparece quando tenta rodar o programa? O que ela diz?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Eu recebo duas entradas, que chamei de a e b, e multiplico as duas."
+    },
+    {
+      "papel": "tutor",
+      "texto": "E o que acontece com o resultado dessa multiplicacao depois que ela e calculada? Compare a sua resposta com a mensagem que o Portugol mostra sobre a funcao produto.",
+      "alternativas": [
+        "A sua funcao foi declarada com um tipo de retorno. Onde, dentro dela, esse valor e entregue a quem a chamou?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Ele diz que a funcao produto deve retornar um valor. Mas eu multipliquei os dois, nao era para isso bastar?"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Uma funcao so assume um valor quando existe uma palavra que entrega esse valor a quem chamou. Sem ela, a multiplicacao e calculada e o resultado e descartado. Voce sabe qual e essa palavra e onde ela entra no seu codigo?",
+      "alternativas": []
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 59_60_product_socratic_dialogue.txt. Adaptacoes: (a) a funcao Python Product virou funcao inteiro produto em Portugol, com inicio() lendo os dois valores; (b) divergencia de manifestacao: em Python a funcao sem return devolve None e o erro so aparece na chamada, e por isso o dialogo original pede ao estudante que acrescente um print de depuracao para ver o None; em Portugol o compilador recusa o programa com 'A funcao produto deve retornar um valor', de modo que nao ha o que imprimir e os turnos do print de depuracao e da sua remocao deixam de existir. O dialogo foi reescrito para o estudante ler a mensagem do compilador, que e o sinal que ele de facto tem em Portugol Studio; o item rende 3 turnos de tutor em vez dos 4 uteis do original; (c) por isso tipo_bug e sintaxe e nao fluxo_dados: o defeito impede a compilacao, e e a mensagem do compilador que o analista vai ver, como no tese_01. Pendente de revisao do segundo docente.",
+  "estado_solucao": "s1",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "59_60_product_socratic_dialogue.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 59
+  }
+}

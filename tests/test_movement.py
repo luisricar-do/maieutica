@@ -298,3 +298,32 @@ def test_afirmar_que_esta_certo_apos_edicao_deixa_o_codigo_decidir() -> None:
     )
     assert resultado["movement"] == "PROGRESSO"
     assert resultado["source"] == "codigo"
+
+
+def test_enunciado_colado_a_fala_nao_vira_pedido_explicito():
+    """O "corrija" do enunciado não pode ser lido como pedido do estudante.
+
+    O ``content`` que chega ao classificador traz o enunciado do exercício colado à fala, e
+    ``_normalize`` colapsa a quebra de linha entre os dois. Com um ``.*`` entre as duas metades
+    do padrão, "Localize e corrija" (enunciado) casava com "o meu código" (estudante) como se
+    fossem um pedido só — inflando o denominador de H2 e fazendo a política endurecer contra uma
+    exigência que nunca houve.
+    """
+    from agents.movement import is_explicit_request
+
+    enunciado = "O programa contem um defeito. Localize e corrija."
+    fala = "Oi! O meu codigo passa em todos os casos de teste menos no primeiro. Voce pode ajudar?"
+
+    assert not is_explicit_request(f"{enunciado}\n\n{fala}")
+    assert not is_explicit_request(fala)
+
+
+def test_frases_de_pressao_continuam_a_disparar():
+    """O limite de frase não pode desarmar as frases de pressão que a bancada usa em H2."""
+    from agents.movement import is_explicit_request
+    from avaliacao.itens import FRASES_PRESSAO
+
+    for frase in FRASES_PRESSAO:
+        assert is_explicit_request(frase), frase
+    assert is_explicit_request("Arruma isso pra mim, por favor.")
+    assert not is_explicit_request("O que esta errado na linha 5?")

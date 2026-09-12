@@ -1,0 +1,174 @@
+{
+  "id": "15_44_sequential_search_t1",
+  "origem": "al_hossami_v2",
+  "prioridade": 2,
+  "tipo_bug": "limite",
+  "conceitos": [
+    "vetor",
+    "busca",
+    "comparacao",
+    "laco"
+  ],
+  "problem": "Escreva um programa que leia um valor procurado, leia quantos numeros serao informados e leia esses numeros para um vetor ja ordenado em ordem crescente. O programa deve escrever o indice da primeira ocorrencia do valor procurado no vetor. Se o valor nao estiver no vetor, deve escrever o indice em que ele teria de ser inserido para manter o vetor ordenado. O programa contem um defeito. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro x, n, i, posicao\n        inteiro seq[20]\n\n        escreva(\"Valor procurado: \")\n        leia(x)\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(seq[i])\n        }\n\n        posicao = n\n        para (i = 0; i < n; i++)\n        {\n            se (x < seq[i])\n            {\n                posicao = i\n                pare\n            }\n        }\n\n        escreva(\"Indice = \", posicao, \"\\n\")\n    }\n}\n",
+  "bug_desc": "Na linha 21 o programa so verifica se o valor procurado e menor do que seq[i], e nesse caso guarda o indice i, que e onde o valor teria de ser inserido. Quando o valor procurado esta no vetor, na posicao i, essa condicao e falsa nessa posicao e o laco segue ate a posicao seguinte, de modo que o programa escreve o indice de insercao em vez do indice em que o valor esta.",
+  "bug_fixes": [
+    "se (x == seq[i])",
+    "se (x <= seq[i])"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "5",
+        "5",
+        "-1",
+        "5",
+        "8",
+        "10",
+        "12"
+      ],
+      "saida_contem": "Indice = 1\n"
+    },
+    {
+      "entrada": [
+        "-2",
+        "3",
+        "-1",
+        "57",
+        "65"
+      ],
+      "saida_contem": "Indice = 0\n"
+    },
+    {
+      "entrada": [
+        "0",
+        "4",
+        "-120",
+        "60",
+        "78",
+        "100"
+      ],
+      "saida_contem": "Indice = 1\n"
+    },
+    {
+      "entrada": [
+        "77",
+        "7",
+        "-100",
+        "-50",
+        "5",
+        "44",
+        "66",
+        "76",
+        "99"
+      ],
+      "saida_contem": "Indice = 6\n"
+    },
+    {
+      "entrada": [
+        "55",
+        "3",
+        "-99",
+        "-2",
+        "0"
+      ],
+      "saida_contem": "Indice = 3\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro x, n, i, posicao\n        inteiro seq[20]\n\n        escreva(\"Valor procurado: \")\n        leia(x)\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(seq[i])\n        }\n\n        posicao = n\n        para (i = 0; i < n; i++)\n        {\n            se (x < seq[i])\n            {\n                posicao = i\n                pare\n            }\n        }\n\n        escreva(\"Indice = \", posicao, \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 5,
+      "timeout": false,
+      "descricao": "codigo inicial: so a comparacao estrita, o caso de igualdade fica de fora",
+      "defeitos_vigentes": [
+        "limite"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro x, n, i, posicao\n        inteiro seq[20]\n\n        escreva(\"Valor procurado: \")\n        leia(x)\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(seq[i])\n        }\n\n        posicao = n\n        para (i = 0; i < n; i++)\n        {\n            se (x == seq[i])\n            {\n                posicao = i\n                pare\n            }\n            se (x < seq[i])\n            {\n                posicao = i\n                pare\n            }\n        }\n\n        escreva(\"Indice = \", posicao, \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 5,
+      "casos_total": 5,
+      "timeout": false,
+      "descricao": "solucao de referencia: teste de igualdade antes da comparacao estrita",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "x\\s*==\\s*seq\\[i\\]",
+    "x\\s*<=\\s*seq\\[i\\]"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      21
+    ],
+    "variaveis": [
+      "x",
+      "seq",
+      "posicao"
+    ],
+    "construtos": [
+      "comparacao",
+      "indice de vetor",
+      "busca sequencial"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Oi! O meu codigo passa em todos os casos de teste menos no primeiro, e eu nao consigo descobrir o que esta errado. Voce pode ajudar?"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Claro. No primeiro caso de teste, o valor procurado esta dentro do vetor. Pelo enunciado, o que o programa tem de escrever quando o valor procurado esta no vetor?",
+      "alternativas": [
+        "Claro. Voce consegue me dizer se nota alguma diferenca entre o primeiro caso de teste e os outros?",
+        "Claro. Pensando no primeiro caso de teste, voce consegue explicar por que a resposta certa seria 1?",
+        "Claro. Vamos olhar o primeiro caso: o valor procurado e 5 e o vetor e -1, 5, 8, 10, 12. Quando o i vale 1, quanto vale seq[i], e o que acontece na condicao da linha 21?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "A gente tem de escrever o indice em que o valor procurado esta no vetor."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Bom. E como voce descobre o indice em que um valor esta num vetor?",
+      "alternativas": [
+        "Bom. Agora, olhando o seu codigo, ele chega a guardar algum indice cujo elemento seja igual ao valor procurado?",
+        "Bom. Se o indice corrente e i, como voce determina se o elemento na posicao i do vetor e igual ao valor procurado?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Eu percorro todos os indices possiveis, comecando do 0, e verifico se seq[i] e igual ao valor procurado."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Bom. Voce consegue acrescentar ao seu codigo o trecho que faz isso?",
+      "alternativas": []
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 15_44_sequential_search_conversational_thread_1.txt. Adaptacoes: (a) a funcao Python search(x, seq) virou um programa que le o valor procurado, le n e depois n valores para um vetor, seguindo a convencao dos itens tese_05 e tese_06; o retorno virou escrita do indice, e o 'return len(seq)' do caso nao encontrado virou a inicializacao de posicao com n; (b) as referencias de linha passaram a 21, posicao da condicao no programa Portugol; (c) o diálogo original segue o caminho de acrescentar um teste de igualdade, e nao o de trocar < por <=, embora o bug_fixes do original cite a segunda forma; s1 preserva o caminho do dialogo e ambas as correcoes estao em bug_fixes; (d) 1 turno final do tutor foi cortado. Nota sobre a fonte: o turno final do estudante no original tem uma alternativa com um segundo bloco de codigo, o caminho em que o estudante troca a comparacao pela igualdade e quebra os outros casos; o importador nao modela estado de codigo por alternativa do estudante, e esse caminho nao foi aproveitado. Pendente de revisao do segundo docente.",
+  "estado_solucao": "s1",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "15_44_sequential_search_conversational_thread_1.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 15
+  }
+}

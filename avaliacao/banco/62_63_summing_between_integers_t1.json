@@ -1,0 +1,186 @@
+{
+  "id": "62_63_summing_between_integers_t1",
+  "origem": "al_hossami_v2",
+  "prioridade": 2,
+  "tipo_bug": "limite",
+  "conceitos": [
+    "laco",
+    "limite",
+    "acumulador",
+    "funcao"
+  ],
+  "problem": "Escreva a funcao soma_entre(menor, maior) que recebe dois numeros inteiros e devolve a soma de todos os inteiros entre menor e maior, incluindo os dois extremos. O programa le os dois valores e escreve a soma. Ele contem um defeito. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao inteiro soma_entre(inteiro menor, inteiro maior)\n    {\n        inteiro soma = 0\n        inteiro i\n\n        para (i = menor; i < maior; i++)\n        {\n            soma = soma + i\n        }\n        retorne soma\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b\n        escreva(\"Digite dois numeros inteiros: \")\n        leia(a)\n        leia(b)\n        escreva(\"Soma = \", soma_entre(a, b), \"\\n\")\n    }\n}\n",
+  "bug_desc": "Na linha 8, a condicao do laco e i < maior, de modo que o i vai de menor ate maior - 1 e o limite superior fica de fora da soma. A funcao deveria incluir os dois extremos do intervalo.",
+  "bug_fixes": [
+    "inteiro novo_maior = maior + 1",
+    "para (i = menor; i < novo_maior; i++)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "0",
+        "1"
+      ],
+      "saida_contem": "Soma = 1\n"
+    },
+    {
+      "entrada": [
+        "0",
+        "2"
+      ],
+      "saida_contem": "Soma = 3\n"
+    },
+    {
+      "entrada": [
+        "1",
+        "2"
+      ],
+      "saida_contem": "Soma = 3\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "5"
+      ],
+      "saida_contem": "Soma = 12\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inteiro soma_entre(inteiro menor, inteiro maior)\n    {\n        inteiro soma = 0\n        inteiro i\n\n        para (i = menor; i < maior; i++)\n        {\n            soma = soma + i\n        }\n        retorne soma\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b\n        escreva(\"Digite dois numeros inteiros: \")\n        leia(a)\n        leia(b)\n        escreva(\"Soma = \", soma_entre(a, b), \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 0,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "codigo inicial: o laco para antes do limite superior",
+      "defeitos_vigentes": [
+        "limite"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inteiro soma_entre(inteiro menor, inteiro maior)\n    {\n        inteiro soma = 0\n        inteiro i\n        inteiro novo_maior = maior + 1\n\n        para (i = menor; i < novo_maior; i++)\n        {\n            soma = soma + i\n        }\n        retorne soma\n    }\n\n    funcao inicio()\n    {\n        inteiro a, b\n        escreva(\"Digite dois numeros inteiros: \")\n        leia(a)\n        leia(b)\n        escreva(\"Soma = \", soma_entre(a, b), \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "solucao de referencia: variavel temporaria com maior + 1 como limite",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "\\bnovo_maior\\b",
+    "\\bmaior\\s*\\+\\s*1\\b"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      8
+    ],
+    "variaveis": [
+      "i",
+      "maior",
+      "menor"
+    ],
+    "construtos": [
+      "laco para",
+      "condicao de parada",
+      "limite do intervalo"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Ola! Estou com problema na minha funcao soma_entre. Ela fica dando valores so um pouco diferentes do esperado, e eu nao sei por que."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Ola! Acho que a duvida pode estar no que o seu laco percorre. Com menor igual a 0 e maior igual a 1, que valores o i assume dentro do laco?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO",
+      "texto": "Nao tenho certeza. Eu sei que e assim que a gente costuma montar um laco, mas nao sei dizer que valores o i assume."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "A condicao que voce escreveu e i < maior, e ela e testada antes de cada volta. Isso faz o i ir de menor ate maior - 1. Com menor igual a 0 e maior igual a 1, quais valores sao esses?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Seria so o 0, certo?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Isso mesmo. Entao o laco da uma volta so, com i igual a 0. Voce consegue ver onde o seu codigo erra ao somar entre 0 e 1?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Ah, o 0 entra mas o 1 nao! Mas como eu estico isso, se so me deram menor e maior?"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Vamos por outro caminho. Se voce quisesse que o i tambem assumisse o valor 1, como mudaria a condicao do laco?",
+      "alternativas": [
+        "Vamos abstrair um pouco. Suponha duas variaveis inteiras x e y. Que valor o i assume quando o laco vai ate y, inclusive, e que ele nao assume quando para antes de y?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Eu faria o laco ir ate 2 em vez de ate 1, para incluir o 1. Entao e so somar 1 no maior sempre?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Voce consegue explicar por que acha que essa e a resposta certa?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Porque o laco percorre todos os inteiros do intervalo menos o ultimo; se eu aumentar o limite em 1, o que antes ficava de fora passa a entrar."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Exatamente. Agora, como voce mudaria o seu codigo para expressar isso?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Eu poderia usar uma variavel temporaria para isso?"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Pode sim, uma variavel temporaria resolve. Onde voce a colocaria?",
+      "alternativas": [
+        "Por que voce acha que uma variavel temporaria e necessaria?"
+      ]
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 62_63_summing_between_integers_conversational_thread_1.txt. Adaptacoes: (a) a funcao Python SumBetween virou funcao inteiro soma_entre em Portugol, com inicio() lendo os dois valores; (b) o dialogo original gira todo em torno de range(), que nao existe em Portugol; o equivalente e a condicao de parada do laco, i < maior, e as perguntas foram reescritas para ela - a jogada pedagogica e a mesma, entender que o limite superior fica de fora, e a manifestacao muda de 'o que range(0,1) devolve' para 'que valores o i assume'; (c) a correcao do original usa a variavel temporaria newHigh, mantida como novo_maior; (d) 1 turno final do tutor foi cortado, ocorre com o defeito ja corrigido. Pendente de revisao do segundo docente.",
+  "estado_solucao": "s1",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "62_63_summing_between_integers_conversational_thread_1.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 62
+  }
+}

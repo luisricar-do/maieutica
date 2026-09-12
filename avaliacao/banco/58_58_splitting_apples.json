@@ -1,0 +1,219 @@
+{
+  "id": "58_58_splitting_apples",
+  "origem": "al_hossami_v2",
+  "prioridade": 3,
+  "tipo_bug": "tipo",
+  "conceitos": [
+    "aritmetica",
+    "divisao",
+    "tipo",
+    "truncamento"
+  ],
+  "problem": "Escreva um programa que leia uma quantidade de macas e um numero de criancas e distribua as macas igualmente entre as criancas. O programa deve escrever quantas macas inteiras cada crianca recebe. Suponha que as duas entradas sao numeros inteiros positivos. O programa contem um defeito e falha em alguns casos. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro macas, criancas\n        real por_crianca\n\n        escreva(\"Quantas macas? \")\n        leia(macas)\n        escreva(\"Quantas criancas? \")\n        leia(criancas)\n\n        por_crianca = macas / criancas\n        escreva(\"Cada crianca recebe: \", por_crianca, \"\\n\")\n    }\n}\n",
+  "bug_desc": "Na linha 6 a variavel que guarda o resultado foi declarada como real, e por isso a divisao da linha 13 preserva a parte fracionaria. O programa escreve 3.5 macas por crianca quando ha 7 macas e 2 criancas, mas macas nao se dividem pela metade: o enunciado pede o numero inteiro de macas que cada crianca recebe.",
+  "bug_fixes": [
+    "inteiro por_crianca"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "10",
+        "2"
+      ],
+      "saida_contem": "Cada crianca recebe: 5\n"
+    },
+    {
+      "entrada": [
+        "7",
+        "2"
+      ],
+      "saida_contem": "Cada crianca recebe: 3\n"
+    },
+    {
+      "entrada": [
+        "100",
+        "100"
+      ],
+      "saida_contem": "Cada crianca recebe: 1\n"
+    },
+    {
+      "entrada": [
+        "1",
+        "2"
+      ],
+      "saida_contem": "Cada crianca recebe: 0\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro macas, criancas\n        real por_crianca\n\n        escreva(\"Quantas macas? \")\n        leia(macas)\n        escreva(\"Quantas criancas? \")\n        leia(criancas)\n\n        por_crianca = macas / criancas\n        escreva(\"Cada crianca recebe: \", por_crianca, \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 2,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "codigo inicial: resultado declarado real, a divisao guarda a fracao",
+      "defeitos_vigentes": [
+        "tipo"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro macas, criancas\n        inteiro por_crianca\n\n        escreva(\"Quantas macas? \")\n        leia(macas)\n        escreva(\"Quantas criancas? \")\n        leia(criancas)\n\n        por_crianca = macas / criancas\n        escreva(\"Cada crianca recebe: \", por_crianca, \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 4,
+      "casos_total": 4,
+      "timeout": false,
+      "descricao": "solucao de referencia: resultado declarado inteiro, a divisao trunca",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "\\binteiro\\s+por_crianca\\b"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      6,
+      13
+    ],
+    "variaveis": [
+      "por_crianca",
+      "macas",
+      "criancas"
+    ],
+    "construtos": [
+      "declaracao de tipo",
+      "divisao",
+      "parte fracionaria"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Socorro, eu travei!"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Onde voce acha que esta o problema?",
+      "alternativas": [
+        "Voce leu o seu codigo com atencao?",
+        "Quais casos de teste estao passando?",
+        "Voce leu o enunciado com atencao?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO",
+      "texto": "Nao sei.",
+      "alternativas_estudante_originais": [
+        "Acho que a conta esta errada."
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "Olhe os casos de teste: o primeiro passa?",
+      "alternativas": [
+        "Olhe os casos de teste: qual e o primeiro que falha?",
+        "Voce leu o seu codigo com atencao?",
+        "Voce leu o enunciado com atencao?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Passa, o primeiro passa, mas o segundo falha."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Qual e a resposta certa do caso 2?",
+      "alternativas": [
+        "Qual e a resposta certa do caso 1?",
+        "O caso 1 precisa de arredondamento?",
+        "O caso 2 precisa de arredondamento?",
+        "Pense na divisao em Portugol: o que ela faz quando a conta nao e exata?",
+        "Pense na divisao em Portugol: como ela lida com o resto?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Deveria escrever 3."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Sobraria resto?",
+      "alternativas": [
+        "Qual e a resposta certa do caso 1?",
+        "O caso 2 precisa de arredondamento?",
+        "Pense na divisao em Portugol: o que ela faz quando a conta nao e exata?",
+        "Pense na divisao em Portugol: como ela lida com o resto?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Sim, sobraria resto 1.",
+      "alternativas_estudante_originais": [
+        "Ah, entendi, o problema e o resto!"
+      ]
+    },
+    {
+      "papel": "tutor",
+      "texto": "Rode o programa: o que aparece quando voce divide 7 por 2?",
+      "alternativas": [
+        "Rode o programa: o que aparece quando voce divide 10 por 2?",
+        "Olhe o enunciado: o que voce esta dividindo?",
+        "Olhe o enunciado: tem alguma coisa que voce esqueceu?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Esta escrevendo 3.5 para 7 dividido por 2."
+    },
+    {
+      "papel": "tutor",
+      "texto": "E o que deveria aparecer ali?",
+      "alternativas": [
+        "Olhe o enunciado: o que voce esta dividindo?",
+        "Olhe o enunciado: tem alguma coisa de especial no formato dos numeros?",
+        "Pense na divisao em Portugol: como ela lida com o resto?",
+        "O que voce precisaria mudar para que a saida fosse um numero inteiro?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Deveria ser 3."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Volte a linha em que a variavel do resultado e declarada: que tipo de numero ela foi declarada para guardar?",
+      "alternativas": [
+        "Voce esta usando o tipo certo para o que o enunciado pede?",
+        "Ha um tipo especifico que se deve usar quando o resultado tem de ser um numero inteiro?",
+        "Como voce faria para que a parte fracionaria fosse descartada?"
+      ]
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 58_58_splitting_apples_socratic_dialogue.txt. Adaptacoes: (a) a funcao Python split_apples virou um programa que le as duas quantidades e escreve o resultado; (b) divergencia de mecanismo, mesmo defeito: em Python o defeito e usar / em vez de //, porque / sempre produz float; em Portugol Studio a divisao entre inteiros ja trunca, e quem preserva a fracao e o tipo da variavel de destino, verificado no motor da IDE (real da 3.5, inteiro da 3). O defeito passa a ser a declaracao real na linha 6 e a correcao e declara-la inteiro - e a mesma classe de defeito do original, 'returns a float instead of the largest possible integer', pela via que o Portugol oferece; (c) por isso os turnos do tutor sobre o operador de divisao do Python foram reescritos para o tipo da variavel; (d) os turnos de acrescentar e remover um print de depuracao deixam de existir, porque o programa ja escreve o resultado, e com eles os estados intermediarios: o item tem 2 estados em vez de 4 e 7 turnos de tutor em vez dos 9 uteis do original; (e) o padrao de acerto e erro dos casos e o mesmo do original, o primeiro caso passa e o segundo falha, que e o que o dialogo usa. Pendente de revisao do segundo docente.",
+  "estado_solucao": "s1",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "58_58_splitting_apples_socratic_dialogue.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 58
+  }
+}
