@@ -189,7 +189,7 @@ def test_planilha_humana_e_cega_e_kappa_fecha_o_ciclo(tmp_path, monkeypatch):
     assert resumo["gerados"] == 3
     assert resumo["referencia"] == 2
     assert resumo["amostra"] == 5
-    cabecalho = (destino / "codificador_1.csv").read_text(encoding="utf-8").splitlines()[0]
+    cabecalho = (destino / validacao_humana.ARQUIVO_CODIFICACAO).read_text(encoding="utf-8").splitlines()[0]
     assert "condicao" not in cabecalho and "diretividade" in cabecalho
     # Turnos de referência e gerados partilham a mesma folha e as mesmas colunas: nada na
     # planilha diz ao codificador de onde veio o turno.
@@ -197,12 +197,18 @@ def test_planilha_humana_e_cega_e_kappa_fecha_o_ciclo(tmp_path, monkeypatch):
 
     mapa = json.loads((destino / "mapa_amostra.json").read_text(encoding="utf-8"))
     do_juiz = {j["chave"]: j["diretividade"] for j in ler_ndjson(tmp_path / julgamento.ARQUIVO_JUIZOS)}
-    linhas = ["id_cego,diretividade,fidelidade,movimento_estudante,ancorado,irrelevante,repetida,excessivamente_direta,prematura"]
-    linhas += [
-        f"{i},{do_juiz[mapa[i]]},3,ESTAGNACAO,sim,nao,nao,nao,nao" for i in sorted(mapa)
-    ]
-    for nome in ("codificador_1.csv", "codificador_2.csv"):
-        (destino / nome).write_text("\n".join(linhas) + "\n", encoding="utf-8")
+
+    def _planilha(ids_e_valores):
+        linhas = ["id_cego,diretividade,fidelidade,movimento_estudante,ancorado,irrelevante,repetida,excessivamente_direta,prematura"]
+        linhas += [
+            f"{identificador},{nivel},3,ESTAGNACAO,sim,nao,nao,nao,nao"
+            for identificador, nivel in ids_e_valores
+        ]
+        return "\n".join(linhas) + "\n"
+
+    (destino / validacao_humana.ARQUIVO_CODIFICACAO).write_text(
+        _planilha([(i, do_juiz[mapa[i]]) for i in sorted(mapa)]), encoding="utf-8"
+    )
 
     # O mapa (que o codificador não vê) é o único sítio onde a origem aparece.
     chaves = set(mapa.values())
@@ -210,11 +216,70 @@ def test_planilha_humana_e_cega_e_kappa_fecha_o_ciclo(tmp_path, monkeypatch):
 
     kappa = validacao_humana.calcular_kappa(tmp_path, [item_minimo()])
     assert kappa["n_amostra"] == 5
-    assert kappa["consenso_juiz"]["diretividade"] == 1.0
+    assert kappa["humano_juiz"]["diretividade"] == 1.0
     assert kappa["abaixo_da_aceitacao"] == []
     # As variáveis constantes na subamostra não têm κ: ficam pendentes em vez de passar caladas.
-    assert "humano_humano:fidelidade" in kappa["indefinidos"]
+    assert "humano_juiz:fidelidade" in kappa["indefinidos"]
     assert kappa["validadas"] is False
+
+
+def test_recodificacao_tem_identificadores_proprios_e_fica_pendente_ate_ser_preenchida(
+    tmp_path, monkeypatch
+):
+    """O terço diferido não pode reusar o `id_cego` da primeira rodada.
+
+    Se reusasse, o codificador procuraria o que tinha respondido e o κ passaria a medir memória,
+    não estabilidade. E enquanto a segunda rodada não existe, o κ intra-avaliador está pendente —
+    não validado, que é diferente de reprovado.
+    """
+    _prepara_turnos(tmp_path, monkeypatch)
+    _juiz_com_niveis_variados(monkeypatch)
+    julgamento.julgar_execucao(CFG, tmp_path, [item_minimo()])
+
+    resumo = validacao_humana.gerar_amostra(
+        tmp_path, [item_minimo()], tamanho=3, tamanho_referencia=2
+    )
+    destino = tmp_path / "validacao_humana"
+    assert resumo["recodificacao"] == 5 // validacao_humana.FRACAO_RECODIFICACAO
+
+    mapa = json.loads((destino / "mapa_amostra.json").read_text(encoding="utf-8"))
+    mapa_recodificacao = json.loads(
+        (destino / "mapa_recodificacao.json").read_text(encoding="utf-8")
+    )
+    # Identificadores próprios, e o vínculo só existe no mapa que o codificador não abre.
+    assert set(mapa_recodificacao) & set(mapa) == set()
+    assert set(mapa_recodificacao.values()) <= set(mapa)
+
+    procedimento = json.loads((destino / "procedimento.json").read_text(encoding="utf-8"))
+    assert procedimento["ordem_primeira_rodada"] == sorted(mapa)
+    assert procedimento["intervalo_minimo_semanas"] == validacao_humana.INTERVALO_MINIMO_SEMANAS
+
+    cabecalho = "id_cego,diretividade,fidelidade,movimento_estudante,ancorado,irrelevante,repetida,excessivamente_direta,prematura"
+    (destino / validacao_humana.ARQUIVO_CODIFICACAO).write_text(
+        cabecalho + "\n" + "\n".join(f"{i},1,3,ESTAGNACAO,sim,nao,nao,nao,nao" for i in sorted(mapa)) + "\n",
+        encoding="utf-8",
+    )
+
+    pendente = validacao_humana.calcular_kappa(tmp_path, [item_minimo()])
+    assert pendente["recodificacao_pendente"] is True
+    assert pendente["n_recodificacao"] == 0
+    assert pendente["intra_avaliador"]["diretividade"] is None
+    assert "intra_avaliador:diretividade" in pendente["indefinidos"]
+    assert pendente["validadas"] is False
+
+    # Preenchida a segunda rodada com a mesma classificação, o κ intra-avaliador deixa de ser
+    # pendência e passa a medida.
+    (destino / validacao_humana.ARQUIVO_RECODIFICACAO).write_text(
+        cabecalho
+        + "\n"
+        + "\n".join(f"{i},1,3,ESTAGNACAO,sim,nao,nao,nao,nao" for i in sorted(mapa_recodificacao))
+        + "\n",
+        encoding="utf-8",
+    )
+    medido = validacao_humana.calcular_kappa(tmp_path, [item_minimo()])
+    assert medido["recodificacao_pendente"] is False
+    assert medido["n_recodificacao"] == len(mapa_recodificacao)
+    assert medido["divergencias"] == 0
 
 
 # --------------------------------------------------------------- condições B e C pelo serviço

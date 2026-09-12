@@ -1,13 +1,24 @@
 """Validação humana do juiz: amostra estratificada e concordância (Subseção 4.3.4).
 
-A classificação automática só é reportada depois de validada. Este módulo exporta a planilha
-cega — sem a condição de origem e sem o veredito do juiz — para os dois codificadores e, depois
-de preenchida, calcula o kappa entre os humanos e entre o consenso humano e o juiz, além da
-acurácia do detector objetivo de revelação contra a codificação humana.
+A classificação automática só é reportada depois de validada. O estudo tem **um único
+codificador humano**, o autor, cego à condição e ao veredito do juiz, e a confiabilidade da sua
+codificação é medida contra ela mesma: um terço da amostra é reapresentado em ordem sorteada,
+decorridas ao menos três semanas e sem acesso à codificação anterior (``metodologia.tex``).
 
-Aceitação: κ ≥ 0,60. Abaixo disso, o prompt do juiz é recalibrado **uma** vez; persistindo, a
-variável é reportada só na amostra humana. κ **indefinido** — subamostra com uma só categoria —
-não é aceitação: sai em ``indefinidos`` e conta como variável ainda não validada.
+Daí as duas planilhas cegas que este módulo exporta — ``codificacao.csv``, a rodada completa, e
+``recodificacao.csv``, o terço diferido — e os dois kappas que calcula: **intra-avaliador**,
+entre as duas rodadas do mesmo codificador, e **humano×juiz**, entre a primeira rodada e a
+classificação automática. Mede também a acurácia do detector objetivo de revelação contra a
+codificação humana.
+
+A codificação de registro é a **primeira** rodada: a recodificação mede estabilidade, não a
+substitui. Não há passo de consenso — com um só codificador não há divergência entre pessoas a
+resolver, e o que a recodificação revela de instável é resultado a reportar, não ruído a limpar.
+
+Aceitação: κ ≥ 0,60. Abaixo disso no juiz, o prompt é recalibrado **uma** vez; persistindo, a
+variável é reportada só na amostra humana. Abaixo disso no intra-avaliador, a variável é
+descritiva e a hipótese que dela depende não é testada. κ **indefinido** — subamostra com uma só
+categoria — não é aceitação: sai em ``indefinidos`` e conta como variável ainda não validada.
 """
 
 from __future__ import annotations
@@ -15,6 +26,7 @@ from __future__ import annotations
 import csv
 import random
 from collections import defaultdict
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +38,15 @@ from avaliacao.julgamento import ARQUIVO_JUIZOS, indexar_prefixos
 from avaliacao.registro import escrever_json, ler_json, ler_ndjson
 
 ACEITACAO_KAPPA = 0.60
+
+#: Fração da amostra reapresentada ao mesmo codificador (um terço, ``metodologia.tex``).
+FRACAO_RECODIFICACAO = 3
+#: Intervalo mínimo declarado entre as duas rodadas. O módulo não o impõe — quem codifica é que
+#: respeita a data —, mas grava-o no procedimento publicado com o pacote de replicação.
+INTERVALO_MINIMO_SEMANAS = 3
+
+ARQUIVO_CODIFICACAO = "codificacao.csv"
+ARQUIVO_RECODIFICACAO = "recodificacao.csv"
 
 #: Escala declarada de cada ordinal (Apêndices de diretividade e da rubrica). É ela, e não a
 #: amplitude observada na subamostra, que define os pesos do κ ponderado.
@@ -208,32 +229,76 @@ def gerar_amostra(
 
     destino = diretorio / "validacao_humana"
     destino.mkdir(parents=True, exist_ok=True)
-    for nome in ("codificador_1.csv", "codificador_2.csv"):
-        _escrever(destino / nome, registros, COLUNAS_CODIFICACAO)
+    _escrever(destino / ARQUIVO_CODIFICACAO, registros, COLUNAS_CODIFICACAO)
     escrever_json(destino / "mapa_amostra.json", mapa)
+
+    recodificacao, mapa_recodificacao = _rodada_de_recodificacao(registros, sorteio)
+    _escrever(destino / ARQUIVO_RECODIFICACAO, recodificacao, COLUNAS_CODIFICACAO)
+    escrever_json(destino / "mapa_recodificacao.json", mapa_recodificacao)
+    escrever_json(
+        destino / "procedimento.json",
+        {
+            "codificador": "único (o autor), cego à condição e ao veredito do juiz",
+            "semente": semente,
+            "gerado_em": datetime.now(UTC).isoformat(),
+            "intervalo_minimo_semanas": INTERVALO_MINIMO_SEMANAS,
+            "ordem_primeira_rodada": [registro["id_cego"] for registro in registros],
+            "ordem_recodificacao": [linha["id_cego"] for linha in recodificacao],
+        },
+    )
     return {
         "amostra": len(registros),
         "gerados": n_gerados,
         "referencia": n_referencia,
         "revelacoes_em_codigo": n_revelacoes,
+        "recodificacao": len(recodificacao),
         "destino": str(destino),
     }
 
 
+def _rodada_de_recodificacao(
+    registros: list[dict[str, Any]], sorteio: random.Random
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    """Um terço da amostra, em ordem sorteada e com identificadores próprios.
+
+    Repetir o ``id_cego`` da primeira rodada deixaria o codificador procurar o que tinha
+    respondido, e a medida passaria a ser de memória em vez de estabilidade. O vínculo entre as
+    duas rodadas vive só no mapa, que o codificador não abre.
+    """
+    quantos = max(1, len(registros) // FRACAO_RECODIFICACAO)
+    escolhidos = sorteio.sample(registros, quantos)
+    linhas: list[dict[str, Any]] = []
+    mapa: dict[str, str] = {}
+    for posicao, registro in enumerate(escolhidos, start=1):
+        id_recodificacao = f"R{posicao:04d}"
+        mapa[id_recodificacao] = registro["id_cego"]
+        linhas.append({**registro, "id_cego": id_recodificacao})
+    return linhas, mapa
+
+
 def calcular_kappa(diretorio: Path, itens: list[dict[str, Any]]) -> dict[str, Any]:
-    """κ humano×humano e consenso×juiz, mais precisão e cobertura do detector objetivo."""
+    """κ intra-avaliador (as duas rodadas do mesmo codificador) e κ da primeira rodada × juiz."""
     destino = diretorio / "validacao_humana"
     mapa = ler_json(destino / "mapa_amostra.json")
-    codificador_1 = _ler(destino / "codificador_1.csv")
-    codificador_2 = _ler(destino / "codificador_2.csv")
-    consenso_manual = _ler(destino / "consenso.csv")
+    mapa_recodificacao = ler_json(destino / "mapa_recodificacao.json")
+    codificacao = _ler(destino / ARQUIVO_CODIFICACAO)
+    recodificacao = _ler(destino / ARQUIVO_RECODIFICACAO)
 
-    ids = sorted(set(codificador_1) & set(codificador_2))
+    ids = sorted(codificacao)
     if not ids:
         raise SystemExit(
-            f"nada para comparar: preencha {destino / 'codificador_1.csv'} e "
-            f"{destino / 'codificador_2.csv'} (uma linha por turno, colunas da rubrica)."
+            f"nada para comparar: preencha {destino / ARQUIVO_CODIFICACAO} "
+            "(uma linha por turno, colunas da rubrica)."
         )
+
+    #: Pares (primeira rodada, recodificação) do mesmo turno — só os que já foram codificados nas
+    #: duas. Enquanto o terço diferido não estiver preenchido, a lista é vazia e o κ
+    #: intra-avaliador fica pendente, que é o estado correto antes das três semanas.
+    pares = [
+        (mapa_recodificacao[id_recodificacao], id_recodificacao)
+        for id_recodificacao in sorted(recodificacao)
+        if mapa_recodificacao.get(id_recodificacao) in codificacao
+    ]
 
     por_id = {item["id"]: item for item in itens}
     juizos = {j["chave"]: j for j in ler_ndjson(diretorio / ARQUIVO_JUIZOS)}
@@ -243,46 +308,51 @@ def calcular_kappa(diretorio: Path, itens: list[dict[str, Any]]) -> dict[str, An
         for t in ler_ndjson(diretorio / ARQUIVO_TURNOS)
     }
 
-    resultado: dict[str, Any] = {"n_amostra": len(ids), "humano_humano": {}, "consenso_juiz": {}}
+    resultado: dict[str, Any] = {
+        "n_amostra": len(ids),
+        "n_recodificacao": len(pares),
+        "recodificacao_pendente": not pares,
+        "intra_avaliador": {},
+        "humano_juiz": {},
+    }
     divergencias: list[dict[str, Any]] = []
 
     for variavel in VARIAVEIS:
         funcao = _funcao_kappa(variavel)
-        a = [_valor(codificador_1[i], variavel) for i in ids]
-        b = [_valor(codificador_2[i], variavel) for i in ids]
-        resultado["humano_humano"][variavel] = _arredondar(funcao(a, b))
 
-        consenso: list[Any] = []
-        do_juiz: list[Any] = []
-        for id_cego in ids:
-            valor_1 = _valor(codificador_1[id_cego], variavel)
-            valor_2 = _valor(codificador_2[id_cego], variavel)
-            resolvido = _valor(consenso_manual.get(id_cego, {}), variavel)
-            if valor_1 == valor_2:
-                valor = valor_1
-            elif resolvido is not None:
-                valor = resolvido
-            else:
-                valor = None
+        primeira = [_valor(codificacao[a], variavel) for a, _ in pares]
+        segunda = [_valor(recodificacao[b], variavel) for _, b in pares]
+        resultado["intra_avaliador"][variavel] = _arredondar(funcao(primeira, segunda))
+        for (id_cego, id_recodificacao), antes, depois in zip(pares, primeira, segunda):
+            if antes != depois:
                 divergencias.append(
                     {
                         "id_cego": id_cego,
+                        "id_recodificacao": id_recodificacao,
                         "variavel": variavel,
-                        "codificador_1": valor_1,
-                        "codificador_2": valor_2,
+                        "primeira_rodada": antes,
+                        "recodificacao": depois,
                     }
                 )
+
+        # A codificação de registro é a primeira rodada: a recodificação mede estabilidade, não
+        # corrige o que ficou para trás.
+        humano: list[Any] = []
+        do_juiz: list[Any] = []
+        for id_cego in ids:
+            valor = _valor(codificacao[id_cego], variavel)
             juizo = juizos.get(mapa.get(id_cego, ""))
             if valor is None or not juizo:
                 continue
-            consenso.append(valor)
+            humano.append(valor)
             do_juiz.append(_do_juiz(juizo, variavel))
-        resultado["consenso_juiz"][variavel] = _arredondar(funcao(consenso, do_juiz))
+        resultado["humano_juiz"][variavel] = _arredondar(funcao(humano, do_juiz))
 
-    resultado["detector"] = _acuracia_detector(ids, codificador_1, codificador_2, mapa, linhas)
+    resultado["detector"] = _acuracia_detector(ids, codificacao, mapa, linhas)
+    grupos = ("intra_avaliador", "humano_juiz")
     resultado["abaixo_da_aceitacao"] = sorted(
         f"{grupo}:{variavel}"
-        for grupo in ("humano_humano", "consenso_juiz")
+        for grupo in grupos
         for variavel, valor in resultado[grupo].items()
         if valor is not None and valor < ACEITACAO_KAPPA
     )
@@ -290,7 +360,7 @@ def calcular_kappa(diretorio: Path, itens: list[dict[str, Any]]) -> dict[str, An
     # pendência, e não como silêncio que passa no critério.
     resultado["indefinidos"] = sorted(
         f"{grupo}:{variavel}"
-        for grupo in ("humano_humano", "consenso_juiz")
+        for grupo in grupos
         for variavel, valor in resultado[grupo].items()
         if valor is None
     )
@@ -299,7 +369,7 @@ def calcular_kappa(diretorio: Path, itens: list[dict[str, Any]]) -> dict[str, An
     _escrever(
         destino / "divergencias.csv",
         divergencias,
-        ("id_cego", "variavel", "codificador_1", "codificador_2"),
+        ("id_cego", "id_recodificacao", "variavel", "primeira_rodada", "recodificacao"),
     )
     escrever_json(destino / "kappa.json", resultado)
     return resultado
@@ -307,21 +377,19 @@ def calcular_kappa(diretorio: Path, itens: list[dict[str, Any]]) -> dict[str, An
 
 def _acuracia_detector(
     ids: list[str],
-    codificador_1: dict[str, dict[str, str]],
-    codificador_2: dict[str, dict[str, str]],
+    codificacao: dict[str, dict[str, str]],
     mapa: dict[str, str],
     linhas: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
-    """Detector de nível 3 em código contra a codificação humana concordante."""
-    acertos = disparos = humanos_tres = concordantes = 0
+    """Detector de nível 3 em código contra a codificação humana."""
+    acertos = disparos = humanos_tres = codificados = 0
     verdadeiros_positivos = 0
     for id_cego in ids:
-        humano = _valor(codificador_1[id_cego], "diretividade")
-        outro = _valor(codificador_2[id_cego], "diretividade")
+        humano = _valor(codificacao[id_cego], "diretividade")
         linha = linhas.get(mapa.get(id_cego, ""))
-        if humano is None or humano != outro or linha is None:
+        if humano is None or linha is None:
             continue
-        concordantes += 1
+        codificados += 1
         disparou = bool(linha["revelacao_codigo"])
         eh_tres = humano == 3
         disparos += int(disparou)
@@ -329,8 +397,8 @@ def _acuracia_detector(
         verdadeiros_positivos += int(disparou and eh_tres)
         acertos += int(disparou == eh_tres)
     return {
-        "n": concordantes,
-        "acuracia": None if not concordantes else round(acertos / concordantes, 4),
+        "n": codificados,
+        "acuracia": None if not codificados else round(acertos / codificados, 4),
         "precisao": None if not disparos else round(verdadeiros_positivos / disparos, 4),
         "cobertura": None if not humanos_tres else round(verdadeiros_positivos / humanos_tres, 4),
         "disparos": disparos,

@@ -9,8 +9,8 @@ Etapas, na ordem em que se usam:
     python -m avaliacao rodar            # condições A e C sobre todos os prefixos
     python -m avaliacao julgar           # juiz sobre turnos gerados e de referência
     python -m avaliacao analisar         # H1, H2, descritivas, tabelas do Capítulo 5
-    python -m avaliacao amostra-humana   # planilha cega para os dois codificadores
-    python -m avaliacao kappa            # concordância, depois de preenchida a planilha
+    python -m avaliacao amostra-humana   # planilhas cegas: rodada completa e terço diferido
+    python -m avaliacao kappa            # concordância, depois de preenchidas as planilhas
     python -m avaliacao congelar         # manifesto de reprodutibilidade
 """
 
@@ -293,6 +293,12 @@ def _cmd_kappa(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
     diretorio = diretorio_execucao(args.execucao, criar=False)
     resultado = validacao_humana.calcular_kappa(diretorio, itens)
     print(json.dumps(resultado, ensure_ascii=False, indent=2))
+    if resultado["recodificacao_pendente"]:
+        print(
+            f"recodificação ainda por preencher ({validacao_humana.ARQUIVO_RECODIFICACAO}): o κ "
+            f"intra-avaliador exige a segunda rodada, decorridas ao menos "
+            f"{validacao_humana.INTERVALO_MINIMO_SEMANAS} semanas.",
+        )
     if resultado["indefinidos"]:
         print(
             "κ indefinido (uma só categoria na subamostra) em: "
@@ -490,7 +496,7 @@ def _parser() -> argparse.ArgumentParser:
     exportar.add_argument("--execucao", default="")
     exportar.set_defaults(funcao=_cmd_exportar)
 
-    amostra = sub.add_parser("amostra-humana", help="planilha cega para codificação humana", parents=[comum])
+    amostra = sub.add_parser("amostra-humana", help="planilhas cegas para o codificador único", parents=[comum])
     amostra.add_argument("--execucao", default="")
     amostra.add_argument("--tamanho", type=int, default=validacao_humana.TAMANHO_GERADOS,
                          help="turnos gerados na planilha (~150 + ~30 pela condição B)")
@@ -499,7 +505,7 @@ def _parser() -> argparse.ArgumentParser:
                          help="turnos de referência humanos, na mesma planilha cega")
     amostra.set_defaults(funcao=_cmd_amostra)
 
-    kappa = sub.add_parser("kappa", help="concordância entre humanos e com o juiz", parents=[comum])
+    kappa = sub.add_parser("kappa", help="concordância intra-avaliador e com o juiz", parents=[comum])
     kappa.add_argument("--execucao", default="")
     kappa.set_defaults(funcao=_cmd_kappa)
 

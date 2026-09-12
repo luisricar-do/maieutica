@@ -46,8 +46,8 @@ As duas hipóteses que a bancada testa:
 | `julgar` | classifica turnos gerados **e** turnos de referência com o juiz |
 | `analisar` | H1, H2, calibração interna, descritivas, CSVs e tabelas `.tex` |
 | `exportar` | emparelha cada turno gerado com as referências da posição, para as métricas de sobreposição rodarem no código do *benchmark* original |
-| `amostra-humana` | planilha cega (sem condição, sem veredito do juiz) para os dois codificadores |
-| `kappa` | κ humano×humano e consenso×juiz, mais precisão/cobertura do detector objetivo |
+| `amostra-humana` | planilhas cegas (sem condição, sem veredito do juiz): `codificacao.csv` e o terço diferido `recodificacao.csv` |
+| `kappa` | κ intra-avaliador e humano×juiz, mais precisão/cobertura do detector objetivo |
 | `congelar` | manifesto de reprodutibilidade: commits, hashes de prompts, modelos observados |
 
 ## Preparação
@@ -113,7 +113,7 @@ python -m avaliacao julgar                       # ensaio barato (gpt-4o)
 python -m avaliacao julgar --juiz-protocolo      # corrida reportável (gemini-3.1-pro-preview)
 python -m avaliacao analisar
 python -m avaliacao amostra-humana --tamanho 150
-# … os dois codificadores preenchem codificador_1.csv e codificador_2.csv …
+# … o codificador preenche codificacao.csv e, ≥3 semanas depois, recodificacao.csv …
 python -m avaliacao kappa
 python -m avaliacao congelar
 ```
