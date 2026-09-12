@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from agents import problem_context
 from services import tutor_help_single
 from services.tutor_help import process_help_request
 from services.tutor_help_single import (
@@ -152,12 +153,14 @@ async def test_resposta_traz_actions_vazio_e_nenhum_campo_de_ferramenta() -> Non
         "promptVariant",
         "promptSha256",
         "contextSha256",
+        "problemSha256",
         "usage",
         "finishReason",
         "latencyMs",
     }
     assert body["tutorMeta"]["finishReason"] == "stop"
     assert body["tutorMeta"]["contextSha256"] == _sha(tutor_help_single.CONTEXT_TEMPLATE)
+    assert body["tutorMeta"]["problemSha256"] == _sha(problem_context.PROBLEM_TEMPLATE)
     assert set(body["tutorMeta"]["usage"]) == {
         "promptTokens",
         "completionTokens",

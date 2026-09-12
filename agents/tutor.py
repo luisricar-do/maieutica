@@ -3,6 +3,7 @@
 import logging
 from collections.abc import AsyncIterator
 
+from agents.problem_context import build_problem_content
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from agents.llm import create_chat_client
@@ -186,6 +187,7 @@ def _communicator_lc_messages(
     ast_summary: str = "",
     data_flow_context: str = "",
     suggested_doc_topics: list[str] | None = None,
+    problem_statement: str = "",
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     docs = documentation_context if documentation_context is not None else []
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
@@ -204,6 +206,8 @@ def _communicator_lc_messages(
             ),
         ),
     ]
+    if problem_statement:
+        lc_messages.append(HumanMessage(content=build_problem_content(problem_statement)))
     hist_msgs = _history_to_messages(history)
     if not hist_msgs:
         lc_messages.append(HumanMessage(content="Preciso de ajuda com meu código."))
@@ -234,6 +238,7 @@ async def run_communicator(
     ast_summary: str = "",
     data_flow_context: str = "",
     suggested_doc_topics: list[str] | None = None,
+    problem_statement: str = "",
 ) -> str:
     """Gera a mensagem final da ADA a partir do plano interno do estrategista."""
     if intent == "OUT_OF_SCOPE":
@@ -252,6 +257,7 @@ async def run_communicator(
         ast_summary=ast_summary,
         data_flow_context=data_flow_context,
         suggested_doc_topics=suggested_doc_topics,
+        problem_statement=problem_statement,
     )
     response = await llm.ainvoke(lc_messages)
     return _chunk_content_to_text(response.content).strip()
@@ -270,6 +276,7 @@ async def run_communicator_stream(
     ast_summary: str = "",
     data_flow_context: str = "",
     suggested_doc_topics: list[str] | None = None,
+    problem_statement: str = "",
 ) -> AsyncIterator[str]:
     """Stream de tokens do comunicador (apenas texto, sem ferramentas)."""
     if intent == "OUT_OF_SCOPE":
@@ -289,6 +296,7 @@ async def run_communicator_stream(
         ast_summary=ast_summary,
         data_flow_context=data_flow_context,
         suggested_doc_topics=suggested_doc_topics,
+        problem_statement=problem_statement,
     )
     async for chunk in llm.astream(lc_messages):
         text = _chunk_content_to_text(chunk.content)

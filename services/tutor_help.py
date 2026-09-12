@@ -10,6 +10,7 @@ from typing import Any, TypedDict
 from agents.graph import tutor_graph
 from agents.llm import chat_model_name
 from agents.movement import classify_movement
+from agents.problem_context import parse_problem_statement
 from agents.usage import TokenUsageCollector
 from services import interaction_log
 
@@ -77,6 +78,7 @@ class TutorHelpState(TypedDict):
     student_movement: str
     movement_source: str
     session_id: str
+    problem_statement: str
 
 
 def _parse_session_id(raw: object) -> str:
@@ -225,6 +227,7 @@ def parse_help_payload(
     cursor_column = _parse_optional_positive_int(payload.get("cursorColumn"))
     compiler_error_lines = _parse_positive_int_list(payload.get("compilerErrorLines"))
     ast_summary = _parse_ast_summary(payload.get("astSummary"))
+    problem_statement = parse_problem_statement(payload.get("problemStatement"))
     data_flow_context = _parse_ast_summary(payload.get("dataFlowContext"))
     session_id = _parse_session_id(payload.get("sessionId"))
     previous_code = _parse_optional_code(payload.get("previousCode"))
@@ -241,6 +244,7 @@ def parse_help_payload(
     )
 
     initial_state: TutorHelpState = {
+        "problem_statement": problem_statement,
         "code": code,
         "errors": errors_str,
         "history": history_dicts,

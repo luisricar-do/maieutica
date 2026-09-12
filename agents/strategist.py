@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
 from agents.analyst import Diagnosis
+from agents.problem_context import build_problem_content
 from agents.config import evaluation_mode
 from agents.llm import create_chat_client
 
@@ -453,6 +454,7 @@ def _strategist_lc_messages(
     ast_summary: str = "",
     data_flow_context: str = "",
     student_movement: str = "NENHUM",
+    problem_statement: str = "",
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
         SystemMessage(
@@ -471,6 +473,8 @@ def _strategist_lc_messages(
             )
         ),
     ]
+    if problem_statement:
+        lc_messages.append(HumanMessage(content=build_problem_content(problem_statement)))
     hist_msgs = _history_to_messages(history)
     if not hist_msgs:
         lc_messages.append(HumanMessage(content="Analyze and plan IDE tools for this help request."))
@@ -528,6 +532,7 @@ async def run_strategist(
     ast_summary: str = "",
     data_flow_context: str = "",
     student_movement: str = "NENHUM",
+    problem_statement: str = "",
 ) -> tuple[list[dict[str, Any]], str]:
     """
     Executa o estrategista: devolve (ações IDE formatadas, plano interno para o comunicador).
@@ -545,6 +550,7 @@ async def run_strategist(
         ast_summary=ast_summary,
         data_flow_context=data_flow_context,
         student_movement=student_movement,
+        problem_statement=problem_statement,
     )
     response = await llm.ainvoke(lc_messages)
     tool_calls = getattr(response, "tool_calls", None) or []

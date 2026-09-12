@@ -118,6 +118,7 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
                 state["strategist_plan"],
                 state["history"],
                 **_communicator_stream_kwargs(state, intent, []),
+                problem_statement=str(state.get("problem_statement") or ""),
             ):
                 collected["message"] += delta
                 yield format_sse("token", {"text": delta})
@@ -143,6 +144,7 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
                 **_communicator_stream_kwargs(
                     state, "THEORY", state.get("documentation_context") or []
                 ),
+                problem_statement=str(state.get("problem_statement") or ""),
             ):
                 collected["message"] += delta
                 yield format_sse("token", {"text": delta})
@@ -183,6 +185,7 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
                 state, "DEBUG", state.get("documentation_context") or []
             ),
             suggested_doc_topics=suggested_doc_topics(actions if isinstance(actions, list) else []),
+            problem_statement=str(state.get("problem_statement") or ""),
         ):
             collected["message"] += delta
             yield format_sse("token", {"text": delta})

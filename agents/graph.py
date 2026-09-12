@@ -97,6 +97,7 @@ async def strategist_node(state: TutorState) -> dict:
         ast_summary=str(state.get("ast_summary") or ""),
         data_flow_context=str(state.get("data_flow_context") or ""),
         student_movement=str(state.get("student_movement") or "NENHUM"),
+        problem_statement=str(state.get("problem_statement") or ""),
     )
     return {"actions": actions, "strategist_plan": strategist_plan}
 
@@ -114,6 +115,7 @@ async def tutor_node(state: TutorState) -> dict:
         ast_summary=str(state.get("ast_summary") or ""),
         data_flow_context=str(state.get("data_flow_context") or ""),
         suggested_doc_topics=suggested_doc_topics(state.get("actions") or []),
+        problem_statement=str(state.get("problem_statement") or ""),
     )
     return {"tutor_response": tutor_response}
 

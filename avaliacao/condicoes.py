@@ -47,6 +47,7 @@ def payload_a(prefixo: Prefixo, execucao: int) -> dict[str, Any]:
         "errors": list(prefixo.errors),
         "compilerErrorLines": list(prefixo.compiler_error_lines),
         "history": list(prefixo.history),
+        "problemStatement": prefixo.problem_statement,
         "hintLevel": 1,
         "includeDocumentation": False,
         "sessionId": session_id(prefixo.id, "A", execucao),

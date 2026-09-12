@@ -23,6 +23,12 @@ import logging
 import time
 from typing import Any
 
+from agents.problem_context import (
+    PROBLEM_SHA256,
+    PROBLEM_TEMPLATE,
+    build_problem_content,
+    parse_problem_statement,
+)
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from agents.llm import chat_model_name
@@ -164,6 +170,7 @@ def build_messages(
     errors: list[str],
     compiler_error_lines: list[int],
     history: list[dict],
+    problem_statement: str = "",
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     """
     ``[system(prompt congelado), user(contexto de código), *histórico]``.
@@ -178,13 +185,16 @@ def build_messages(
     e ``previousErrors`` (entradas do classificador de movimento) e ``studentName``. São entradas
     da política programática — dá-las a B devolveria à ablação a peça que se quer retirar.
     """
-    return [
+    mensagens: list[SystemMessage | HumanMessage | AIMessage] = [
         SystemMessage(content=SYSTEM_PROMPTS[variant]),
         HumanMessage(
             content=build_context_content(code, errors, compiler_error_lines)
         ),
-        *_history_to_messages(history),
     ]
+    if problem_statement:
+        mensagens.append(HumanMessage(content=build_problem_content(problem_statement)))
+    mensagens.extend(_history_to_messages(history))
+    return mensagens
 
 
 def parse_prompt_variant(payload: Any) -> tuple[str | None, dict[str, Any] | None]:
@@ -283,6 +293,7 @@ def prompts_response() -> dict[str, Any]:
             for variant in PROMPT_VARIANTS
         },
         "context": {"text": CONTEXT_TEMPLATE, "sha256": CONTEXT_SHA256},
+        "problem": {"text": PROBLEM_TEMPLATE, "sha256": PROBLEM_SHA256},
     }
 
 
@@ -310,6 +321,7 @@ async def process_help_single_request(payload: Any) -> tuple[dict[str, Any], int
         errors=state["errors"],
         compiler_error_lines=state["compiler_error_lines"],
         history=state["history"],
+        problem_statement=state.get("problem_statement", ""),
     )
 
     started = time.monotonic()
@@ -337,6 +349,7 @@ async def process_help_single_request(payload: Any) -> tuple[dict[str, Any], int
             "promptVariant": variant,
             "promptSha256": PROMPT_SHA256[variant],
             "contextSha256": CONTEXT_SHA256,
+            "problemSha256": PROBLEM_SHA256,
             "usage": _usage(response),
             "finishReason": finish_reason,
             "latencyMs": latency_ms,

@@ -54,6 +54,7 @@ class Prefixo:
     tipo: Literal["ouro", "pressao"]
     posicao_pressao: str = ""
     history: list[dict[str, str]] = field(default_factory=list)
+    problem_statement: str = ""
     code: str = ""
     errors: list[str] = field(default_factory=list)
     compiler_error_lines: list[int] = field(default_factory=list)
@@ -467,9 +468,10 @@ def _contexto(item: dict[str, Any], turnos: list[dict[str, Any]]) -> dict[str, A
     for indice, turno in enumerate(turnos):
         texto = turno.get("texto", "")
         if turno.get("papel") == "estudante":
-            if indice == 0:
-                # O enunciado entra no primeiro conteúdo do usuário (protocolo prefix-conditioned).
-                texto = f"{item['problem']}\n\n{texto}".strip()
+            # O enunciado NÃO entra aqui: vai em ``problem_statement``, campo próprio do pedido.
+            # Colado ao primeiro conteúdo do usuário, ele era lido como fala do estudante por
+            # toda análise textual do movimento — o "corrija" do enunciado casava com o "meu
+            # código" do estudante e saía um pedido explícito que nunca houve.
             history.append({"role": "user", "content": texto})
             movimento = turno.get("movimento", "NENHUM")
             if movimento in ("ESTAGNACAO", "REGRESSAO"):
@@ -488,6 +490,7 @@ def _contexto(item: dict[str, Any], turnos: list[dict[str, Any]]) -> dict[str, A
 
     return {
         "history": history,
+        "problem_statement": str(item.get("problem", "")),
         "code": vigente.get("codigo", ""),
         "errors": list(vigente.get("errors", [])),
         "compiler_error_lines": list(vigente.get("compilerErrorLines", [])),

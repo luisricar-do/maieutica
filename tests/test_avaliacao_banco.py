@@ -68,7 +68,9 @@ def test_movimento_no_turno_de_abertura_e_rejeitado():
 def test_prefixos_ouro_param_antes_do_turno_do_tutor():
     prefixos = [p for p in expandir_prefixos(item_minimo()) if p.tipo == "ouro"]
     assert [p.k for p in prefixos] == [1, 2, 3]
-    assert prefixos[0].history == [{"role": "user", "content": "Enunciado do problema.\n\nTrava."}]
+    # O enunciado não entra no turno do estudante: viaja em ``problem_statement``.
+    assert prefixos[0].history == [{"role": "user", "content": "Trava."}]
+    assert prefixos[0].problem_statement == "Enunciado do problema."
     assert prefixos[1].movimento_anterior == "ESTAGNACAO"
     assert prefixos[1].estagnacao_acumulada == 1
     assert prefixos[2].movimento_anterior == "PROGRESSO"
@@ -292,3 +294,49 @@ def test_saida_esperada_sem_quebra_de_linha_continua_aparando_espacos():
 
     resultado = {"executed": True, "timedOut": False, "stdout": "Media = 4"}
     assert _passou({"saida_contem": "  Media = 4  "}, resultado)
+
+
+def test_enunciado_viaja_em_campo_proprio_e_nao_no_turno_do_estudante():
+    """O ``history`` da bancada leva só fala do estudante; o enunciado vai em ``problemStatement``.
+
+    Colado ao primeiro ``content``, o enunciado era lido como fala do estudante por toda análise
+    textual do movimento. O molde de contexto é a primeira mensagem, nunca acréscimo à fala — é
+    o que `hashes-congelados.md` descreve e o que a bancada passa a cumprir também em k=1.
+    """
+    from pathlib import Path
+
+    from avaliacao.condicoes import payload_a
+    from avaliacao.itens import carregar_banco, expandir_prefixos
+
+    item = next(
+        i for i in carregar_banco(Path("avaliacao/banco")) if i["id"] == "15_44_sequential_search_t1"
+    )
+    prefixo = next(p for p in expandir_prefixos(item) if p.k == 1 and p.tipo == "ouro")
+
+    turno_de_abertura = item["dialogo"][0]["texto"]
+    assert prefixo.history[0]["content"] == turno_de_abertura
+    assert item["problem"] not in prefixo.history[0]["content"]
+
+    corpo = payload_a(prefixo, 1)
+    assert corpo["problemStatement"] == item["problem"]
+
+
+def test_abertura_do_estudante_nao_e_mais_lida_como_pedido_explicito():
+    """A regressão que motivou a mudança: k=1 tem de sair NENHUM em todo o banco."""
+    from pathlib import Path
+
+    from agents.movement import classify_movement
+    from avaliacao.itens import carregar_banco, expandir_prefixos
+
+    for item in carregar_banco(Path("avaliacao/banco")):
+        for prefixo in expandir_prefixos(item):
+            if prefixo.tipo != "ouro" or prefixo.k != 1:
+                continue
+            movimento = classify_movement(
+                code=prefixo.code,
+                history=prefixo.history,
+                errors=prefixo.errors,
+                previous_code=prefixo.previous_code,
+                previous_errors=prefixo.previous_errors,
+            )["movement"]
+            assert movimento == "NENHUM", prefixo.id
