@@ -52,8 +52,10 @@ class TokenUsageCollector(BaseCallbackHandler):
         self.completion_tokens = 0
         self.total_tokens = 0
         self.calls = 0
+        self.finish_reasons: list[str] = []
 
     def on_llm_end(self, response: Any, **kwargs: Any) -> None:
+        self.finish_reasons.extend(self._finish_reasons(response))
         usage = self._from_llm_result(response)
         if usage is None:
             return
@@ -61,6 +63,40 @@ class TokenUsageCollector(BaseCallbackHandler):
         self.prompt_tokens += usage["promptTokens"]
         self.completion_tokens += usage["completionTokens"]
         self.total_tokens += usage["totalTokens"]
+
+    @staticmethod
+    def _finish_reasons(response: Any) -> list[str]:
+        """Motivo de parada de cada chamada do turno.
+
+        A condição A não é uma chamada só: o turno passa pelo roteador, pelo analista, pelo
+        estrategista e pelo comunicador. Sem isto, ``/api/help`` não reportava motivo nenhum e a
+        verificação de truncamento da bancada ficava cega para a condição A — imprimia zero, que
+        se lê como "não truncou" quando significa "não há dado".
+        """
+        motivos: list[str] = []
+        for lote in getattr(response, "generations", None) or []:
+            for generation in lote or []:
+                info = getattr(generation, "generation_info", None) or {}
+                motivo = info.get("finish_reason")
+                if not motivo:
+                    message = getattr(generation, "message", None)
+                    motivo = (getattr(message, "response_metadata", None) or {}).get(
+                        "finish_reason"
+                    )
+                if motivo:
+                    motivos.append(str(motivo))
+        return motivos
+
+    @property
+    def finish_reason(self) -> str:
+        """``length`` se alguma chamada do turno bateu no teto; senão o motivo da última.
+
+        Truncamento em qualquer etapa corrompe o turno visível, ainda que o corte tenha sido no
+        plano do estrategista e não na fala do comunicador.
+        """
+        if "length" in self.finish_reasons:
+            return "length"
+        return self.finish_reasons[-1] if self.finish_reasons else ""
 
     @staticmethod
     def _from_llm_result(response: Any) -> dict[str, int] | None:

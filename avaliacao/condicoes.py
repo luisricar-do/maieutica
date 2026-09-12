@@ -123,6 +123,10 @@ def executar_a(cfg: Config, prefixo: Prefixo, execucao: int) -> dict[str, Any]:
             "movimento_runtime": meta.get("studentMovement", ""),
             # Soma das chamadas do grafo no turno, comparável com a chamada única de B e C.
             "tokens": meta.get("usage", {}) or {},
+            # "length" quando alguma etapa do grafo bateu no teto de tokens. Ficava fixo em vazio
+            # de quando a rota não reportava o motivo, e a verificação de truncamento imprimia
+            # zero para a condição A — que se lê como "não truncou" e significa "não há dado".
+            "finish_reason": meta.get("finishReason", ""),
         }
     )
     return base

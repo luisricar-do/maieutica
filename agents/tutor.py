@@ -105,7 +105,11 @@ def _documentation_hint(topics: list[str] | None) -> str:
 
 
 def _communicator_llm():
-    return create_chat_client(max_tokens=300, temperature=0.7)
+    # 800 e um teto que nao morde nenhuma das tres condicoes: A observou no maximo 271 (quem
+    # a mantem curta e o prompt, nao o teto) e B mediana 34. Em 300, metade dos turnos da
+    # condicao C saia cortada a meio da frase, e a diretividade media sobre texto mutilado
+    # enviesava a comparacao toda de um lado. O parametro continua identico nas tres.
+    return create_chat_client(max_tokens=800, temperature=0.7)
 
 
 def _history_to_messages(history: list[dict]) -> list[HumanMessage | AIMessage]:

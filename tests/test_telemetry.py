@@ -174,3 +174,40 @@ async def test_process_returns_500_when_blob_write_fails(
         body, status = await process_telemetry_request(_payload())
     assert status == 500
     assert "error" in body
+
+
+def test_coletor_marca_truncamento_de_qualquer_etapa_do_grafo():
+    """``length`` em qualquer chamada do turno corrompe o turno visível, e tem de aparecer.
+
+    Sem isto ``/api/help`` não reportava motivo de parada e a verificação de truncamento da
+    bancada ficava cega para a condição A: imprimia zero, que se lê como "não truncou" quando
+    significa "não há dado".
+    """
+    from types import SimpleNamespace
+
+    from agents.usage import TokenUsageCollector
+
+    def resultado(motivo: str) -> SimpleNamespace:
+        geracao = SimpleNamespace(generation_info={"finish_reason": motivo}, message=None)
+        return SimpleNamespace(generations=[[geracao]], llm_output=None)
+
+    coletor = TokenUsageCollector()
+    assert coletor.finish_reason == ""
+
+    coletor.on_llm_end(resultado("stop"))
+    assert coletor.finish_reason == "stop"
+
+    coletor.on_llm_end(resultado("length"))
+    coletor.on_llm_end(resultado("stop"))
+    assert coletor.finish_reason == "length"
+
+
+def test_teto_de_saida_nao_morde_nenhuma_condicao():
+    """O teto é o mesmo nas três condições e folgado: em 300, metade da C saía cortada."""
+    from unittest.mock import patch
+
+    from agents import tutor
+
+    with patch.object(tutor, "create_chat_client") as fabrica:
+        tutor._communicator_llm()
+    assert fabrica.call_args.kwargs["max_tokens"] >= 800

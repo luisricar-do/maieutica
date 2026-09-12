@@ -27,6 +27,7 @@ def build_tutor_meta_from_actions(
     student_movement: str = "",
     model: str = "",
     usage: dict[str, int] | None = None,
+    finish_reason: str = "",
 ) -> dict[str, Any]:
     """
     Metadados de política de conversa para o cliente (IDE) e para a avaliação.
@@ -51,6 +52,10 @@ def build_tutor_meta_from_actions(
         # É esse o custo que se compara com a chamada única das condições B e C. Ausente no
         # SSE, onde o uso não é recolhido: zeros permanentes seriam informação falsa.
         meta["usage"] = dict(usage)
+    if finish_reason:
+        # Motivo de parada do turno: "length" quando alguma etapa do grafo bateu no teto de
+        # tokens. Sem ele a verificação de truncamento da bancada ficava cega para a condição A.
+        meta["finishReason"] = finish_reason
     return meta
 
 
@@ -340,6 +345,7 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
             intent=str(result.get("intent") or ""),
             student_movement=initial_state["student_movement"],
             usage=usage.as_dict(),
+            finish_reason=usage.finish_reason,
         ),
     }
     await log_turn(
