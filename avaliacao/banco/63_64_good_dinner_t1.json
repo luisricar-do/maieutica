@@ -1,0 +1,215 @@
+{
+  "id": "63_64_good_dinner_t1",
+  "origem": "al_hossami_v2",
+  "prioridade": 3,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "condicional",
+    "logico",
+    "intervalo",
+    "funcao"
+  ],
+  "problem": "Um bom jantar e aquele em que voce come entre 10 e 20 pizzas, inclusive. A excecao e o fim de semana, quando nao ha limite superior. Escreva a funcao bom_jantar(pizzas, fim_de_semana) que recebe o numero de pizzas e um valor logico que e verdadeiro no fim de semana, e devolve verdadeiro se o jantar foi bom. O programa le os dois valores e escreve o resultado. Ele contem um defeito. Localize e corrija.",
+  "bug_code": "programa\n{\n    funcao logico bom_jantar(inteiro pizzas, logico fim_de_semana)\n    {\n        se (pizzas >= 10 e fim_de_semana)\n        {\n            retorne verdadeiro\n        }\n        senao se (pizzas <= 20 e nao fim_de_semana)\n        {\n            retorne verdadeiro\n        }\n        retorne falso\n    }\n\n    funcao inicio()\n    {\n        inteiro pizzas\n        logico fim_de_semana\n\n        escreva(\"Quantas pizzas? \")\n        leia(pizzas)\n        escreva(\"E fim de semana? \")\n        leia(fim_de_semana)\n\n        escreva(\"Bom jantar: \", bom_jantar(pizzas, fim_de_semana), \"\\n\")\n    }\n}\n",
+  "bug_desc": "Na linha 9 a condicao do dia util so verifica o limite superior, pizzas <= 20, e nao o inferior. Consequentemente, num dia util qualquer quantidade de pizzas menor do que 10 tambem satisfaz a condicao e a funcao devolve verdadeiro, quando o enunciado exige pelo menos 10 pizzas fora do fim de semana.",
+  "bug_fixes": [
+    "senao se (pizzas >= 10 e pizzas <= 20 e nao fim_de_semana)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "10",
+        "falso"
+      ],
+      "saida_contem": "Bom jantar: verdadeiro\n"
+    },
+    {
+      "entrada": [
+        "20",
+        "falso"
+      ],
+      "saida_contem": "Bom jantar: verdadeiro\n"
+    },
+    {
+      "entrada": [
+        "5",
+        "falso"
+      ],
+      "saida_contem": "Bom jantar: falso\n"
+    },
+    {
+      "entrada": [
+        "21",
+        "falso"
+      ],
+      "saida_contem": "Bom jantar: falso\n"
+    },
+    {
+      "entrada": [
+        "10",
+        "verdadeiro"
+      ],
+      "saida_contem": "Bom jantar: verdadeiro\n"
+    },
+    {
+      "entrada": [
+        "21",
+        "verdadeiro"
+      ],
+      "saida_contem": "Bom jantar: verdadeiro\n"
+    },
+    {
+      "entrada": [
+        "5",
+        "verdadeiro"
+      ],
+      "saida_contem": "Bom jantar: falso\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao logico bom_jantar(inteiro pizzas, logico fim_de_semana)\n    {\n        se (pizzas >= 10 e fim_de_semana)\n        {\n            retorne verdadeiro\n        }\n        senao se (pizzas <= 20 e nao fim_de_semana)\n        {\n            retorne verdadeiro\n        }\n        retorne falso\n    }\n\n    funcao inicio()\n    {\n        inteiro pizzas\n        logico fim_de_semana\n\n        escreva(\"Quantas pizzas? \")\n        leia(pizzas)\n        escreva(\"E fim de semana? \")\n        leia(fim_de_semana)\n\n        escreva(\"Bom jantar: \", bom_jantar(pizzas, fim_de_semana), \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 6,
+      "casos_total": 7,
+      "timeout": false,
+      "descricao": "codigo inicial: no dia util falta o limite inferior do intervalo",
+      "defeitos_vigentes": [
+        "logica"
+      ]
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao logico bom_jantar(inteiro pizzas, logico fim_de_semana)\n    {\n        se (pizzas >= 10 e fim_de_semana)\n        {\n            retorne verdadeiro\n        }\n        senao se (pizzas >= 10 e pizzas <= 20 e nao fim_de_semana)\n        {\n            retorne verdadeiro\n        }\n        retorne falso\n    }\n\n    funcao inicio()\n    {\n        inteiro pizzas\n        logico fim_de_semana\n\n        escreva(\"Quantas pizzas? \")\n        leia(pizzas)\n        escreva(\"E fim de semana? \")\n        leia(fim_de_semana)\n\n        escreva(\"Bom jantar: \", bom_jantar(pizzas, fim_de_semana), \"\\n\")\n    }\n}\n",
+      "errors": [],
+      "compilerErrorLines": [],
+      "casos_ok": 7,
+      "casos_total": 7,
+      "timeout": false,
+      "descricao": "solucao de referencia: os dois limites na condicao do dia util",
+      "defeitos_vigentes": []
+    }
+  ],
+  "fix_patterns": [
+    "pizzas\\s*>=\\s*10\\s+e\\s+pizzas\\s*<=\\s*20"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      9
+    ],
+    "variaveis": [
+      "pizzas",
+      "fim_de_semana"
+    ],
+    "construtos": [
+      "condicional",
+      "operador logico e",
+      "intervalo"
+    ]
+  },
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM",
+      "texto": "Ola! Eu estava trabalhando na minha funcao bom_jantar e empaquei. Simplesmente nao consigo ver onde esta o problema no meu codigo."
+    },
+    {
+      "papel": "tutor",
+      "texto": "Certo, vamos comecar pelo caso mais simples. Quando fim_de_semana e verdadeiro, quantas pizzas transformam o jantar num bom jantar?",
+      "alternativas": [
+        "Quando fim_de_semana e falso e pizzas esta entre 0 e 10, qual e o comportamento esperado?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Seriam 10 ou mais pizzas."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "E como voce produziria um valor logico que e verdadeiro quando pizzas cumpre essa condicao?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Seria pizzas >= 10."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Certo, e ligar essa com a outra por um e forma a sua primeira condicao. Agora vamos a condicao mais complexa. Quando fim_de_semana e falso, quantas pizzas fazem de um jantar um bom jantar?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "E ai que eu me perco. E entre 10 e 20, inclusive, certo?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Isso mesmo. O que nessa condicao esta te confundindo?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO",
+      "texto": "Eu nao sei como transformar um numero entre dois outros em codigo."
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Vamos partir isso em duas partes. Como voce verificaria se pizzas e 10 ou mais? E como verificaria se pizzas e 20 ou menos?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Seria pizzas >= 10 e depois pizzas <= 20."
+    },
+    {
+      "papel": "tutor",
+      "texto": "E que operador logico voce usaria para ligar essas duas e obter um valor que so e verdadeiro quando pizzas esta entre 10 e 20, inclusive?",
+      "alternativas": [
+        "E voce usaria e, ou, ou nao para chegar ao resultado que quer?"
+      ]
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Seria o e, certo?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Correto. Voce ja consegue ver como implementaria a condicao para quando fim_de_semana e falso?"
+    },
+    {
+      "papel": "estudante",
+      "estado_codigo": "s0",
+      "movimento": "PROGRESSO",
+      "texto": "Mas sao duas condicoes. Como eu ponho tres valores logicos num se so?"
+    },
+    {
+      "papel": "tutor",
+      "alternativas": [],
+      "texto": "Agora vejo de onde vem a confusao. Operadores logicos podem ser encadeados em sequencia, do mesmo jeito que as operacoes matematicas."
+    }
+  ],
+  "revisado_por": null,
+  "notas_traducao": "Traduzido de 63_64_good_dinner_conversational_thread_1.txt. Adaptacoes: (a) a funcao Python GoodDinner virou funcao logico bom_jantar em Portugol, com inicio() lendo as duas entradas; o valor logico e lido e escrito como verdadeiro/falso, verificado no motor da IDE; (b) not(weekend) virou nao fim_de_semana e and virou e; (c) a referencia de linha passou de 4 para 9; (d) o ultimo turno do estudante, que aplica a correcao, e o turno final do tutor foram cortados: ocorrem com o defeito ja corrigido. Pendente de revisao do segundo docente.",
+  "estado_solucao": "s1",
+  "fonte": {
+    "conjunto": "al_hossami socratic-debugging-benchmark, v2_sigcse/final_dataset",
+    "arquivo": "63_64_good_dinner_conversational_thread_1.txt",
+    "commit": "3f77f8923b6b6e49d82fc65bebff2608da97b15e",
+    "problema_id": 63
+  }
+}
