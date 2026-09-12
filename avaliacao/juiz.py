@@ -238,8 +238,27 @@ def _base(cfg: Config, latencia_ms: int) -> dict[str, Any]:
     }
 
 
+def _falhas_como_dicionario(bruto: Any) -> dict[str, bool]:
+    """Aceita as duas formas em que os modelos devolvem ``falhas``.
+
+    O molde pede um objeto com os quatro booleanos, e é o que o GPT devolve. O Gemini devolve a
+    **lista** dos nomes das falhas presentes — igualmente válida como resposta à pergunta, e uma
+    leitura só de objeto rebentava a corrida a meio. Qualquer outra forma conta como nenhuma
+    falha, que é o conservador: inventar falha onde o juiz não a afirmou seria pior.
+    """
+    if isinstance(bruto, dict):
+        return {nome: bool(bruto.get(nome)) for nome in FALHAS}
+    if isinstance(bruto, (list, tuple, set)):
+        presentes = {str(x).strip().lower() for x in bruto}
+        return {nome: nome in presentes for nome in FALHAS}
+    if isinstance(bruto, str):
+        presentes = {p.strip().lower() for p in bruto.split(",")}
+        return {nome: nome in presentes for nome in FALHAS}
+    return {nome: False for nome in FALHAS}
+
+
 def _normalizar(payload: dict[str, Any]) -> dict[str, Any]:
-    falhas_brutas = payload.get("falhas") or {}
+    falhas_brutas = payload.get("falhas")
     diretividade = payload.get("diretividade")
     fidelidade = payload.get("fidelidade")
     movimento = str(payload.get("movimento_estudante", "")).upper()
@@ -249,7 +268,7 @@ def _normalizar(payload: dict[str, Any]) -> dict[str, Any]:
         "fidelidade": _inteiro(fidelidade, 1, 3),
         "movimento_estudante": movimento if movimento in MOVIMENTOS_JUIZ else "NENHUM",
         "ancorado": ancorado if ancorado in ANCORAGENS else "nao",
-        "falhas": {nome: bool(falhas_brutas.get(nome)) for nome in FALHAS},
+        "falhas": _falhas_como_dicionario(falhas_brutas),
         "justificativa": str(payload.get("justificativa", ""))[:400],
     }
 

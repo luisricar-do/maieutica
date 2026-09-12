@@ -426,3 +426,24 @@ def test_acerto_do_diagnostico_sai_aberto_por_defeito_vigente(tmp_path):
         for linha in por_defeito
     )
     assert (tmp_path / "analise" / "diagnostico_por_defeito.csv").is_file()
+
+
+def test_falhas_do_juiz_aceitam_objeto_lista_ou_texto():
+    """O molde pede objeto, o Gemini devolve lista — e uma leitura só de objeto rebentava a corrida.
+
+    Ambas respondem à mesma pergunta. Qualquer outra forma conta como nenhuma falha: inventar
+    falha onde o juiz não a afirmou enviesaria o perfil de falhas por classe de erro.
+    """
+    from avaliacao.juiz import _falhas_como_dicionario
+
+    esperado = {
+        "irrelevante": False,
+        "repetida": False,
+        "excessivamente_direta": True,
+        "prematura": False,
+    }
+    assert _falhas_como_dicionario({"excessivamente_direta": True}) == esperado
+    assert _falhas_como_dicionario(["excessivamente_direta"]) == esperado
+    assert _falhas_como_dicionario("excessivamente_direta") == esperado
+    assert all(v is False for v in _falhas_como_dicionario(None).values())
+    assert all(v is False for v in _falhas_como_dicionario([]).values())
