@@ -286,10 +286,18 @@ def _normalizar(payload: Any) -> dict[str, Any]:
 
 
 def _inteiro(valor: Any, minimo: int, maximo: int) -> int | None:
+    """Aceita o número em qualquer das formas em que um modelo o escreve: 2, 2.0 ou "2.0".
+
+    Um veredito descartado por causa da grafia custaria três chamadas repetidas e acabaria
+    contado como erro, quando a classificação estava lá.
+    """
     try:
         numero = int(valor)
     except (TypeError, ValueError):
-        return None
+        try:
+            numero = int(float(valor))
+        except (TypeError, ValueError):
+            return None
     return min(max(numero, minimo), maximo)
 
 

@@ -8,6 +8,7 @@ enviada ao juiz.
 from __future__ import annotations
 
 import logging
+import time
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -22,6 +23,11 @@ from avaliacao.registro import anexar, ler_ndjson
 logger = logging.getLogger(__name__)
 
 ARQUIVO_JUIZOS = "juizos.jsonl"
+
+#: Espera antes de repetir um veredito que falhou, multiplicada pelo número da tentativa.
+#: Repetir de imediato é desperdiçar as três tentativas no mesmo minuto em que o provedor está a
+#: limitar; com a pausa, a segunda e a terceira caem já do outro lado da janela.
+PAUSA_ENTRE_TENTATIVAS_S = 2.0
 
 
 def indexar_prefixos(itens: list[dict[str, Any]]) -> dict[str, Prefixo]:
@@ -75,6 +81,8 @@ def julgar_execucao(
             veredito["tentativas"] = tentativa
             if not veredito.get("erro") and veredito.get("diretividade") is not None:
                 break
+            if tentativa < tentativas:
+                time.sleep(PAUSA_ENTRE_TENTATIVAS_S * tentativa)
         registro = {**pendencia["meta"], **veredito}
         anexar(destino, registro)
         return registro

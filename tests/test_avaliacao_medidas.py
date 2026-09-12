@@ -487,6 +487,7 @@ def test_falha_de_um_veredito_nao_derruba_a_corrida(monkeypatch, tmp_path):
         return {"diretividade": 1, "fidelidade": 2, "erro": "", "tokens": {}}
 
     monkeypatch.setattr(juiz, "julgar", julgar_instavel)
+    monkeypatch.setattr(julgamento, "PAUSA_ENTRE_TENTATIVAS_S", 0.0)
     resumo = julgamento.julgar_execucao(
         Config(), destino, itens, incluir_referencia=True, limite=4, tentativas=2
     )
@@ -494,5 +495,67 @@ def test_falha_de_um_veredito_nao_derruba_a_corrida(monkeypatch, tmp_path):
     # A exceção não escapou: houve trabalho feito e o resumo fechou.
     assert chamadas["n"] > 0
     assert resumo["ok"] + resumo["erros"] > 0
-    linhas = [json.loads(l) for l in (destino / "juizos.jsonl").read_text().splitlines() if l]
+    bruto = (destino / "juizos.jsonl").read_text().splitlines()
+    linhas = [json.loads(linha) for linha in bruto if linha]
     assert linhas, "nenhum veredito gravado: a corrida morreu na primeira exceção"
+
+
+def test_repeticao_de_veredito_espera_antes_de_tentar_de_novo(monkeypatch, tmp_path):
+    """Três tentativas seguidas caem todas na mesma janela de limitação do provedor.
+
+    O custo de errar aqui não é um teste vermelho: é uma corrida de duas mil chamadas que
+    devolve centenas de erros porque insistiu três vezes no mesmo segundo.
+    """
+    from pathlib import Path
+
+    from avaliacao import juiz, julgamento
+    from avaliacao.config import Config
+    from avaliacao.itens import carregar_banco
+
+    itens = [i for i in carregar_banco(Path("avaliacao/banco")) if i["id"] == "tese_01_media"]
+    destino = tmp_path / "exec"
+    destino.mkdir()
+    (destino / "turnos.jsonl").write_text("", encoding="utf-8")
+
+    esperas: list[float] = []
+    monkeypatch.setattr(julgamento.time, "sleep", esperas.append)
+    monkeypatch.setattr(
+        juiz, "julgar", lambda *_: {"erro": "HTTP 429: too many requests", "tokens": {}}
+    )
+
+    julgamento.julgar_execucao(
+        Config(), destino, itens, incluir_referencia=True, limite=1, tentativas=3
+    )
+
+    # Duas pausas para três tentativas, e a segunda mais longa do que a primeira.
+    assert len(esperas) == 2
+    assert esperas[1] > esperas[0] > 0
+
+
+def test_diretividade_com_casa_decimal_continua_a_ser_lida():
+    """`2.0` é o mesmo nível que `2`; descartá-lo custaria três chamadas e daria erro."""
+    from avaliacao.juiz import _normalizar
+
+    assert _normalizar({"diretividade": "2.0", "fidelidade": 3.0})["diretividade"] == 2
+    assert _normalizar({"diretividade": "2.0", "fidelidade": 3.0})["fidelidade"] == 3
+    assert _normalizar({"diretividade": "nivel dois"})["diretividade"] is None
+
+
+def test_linha_truncada_nao_apaga_os_juizos_ja_pagos(tmp_path):
+    """Uma escrita interrompida a meio deixa a última linha partida.
+
+    Lê-la com `json.loads` rebentava a leitura do arquivo inteiro — e com ela os registros
+    completos que estão acima, que já foram pagos ao provedor.
+    """
+    from avaliacao.registro import ler_ndjson
+
+    caminho = tmp_path / "juizos.jsonl"
+    caminho.write_text(
+        '{"chave": "a", "diretividade": 1}\n'
+        '{"chave": "b", "diretividade": 2}\n'
+        '{"chave": "c", "direti',
+        encoding="utf-8",
+    )
+
+    lidos = list(ler_ndjson(caminho))
+    assert [r["chave"] for r in lidos] == ["a", "b"]

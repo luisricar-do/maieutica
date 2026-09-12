@@ -8,12 +8,15 @@ do zero por uma queda de rede.
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator
 
 from avaliacao.config import EXECUCOES_DIR
+
+logger = logging.getLogger(__name__)
 
 _ESCRITA = threading.Lock()
 
@@ -37,13 +40,24 @@ def ultima_execucao() -> str | None:
 
 
 def ler_ndjson(caminho: Path) -> Iterator[dict[str, Any]]:
+    """Lê o arquivo linha a linha, ignorando — com aviso — uma linha ilegível.
+
+    Uma escrita interrompida a meio (processo morto, disco cheio) deixa a última linha truncada.
+    Sem isto, essa única linha impede a leitura do arquivo inteiro e faz perder as centenas de
+    chamadas já pagas que estão acima dela. Ignorá-la só custa o registro dessa linha, que volta
+    a contar como pendente e é refeito na retomada.
+    """
     if not caminho.is_file():
         return
     with caminho.open(encoding="utf-8") as arquivo:
-        for linha in arquivo:
+        for numero, linha in enumerate(arquivo, 1):
             linha = linha.strip()
-            if linha:
+            if not linha:
+                continue
+            try:
                 yield json.loads(linha)
+            except json.JSONDecodeError as exc:
+                logger.warning("linha %d ilegível em %s, ignorada: %s", numero, caminho.name, exc)
 
 
 def chaves_existentes(caminho: Path, campo: str = "chave") -> set[str]:
