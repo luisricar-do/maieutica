@@ -90,6 +90,7 @@ def hashes_do_servico(cfg: Config) -> dict[str, str]:
             "prompt_socratic": corpo["prompts"]["socratic"]["sha256"],
             "prompt_neutral": corpo["prompts"]["neutral"]["sha256"],
             "contexto": corpo["context"]["sha256"],
+            "enunciado": corpo["problem"]["sha256"],
         }
     except (ValueError, KeyError, TypeError) as exc:
         raise SystemExit(f"resposta inesperada de /help/single/prompts: {exc}") from exc
@@ -157,6 +158,7 @@ def executar_single(
             "prompt_variant": meta.get("promptVariant", ""),
             "prompt_sha256": meta.get("promptSha256", ""),
             "context_sha256": meta.get("contextSha256", ""),
+            "problem_sha256": meta.get("problemSha256", ""),
         }
     )
     return base

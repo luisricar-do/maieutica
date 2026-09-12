@@ -300,7 +300,7 @@ def test_resumo_conta_turnos_truncados(tmp_path, monkeypatch):
     assert resumo["truncadas_por_condicao"] == {"A": n}
 
 
-def test_hashes_do_servico_le_os_tres_hashes(monkeypatch):
+def test_hashes_do_servico_le_os_quatro_hashes(monkeypatch):
     monkeypatch.setattr(
         http,
         "get_json",
@@ -311,6 +311,7 @@ def test_hashes_do_servico_le_os_tres_hashes(monkeypatch):
                     "neutral": {"text": "…", "sha256": "bb"},
                 },
                 "context": {"text": "…", "sha256": "cc"},
+                "problem": {"text": "…", "sha256": "dd"},
             }
         ),
     )
@@ -318,6 +319,7 @@ def test_hashes_do_servico_le_os_tres_hashes(monkeypatch):
         "prompt_socratic": "aa",
         "prompt_neutral": "bb",
         "contexto": "cc",
+        "enunciado": "dd",
     }
 
 
