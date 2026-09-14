@@ -17,3 +17,9 @@ avaliacao/execucoes/
 # Rascunhos da importação do conjunto de Al-Hossami: texto original em inglês,
 # derivados e regeneráveis por `python -m avaliacao importar`.
 avaliacao/traducao/
+
+# Saídas da apuração do Capítulo 5: derivadas, regeneráveis pelos scripts da pasta.
+# A 2.ª passagem do juiz é a exceção — 210 chamadas que não se repetem de graça, e é
+# dela que sai o κ de estabilidade reportado no capítulo. Essa fica versionada.
+analise_tese/saida/*
+!analise_tese/saida/juizos_repeticao.jsonl
