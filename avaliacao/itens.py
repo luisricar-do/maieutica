@@ -521,11 +521,24 @@ def _contexto(item: dict[str, Any], turnos: list[dict[str, Any]]) -> dict[str, A
     }
 
 
+#: Procedência do diálogo de referência de um item. ``autor`` é o texto escrito pelo autor, único
+#: humano do instrumento, e é o único que sustenta a calibração humana dos limiares. Qualquer
+#: outro valor marca referência que não é padrão humano e fica fora dessa calibração.
+AUTORIA_HUMANA = "autor"
+
+
+def autoria_referencia(item: dict[str, Any]) -> str:
+    """Quem escreveu o diálogo de referência do item; ``autor`` quando o campo não existe."""
+    return str(item.get("referencia_autoria") or AUTORIA_HUMANA)
+
+
 def turnos_de_referencia(item: dict[str, Any]) -> list[dict[str, Any]]:
     """Turnos do tutor anotados, com a posição e o movimento que os precede.
 
     São eles que dão a calibração interna dos limiares (Subseção 4.3.6) e o ``d_{k-1}`` da taxa
-    de contingência em bancada.
+    de contingência em bancada. ``referencia_autoria`` acompanha cada turno porque essas duas
+    leituras só valem sobre referência humana: um turno redigido com assistência de modelo não é
+    padrão humano, e entra no registro marcado em vez de entrar disfarçado.
     """
     dialogo = item.get("dialogo", [])
     saida: list[dict[str, Any]] = []
@@ -546,6 +559,7 @@ def turnos_de_referencia(item: dict[str, Any]) -> list[dict[str, Any]]:
                 "history": contexto["history"],
                 "code": contexto["code"],
                 "errors": contexto["errors"],
+                "referencia_autoria": autoria_referencia(item),
             }
         )
     return saida

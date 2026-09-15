@@ -153,6 +153,7 @@ def _pendencias_referencia(
                         "execucao": 0,
                         "movimento_anterior": referencia["movimento_anterior"],
                         "estagnacao_acumulada": referencia["estagnacao_acumulada"],
+                        "referencia_autoria": referencia["referencia_autoria"],
                     },
                 }
             )

@@ -26,6 +26,9 @@ SAIDA = Path(__file__).resolve().parent / "saida"
 MOVIMENTOS_BLOQUEIO = ("ESTAGNACAO", "REGRESSAO")
 ESTAGNACOES_PARA_LIMIAR = 3
 LIMIAR_CONTINGENCIA = 0.70
+#: Valor de ``referencia_autoria`` que marca diálogo de referência escrito pelo autor. Replicado
+#: de ``avaliacao.itens`` para não importar dali, como ``contingente`` abaixo.
+AUTORIA_HUMANA = "autor"
 Z_95 = 1.959963984540054
 
 
@@ -222,11 +225,23 @@ def carregar() -> tuple[list[dict], list[dict], list[dict]]:
     return turnos, h1, h2
 
 
-def referencias() -> list[dict[str, Any]]:
-    """Turnos de referência humanos, anotados na tradução antes de o artefato correr."""
+def referencias(*, so_humanas: bool = True) -> list[dict[str, Any]]:
+    """Turnos de referência, anotados antes de o artefato correr.
+
+    Por omissão devolve só os de autoria humana. A calibração interna dos limiares compara o
+    artefato com o que um instrutor humano faz, e referência redigida com assistência de modelo
+    não responde a essa pergunta — entraria a inflar ou a deprimir o padrão com texto da mesma
+    natureza do que está a ser avaliado. ``so_humanas=False`` devolve todas, para o relatório
+    poder mostrar as duas camadas lado a lado.
+    """
     with (EXECUCAO / "juizos.jsonl").open(encoding="utf-8") as arquivo:
         juizos = [json.loads(ln) for ln in arquivo if ln.strip()]
-    return [j for j in juizos if j.get("unidade") == "referencia"]
+    refs = [j for j in juizos if j.get("unidade") == "referencia"]
+    if not so_humanas:
+        return refs
+    return [j for j in refs
+            if str(j.get("contexto", {}).get("referencia_autoria") or AUTORIA_HUMANA)
+            == AUTORIA_HUMANA]
 
 
 def contingente(movimento: str, anterior: int | None, atual: int | None) -> bool | None:
@@ -327,8 +342,12 @@ def tarefa_3(refs: list[dict[str, Any]], tarefa2: dict[str, Any]) -> dict[str, A
     abaixo = [mov for mov, p in taxas.items()
               if p["estimativa"] is not None and p["estimativa"] < LIMIAR_CONTINGENCIA
               and mov != "PROGRESSO"]
+    assistidas = [r for r in referencias(so_humanas=False)
+                  if str(r.get("contexto", {}).get("referencia_autoria") or AUTORIA_HUMANA)
+                  != AUTORIA_HUMANA]
     return {
         "n_referencias": len(refs),
+        "n_referencias_assistidas_excluidas": len(assistidas),
         "taxas_referencia": taxas,
         "lado_a_lado": lado_a_lado,
         "curva_referencia": [{"estagnacao_acumulada": a, "n": len(v), "diretividade_media": media(v)}
