@@ -228,6 +228,51 @@ def carregar() -> tuple[list[dict], list[dict], list[dict]]:
     return turnos, h1, h2
 
 
+def autoria_do_veredito(veredito: dict[str, Any]) -> str:
+    """Autoria da referência como o veredito a regista: chave **de topo**, não aninhada.
+
+    Até 2026-09-15 esta leitura era ``j["contexto"]["referencia_autoria"]``. Não existe chave
+    ``contexto`` em veredito nenhum: ``.get("contexto", {})`` devolvia ``{}``, o ``or`` caía no
+    valor humano e o filtro não excluía nada — reportando 0 excluídos como se fosse medida.
+    ``avaliacao.itens.turnos_de_referencia`` grava o campo no topo do registo, e é de lá que se lê.
+    """
+    return str(veredito.get("referencia_autoria") or AUTORIA_HUMANA)
+
+
+def autoria_no_banco() -> dict[str, str]:
+    """``item_id`` → autoria do diálogo de referência, lida do banco.
+
+    Fonte independente do veredito, usada só para conferir a exclusão (ver
+    :func:`conferir_exclusao_de_autoria`). O banco é o original; o campo no veredito é cópia.
+    """
+    mapa: dict[str, str] = {}
+    for caminho in sorted((RAIZ / "avaliacao" / "banco").glob("*.json")):
+        item = json.loads(caminho.read_text(encoding="utf-8"))
+        mapa[item.get("id", caminho.stem)] = str(item.get("referencia_autoria") or AUTORIA_HUMANA)
+    return mapa
+
+
+def conferir_exclusao_de_autoria(refs: list[dict[str, Any]], humanas: list[dict[str, Any]]) -> int:
+    """Confere a exclusão contra o banco e **levanta** se as duas contas não baterem.
+
+    O defeito que isto existe para apanhar não é a chave errada: é uma exclusão que reporta 0 sem
+    ninguém reparar. Contar as exclusões pela mesma chave que o filtro lê não prova nada — mede-se
+    contra o banco, que é fonte independente. Zero excluídos só passa quando o banco também diz
+    zero; é o que torna `cap4` legítimo e `cap5` com o filtro partido ruidoso.
+    """
+    banco = autoria_no_banco()
+    esperadas = sum(1 for j in refs
+                    if banco.get(j["item_id"], AUTORIA_HUMANA) != AUTORIA_HUMANA)
+    excluidas = len(refs) - len(humanas)
+    if excluidas != esperadas:
+        raise AssertionError(
+            f"exclusão de autoria não confere com o banco em `{EXECUCAO_ID}`: o filtro excluiu "
+            f"{excluidas} de {len(refs)} turnos de referência e o banco marca {esperadas} como "
+            f"não humanos. Filtro a ler chave errada, ou banco alterado depois da corrida."
+        )
+    return excluidas
+
+
 def referencias(*, so_humanas: bool = True) -> list[dict[str, Any]]:
     """Turnos de referência, anotados antes de o artefato correr.
 
@@ -242,9 +287,9 @@ def referencias(*, so_humanas: bool = True) -> list[dict[str, Any]]:
     refs = [j for j in juizos if j.get("unidade") == "referencia"]
     if not so_humanas:
         return refs
-    return [j for j in refs
-            if str(j.get("contexto", {}).get("referencia_autoria") or AUTORIA_HUMANA)
-            == AUTORIA_HUMANA]
+    humanas = [j for j in refs if autoria_do_veredito(j) == AUTORIA_HUMANA]
+    conferir_exclusao_de_autoria(refs, humanas)
+    return humanas
 
 
 def contingente(movimento: str, anterior: int | None, atual: int | None) -> bool | None:
@@ -314,12 +359,18 @@ def tarefa_2(h1: list[dict]) -> dict[str, Any]:
 
 
 def tarefa_3(refs: list[dict[str, Any]], tarefa2: dict[str, Any]) -> dict[str, Any]:
-    """Calibração interna: a mesma regra nos 160 turnos de referência humanos."""
+    """Calibração interna: a mesma regra nos turnos de referência **humanos**.
+
+    O n não é fixo entre execuções: ``cap4`` tem 160 turnos de referência, todos humanos;
+    ``cap5`` tem 300, dos quais 140 são `autor_com_assistencia` e ficam de fora. Quem chama
+    passa ``refs`` já filtrado por :func:`referencias`; o que sai aqui traz o denominador.
+    """
     por_item: dict[str, dict[int, dict]] = defaultdict(dict)
     for r in refs:
         por_item[r["item_id"]][int(r.get("k", 0))] = r
 
     por_movimento: dict[str, list[bool]] = defaultdict(list)
+    sustentado: list[bool] = []
     curva: dict[int, list[int]] = defaultdict(list)
     for posicoes in por_item.values():
         for k, registro in sorted(posicoes.items()):
@@ -327,15 +378,21 @@ def tarefa_3(refs: list[dict[str, Any]], tarefa2: dict[str, Any]) -> dict[str, A
             if anterior is None:
                 continue
             mov = registro.get("movimento_anterior", "")
+            acumulada = int(registro.get("estagnacao_acumulada") or 0)
             veredito = contingente(mov, anterior.get("diretividade"), registro.get("diretividade"))
             if veredito is not None:
                 por_movimento[mov].append(veredito)
+                if mov in MOVIMENTOS_BLOQUEIO and acumulada >= ESTAGNACOES_PARA_LIMIAR:
+                    sustentado.append(veredito)
             if registro.get("diretividade") is not None:
-                curva[int(registro.get("estagnacao_acumulada") or 0)].append(registro["diretividade"])
+                curva[acumulada].append(registro["diretividade"])
 
     taxas = {mov: wilson(sum(vs), len(vs)) for mov, vs in sorted(por_movimento.items())}
     bloqueio = [v for m in MOVIMENTOS_BLOQUEIO for v in por_movimento.get(m, [])]
     taxas["BLOQUEIO_AGREGADO"] = wilson(sum(bloqueio), len(bloqueio))
+    # A faixa que o limiar de 0,70 de facto decide. Sem ela o `humano_abaixo_do_limiar_em`
+    # abaixo só podia ler a agregada — a célula que o próprio `nota_limiar` diz não decidir.
+    taxas["BLOQUEIO_SUSTENTADO"] = wilson(sum(sustentado), len(sustentado))
 
     lado_a_lado = {
         mov: {"REF": taxas.get(mov), "A": tarefa2["contingencia_por_movimento"]["A"].get(mov),
@@ -345,12 +402,16 @@ def tarefa_3(refs: list[dict[str, Any]], tarefa2: dict[str, Any]) -> dict[str, A
     abaixo = [mov for mov, p in taxas.items()
               if p["estimativa"] is not None and p["estimativa"] < LIMIAR_CONTINGENCIA
               and mov != "PROGRESSO"]
-    assistidas = [r for r in referencias(so_humanas=False)
-                  if str(r.get("contexto", {}).get("referencia_autoria") or AUTORIA_HUMANA)
-                  != AUTORIA_HUMANA]
+    todas = referencias(so_humanas=False)
+    assistidas = [r for r in todas if autoria_do_veredito(r) != AUTORIA_HUMANA]
     return {
         "n_referencias": len(refs),
+        "n_referencias_no_artefato": len(todas),
         "n_referencias_assistidas_excluidas": len(assistidas),
+        "n_referencias_assistidas_conferidas_no_banco":
+            conferir_exclusao_de_autoria(todas, [r for r in todas
+                                                 if autoria_do_veredito(r) == AUTORIA_HUMANA]),
+        "autoria_excluida": sorted({autoria_do_veredito(r) for r in assistidas}),
         "taxas_referencia": taxas,
         "lado_a_lado": lado_a_lado,
         "curva_referencia": [{"estagnacao_acumulada": a, "n": len(v), "diretividade_media": media(v)}
@@ -596,13 +657,21 @@ def relatorio(r: dict[str, Any]) -> str:
             L.append(f"| {mov} | {v['n']} | {d['0']} | {d['1']} | {d['2']} | {d['3']} | {v['media']:.3f} |")
         L.append("")
 
+    t3 = r["tarefa_3"]
     L.append("## Tarefa 3 — calibração interna nos turnos de referência humanos\n")
-    L.append(f"Turnos de referência: {r['tarefa_3']['n_referencias']}.\n")
+    L.append(f"Turnos de referência na calibração: **{t3['n_referencias']}**, de "
+             f"{t3['n_referencias_no_artefato']} no artefato. Excluídos por autoria não humana: "
+             f"**{t3['n_referencias_assistidas_excluidas']}**"
+             + (f" ({', '.join(t3['autoria_excluida'])})" if t3["autoria_excluida"] else "")
+             + ". A exclusão é conferida contra o banco, não contra a própria chave que a faz.\n")
     L.append("| Movimento | REF (humano) | A (artefato) | C (neutra) |")
     L.append("| --- | --- | --- | --- |")
-    for mov, v in r["tarefa_3"]["lado_a_lado"].items():
+    for mov, v in t3["lado_a_lado"].items():
         L.append(f"| {mov} | {_p(v['REF'])} | {_p(v['A'])} | {_p(v['C'])} |")
-    abaixo = r["tarefa_3"]["humano_abaixo_do_limiar_em"]
+    sustentado = t3["taxas_referencia"].get("BLOQUEIO_SUSTENTADO")
+    L.append(f"\nFaixa que o limiar de 0,70 decide (bloqueio com acumulado ≥ "
+             f"{ESTAGNACOES_PARA_LIMIAR}), no humano: {_p(sustentado)}.")
+    abaixo = t3["humano_abaixo_do_limiar_em"]
     L.append(f"\nAbaixo de 0,70 no humano: {', '.join(abaixo) if abaixo else 'nenhum'}.\n")
 
     L.append("## Tarefa 4 — H2\n")

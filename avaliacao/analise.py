@@ -18,7 +18,7 @@ from typing import Any
 
 from avaliacao import detector
 from avaliacao.estatistica import Proporcao, diferenca_wilson, media, mediana, wilson
-from avaliacao.itens import expandir_prefixos
+from avaliacao.itens import AUTORIA_HUMANA, autoria_referencia, expandir_prefixos
 from avaliacao.executor import ARQUIVO_TURNOS
 from avaliacao.julgamento import ARQUIVO_JUIZOS
 from avaliacao.juiz import familia_distinta
@@ -330,13 +330,35 @@ def _taxa(linhas: list[dict[str, Any]], movimentos: tuple[str, ...]) -> Proporca
 
 
 def _taxas_referencia(juizos: dict[str, Any], por_id: dict[str, Any]) -> dict[str, Proporcao]:
-    """Calibração interna: a mesma regra aplicada aos turnos de referência humanos do banco."""
+    """Calibração interna: a mesma regra aplicada aos turnos de referência **humanos** do banco.
+
+    Até 2026-09-15 esta função não filtrava autoria nenhuma, apesar de a linha `REF` que ela
+    alimenta ser rotulada «turnos de referência humanos» em `resumo.md` e em `tab_5_3_h1.tex`.
+    Em `cap5` isso punha 140 turnos `autor_com_assistencia` dentro do padrão humano contra o qual
+    o artefato é comparado — texto da mesma natureza do que está a ser avaliado.
+
+    O filtro lê a autoria do **veredito** e confere-a contra o **banco** (`por_id`), que é fonte
+    independente. Não se confere uma exclusão pela mesma chave que a faz: era assim que o filtro
+    gémeo em `analise_tese/apurar_h1_h2` reportava 0 excluídos sem nada o denunciar.
+    """
     registros = [j for j in juizos.values() if j.get("unidade") == "referencia"]
+    humanos = [j for j in registros if _autoria_da_referencia(j) == AUTORIA_HUMANA]
+    no_banco = sum(1 for j in registros
+                   if autoria_referencia(por_id.get(j["item_id"], {})) != AUTORIA_HUMANA)
+    if len(registros) - len(humanos) != no_banco:
+        raise AssertionError(
+            f"exclusão de autoria não confere com o banco: o filtro excluiu "
+            f"{len(registros) - len(humanos)} de {len(registros)} turnos de referência e o banco "
+            f"marca {no_banco} como não humanos. Filtro a ler chave errada, ou banco alterado "
+            f"depois da corrida."
+        )
+
     por_item: dict[str, dict[int, dict[str, Any]]] = defaultdict(dict)
-    for registro in registros:
+    for registro in humanos:
         por_item[registro["item_id"]][int(registro.get("k", 0))] = registro
 
     bloqueio: list[bool] = []
+    sustentado: list[bool] = []
     progresso: list[bool] = []
     for item_id, posicoes in por_item.items():
         for k, registro in sorted(posicoes.items()):
@@ -352,12 +374,22 @@ def _taxas_referencia(juizos: dict[str, Any], por_id: dict[str, Any]) -> dict[st
                 continue
             if registro.get("movimento_anterior") in MOVIMENTOS_BLOQUEIO:
                 bloqueio.append(veredito)
+                if int(registro.get("estagnacao_acumulada") or 0) >= ESTAGNACOES_PARA_LIMIAR:
+                    sustentado.append(veredito)
             else:
                 progresso.append(veredito)
     return {
         "apos_bloqueio": wilson(sum(bloqueio), len(bloqueio)),
+        # A coluna sobre a qual o limiar de 0,70 decide. Ficava em «—» na linha REF da tabela
+        # 5.3, ao lado da agregada corrigida — convite a comparar a célula errada.
+        "apos_bloqueio_sustentado": wilson(sum(sustentado), len(sustentado)),
         "apos_progresso": wilson(sum(progresso), len(progresso)),
     }
+
+
+def _autoria_da_referencia(veredito: dict[str, Any]) -> str:
+    """Autoria como o veredito a regista: chave de topo, gravada por ``turnos_de_referencia``."""
+    return str(veredito.get("referencia_autoria") or AUTORIA_HUMANA)
 
 
 def _curva_estagnacao(linhas: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -781,9 +813,10 @@ def _tabela_h1_tex(taxas: dict[str, dict[str, Proporcao]], saida: Path) -> None:
     \hline
 {linhas}
   \end{{tabular}}
-  \fonte{{Elaborado pelo autor. REF são os turnos de referência humanos do banco. A
-  expectativa de 0,70 vale sobre a coluna da terceira estagnação acumulada em diante; nos dois
-  primeiros turnos bloqueados a política prevê sustentar o nível.}}
+  \fonte{{Elaborado pelo autor. REF são os turnos de referência do banco de autoria humana
+  (\texttt{{referencia\_autoria = autor}}); os redigidos com assistência de modelo ficam fora,
+  por não serem padrão humano. A expectativa de 0,70 vale sobre a coluna da terceira estagnação
+  acumulada em diante; nos dois primeiros turnos bloqueados a política prevê sustentar o nível.}}
 \end{{table}}
 """,
     )
