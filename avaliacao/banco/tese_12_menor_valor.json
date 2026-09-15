@@ -1,0 +1,178 @@
+{
+  "id": "tese_12_menor_valor",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "valor inicial",
+    "comparacao"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor e imprimir o menor deles. Ele compila e executa, mas devolve o menor errado quando todos sao positivos. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, menor\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        menor = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] < menor)\n            {\n                menor = valores[i]\n            }\n        }\n\n        escreva(\"Menor: \", menor, \"\\n\")\n    }\n}",
+  "bug_desc": "A variavel que guarda o menor comeca em zero, e nao no primeiro elemento do vetor. Com todos os valores positivos nenhum deles e menor que zero, o se nunca e executado e o programa imprime o zero com que comecou.",
+  "bug_fixes": [
+    "menor = valores[0]"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "4",
+        "3",
+        "5",
+        "2",
+        "8"
+      ],
+      "saida_contem": "Menor: 2\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "3",
+        "-4",
+        "7"
+      ],
+      "saida_contem": "Menor: -4\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "20",
+        "10",
+        "30"
+      ],
+      "saida_contem": "Menor: 10\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, menor\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        menor = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] < menor)\n            {\n                menor = valores[i]\n            }\n        }\n\n        escreva(\"Menor: \", menor, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "logica"
+      ],
+      "casos_ok": 1,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, menor\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        menor = valores[0]\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] < menor)\n            {\n                menor = valores[i]\n            }\n        }\n\n        escreva(\"Menor: \", menor, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "menor\\s*=\\s*valores\\s*\\[\\s*0\\s*\\]"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      15
+    ],
+    "variaveis": [
+      "menor",
+      "valores"
+    ],
+    "construtos": [
+      "valor inicial",
+      "comparacao",
+      "busca do minimo"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Digitei 3, 5, 2 e 8 e o programa imprime Menor: 0. O zero nem esta na minha lista.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Se o zero nao veio da lista, ele veio de outro lugar do programa. Em que linha esse zero aparece escrito?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Na linha em que eu digo menor igual a zero, antes do laco.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Essa linha entao sobreviveu ate o fim. Para ela ser substituida, o que teria de acontecer dentro do laco?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O se teria de ser verdadeiro. Mas ele compara valores com menor, e a comparacao esta certa, eu conferi.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "A comparacao esta certa. Aplique-a a mao na primeira volta, com os seus numeros: o 3 e menor que o que, exatamente?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O vetor esta vazio. O leia deve estar falhando e por isso tudo da zero.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Se o vetor estivesse vazio o programa nao teria como comparar nada, e mesmo assim ele imprimiu um resultado. Fique na pergunta: na primeira volta, o 3 e comparado com que valor?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Com zero. E 3 nao e menor que zero, entao nao entra.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Repita esse raciocinio para o 5, o 2 e o 8. Quantas vezes o programa entra no se?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nenhuma, todos sao positivos. Mas a comparacao nao deveria ser ao contrario, entao?",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Inverter a comparacao faria o programa procurar o maior. O que voce quer continua a ser o menor. O problema nao esta no sinal: esta no valor com que ele comeca comparando.",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Mas eu preciso comecar com alguma coisa, senao nao tenho com que comparar.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Precisa mesmo. Pense em como voce faria a mao, olhando a lista pela primeira vez: qual numero voce chamaria de menor antes de ver os outros?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O primeiro da lista. Troquei o zero por valores[0] e agora da 2.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}
