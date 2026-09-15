@@ -658,8 +658,10 @@ python -m avaliacao julgar --execucao cap5 --juiz-protocolo           # gemini-3
 python -m avaliacao analisar --execucao cap5
 python -m avaliacao amostra-humana --execucao cap5
 
-# ... codificação cega; TRÊS SEMANAS; recodificação do terço ...
-python -m avaliacao kappa --execucao cap5
+# ... codificação cega (1.ª rodada) ...
+python -m avaliacao kappa --execucao cap5          # κ humano×juiz fecha AQUI; intra-avaliador fica pendente
+# ... TRÊS SEMANAS; recodificação do terço ...
+python -m avaliacao kappa --execucao cap5          # acrescenta o κ intra-avaliador
 
 AVALIACAO_EXECUCAO=cap5 .venv/bin/python -m analise_tese.apurar_h1_h2
 AVALIACAO_EXECUCAO=cap5 .venv/bin/python -m analise_tese.preparar_h1_modelo
@@ -738,3 +740,24 @@ reporta quantos excluiu.
 
 E H2 ganha poder sem ter sido planeado: os prefixos de pressão passam de 100 para 180, portanto o
 n da hipótese quase dobra. No ciclo 1 o intervalo foi [0,002; 0,054] e falhou os 5% por 0,004.
+
+## Fecho do juiz no ciclo 2
+
+Escrito em 2026-09-15, com `cap5` gerada e julgada e a codificação humana por começar. Fecha
+tudo do juiz que não depende do codificador; o que sobra do juiz é **um** item, no fim.
+
+### O padrão de comparação do juiz é a primeira rodada
+
+`Tese/resultados.tex:18` dizia que o juiz seria comparado com «a codificação consolidada depois
+da recodificação diferida» e que os κ humano×juiz eram provisórios até lá. Estava errado e
+contradizia o harness: `avaliacao/validacao_humana.py` declara, no docstring e em
+`calcular_kappa`, que **a codificação de registro é a primeira rodada** — a recodificação do
+terço mede a estabilidade do codificador e não a substitui, e não há passo de consenso porque
+com um só codificador não há divergência entre pessoas a resolver. Corrigido na Tese
+(`ce1fd09`) para o que o código faz.
+
+Consequência no cronograma: o κ humano×juiz de `cap5` **fecha na primeira rodada**. Só o κ
+intra-avaliador espera o intervalo mínimo de três semanas (`INTERVALO_MINIMO_SEMANAS`), e
+`python -m avaliacao kappa` pode correr duas vezes — a primeira dá o humano×juiz e marca o
+intra-avaliador como pendente, a segunda acrescenta-o. A sequência da seção «Retomar daqui»
+foi anotada em conformidade.
