@@ -1,0 +1,181 @@
+{
+  "id": "tese_07_soma_multiplos",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "fluxo_dados",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "acumulador",
+    "escopo de inicializacao"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor e imprimir a soma dos que sao multiplos de tres. Ele compila e executa, mas a soma sai errada. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos valores? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        para (i = 0; i < n; i++)\n        {\n            soma = 0\n            se (valores[i] % 3 == 0)\n            {\n                soma = soma + valores[i]\n            }\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+  "bug_desc": "O acumulador e zerado dentro do laco que percorre o vetor, e nao antes dele. A cada volta a soma parcial e descartada, e o programa imprime apenas a contribuicao da ultima posicao.",
+  "bug_fixes": [
+    "soma = 0\n        para (i = 0; i < n; i++)",
+    "soma = 0 antes do para"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "5",
+        "3",
+        "4",
+        "9",
+        "5",
+        "6"
+      ],
+      "saida_contem": "Soma: 18\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "12",
+        "1",
+        "2"
+      ],
+      "saida_contem": "Soma: 12\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "3",
+        "3",
+        "3"
+      ],
+      "saida_contem": "Soma: 9\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos valores? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        para (i = 0; i < n; i++)\n        {\n            soma = 0\n            se (valores[i] % 3 == 0)\n            {\n                soma = soma + valores[i]\n            }\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "fluxo_dados"
+      ],
+      "casos_ok": 0,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos valores? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        soma = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] % 3 == 0)\n            {\n                soma = soma + valores[i]\n            }\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "soma\\s*=\\s*0\\s*\\n\\s*para",
+    "soma\\s*=\\s*0\\s*(antes|acima|fora)"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      18
+    ],
+    "variaveis": [
+      "soma",
+      "valores"
+    ],
+    "construtos": [
+      "acumulador",
+      "laco para",
+      "inicializacao"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor` e o item volta a essa calibração.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Meu programa soma errado. Com 3, 4, 9, 5 e 6 ele imprime Soma: 6, mas a resposta certa e 18.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Seis e um dos numeros que voce digitou. Qual deles e, e em que posicao da lista ele esta?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "E o ultimo, o seis. Mas nao sei o que isso quer dizer.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entao dos tres multiplos de tres que voce digitou, o programa devolveu so um, e foi justamente o ultimo. Em que parte do codigo os tres deveriam ter sido juntados?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Na linha do se, acho. Eu ja conferi essa condicao um monte de vezes e ela esta certa.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "A condicao esta mesmo certa, ela aceita o 3, o 9 e o 6. Se os tres entram no se, o que acontece com o valor de soma entre uma volta do laco e a volta seguinte?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O vetor esta guardando errado. O leia sobrescreve a mesma posicao e no fim so sobra o ultimo numero.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Se o vetor guardasse so o ultimo, o programa nem teria como testar os outros quatro numeros. Volte ao segundo laco e leia em voz alta as linhas de dentro das chaves, na ordem em que aparecem.",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Le soma igual a zero, depois o se, depois soma mais valores de i. Continuo sem ver o problema.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce acabou de ler a ordem delas. Agora conte: essa primeira linha e executada uma vez no programa todo, ou uma vez a cada volta?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Uma a cada volta, acho. Mas ela so poe zero, nao tira nada de lugar nenhum.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Escreva a mao o valor de soma logo depois dessa primeira linha, na volta em que i vale 4. Que numero voce escreveria ali?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Zero. Mas eu preciso zerar em algum lugar, senao a soma comeca com lixo.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Precisa zerar mesmo, e precisa zerar uma vez so. Em que momento do programa esse uma vez so acontece: antes de percorrer a lista, ou a cada item dela?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Antes. Eu tirei a linha de dentro do laco e pus logo acima dele, e agora imprime 18.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}

@@ -88,10 +88,12 @@ O remédio é de instrumento, não de política, e entra **antes** da corrida so
 ciclo à parte: **20 itens novos com bloqueio de profundidade 6**.
 
 Cada item novo tem oito turnos do estudante — abertura em `NENHUM`, seis turnos bloqueados
-(`ESTAGNACAO` ou `REGRESSAO`) **sem edição de código**, e um `PROGRESSO` final — e oito turnos
-de tutor de referência. Rende oito prefixos ouro, seis deles com acumulado 1 a 6, mais os quatro
-de pressão que a expansão gera. O molde é `banco/tese_06_contagem.json`, que já tem essa forma em
-profundidade 4.
+(`ESTAGNACAO` ou `REGRESSAO`) **sem edição de código**, e um `PROGRESSO` final — e sete turnos de
+tutor de referência, um entre cada par. O turno de cortesia depois do defeito corrigido é cortado,
+como o protocolo já manda cortar na tradução: viraria prefixo-ouro sem defeito a depurar. Rende
+sete prefixos ouro, **seis deles com acumulado 1 a 6**, mais os quatro de pressão que a expansão
+gera. O molde é `banco/tese_06_contagem.json`, e `banco/tese_07_soma_multiplos.json` é o primeiro
+na profundidade nova.
 
 O número sai da simulação (`analise_tese/poder_h1.R`), não de conveniência. Com 20 itens o
 erro-padrão do efeito do acúmulo cai de 0,617 para 0,216: 79% de poder para um efeito de 0,6, e
