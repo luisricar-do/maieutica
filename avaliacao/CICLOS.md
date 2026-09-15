@@ -179,3 +179,74 @@ haver o que ver.
 - Concordância com a anotação do harness sobre o banco: 189 de 260 prefixos. As 71 divergências
   são a assimetria já declarada na metodologia — o artefato classifica sem executar os casos de
   teste, a medida os executa.
+
+## Retomar daqui
+
+Escrito em 2026-09-15, com a extensão do banco concluída e o ciclo 2 por correr.
+
+### O que já está feito
+
+O artefato consome a estagnação acumulada (`agents/movement.py`, `agents/strategist.py`), a IDE
+envia o estado de código por turno do estudante, o banco tem 45 itens e 167 prefixos bloqueados,
+e os scripts de apuração aceitam a execução por `AVALIACAO_EXECUCAO`, com `cap4` como padrão.
+
+### O que falta configurar
+
+Só uma coisa: **`INTERACTION_LOG_DIR` não está no `local.settings.json`**. `EVALUATION_MODE`,
+`LITELLM_BASE_URL` e `LITELLM_API_KEY` já estão. O juiz sai pelo LiteLLM com a mesma
+autenticação do tutor, portanto não é preciso `GEMINI_API_KEY`.
+
+### A sequência
+
+```bash
+make start                                     # serviço em modo de avaliação
+
+# ensaio do encanamento, barato, antes de gastar a corrida inteira
+python -m avaliacao rodar --execucao ensaio-ciclo2 \
+    --itens tese_07_soma_multiplos,tese_08_troca_valores --execucoes 1
+python -m avaliacao julgar --execucao ensaio-ciclo2      # juiz barato, NÃO reportável
+
+# a corrida que vai para o capítulo
+python -m avaliacao rodar --simular --condicoes A,B,C --execucoes 3   # confere: 3 420
+python -m avaliacao rodar --execucao cap5 --condicoes A,B,C --execucoes 3
+python -m avaliacao julgar --execucao cap5 --juiz-protocolo           # gemini-3.1-pro-preview
+python -m avaliacao analisar --execucao cap5
+python -m avaliacao amostra-humana --execucao cap5
+
+# ... codificação cega; TRÊS SEMANAS; recodificação do terço ...
+python -m avaliacao kappa --execucao cap5
+
+AVALIACAO_EXECUCAO=cap5 .venv/bin/python -m analise_tese.apurar_h1_h2
+AVALIACAO_EXECUCAO=cap5 .venv/bin/python -m analise_tese.preparar_h1_modelo
+Rscript analise_tese/h1_ordinal.R
+```
+
+### Números de controlo
+
+Se algum destes não bater, parar e perceber porquê antes de seguir: **3 420** chamadas de
+geração, **3 720** vereditos do juiz, **480** prefixos (300 ouro + 180 pressão), **167** prefixos
+bloqueados. A amostra humana continua em 210 turnos — é absoluta e não acompanha o corpus, logo a
+codificação não fica maior do que foi no ciclo 1.
+
+### O caminho crítico é a codificação, não a corrida
+
+`rodar` e `julgar` são horas de relógio. A partir da `amostra-humana` são no mínimo três semanas
+até existir κ, porque a recodificação do terço só vale diferida. Marcar a data da primeira rodada
+é o que determina tudo o que vem depois.
+
+### O que não se mexe
+
+Os compromissos das seções acima valem como estão: o resultado do ciclo 2 vai para o capítulo
+seja qual for, o critério de sustentação de H1 não muda, o limiar de escalonamento do artefato
+não muda, e o juiz continua a ser `gemini-3.1-pro-preview` — trocá-lo quebraria a comparação
+entre os dois ciclos.
+
+### Dois pontos em aberto
+
+Os vinte itens novos estão com `referencia_autoria: autor_com_assistencia`. Reescritos os turnos
+de tutor na voz do autor, o campo passa a `autor` e o item volta à calibração humana dos
+limiares. Enquanto estiver como está, `apurar_h1_h2` exclui esses turnos dessa calibração e
+reporta quantos excluiu.
+
+E H2 ganha poder sem ter sido planeado: os prefixos de pressão passam de 100 para 180, portanto o
+n da hipótese quase dobra. No ciclo 1 o intervalo foi [0,002; 0,054] e falhou os 5% por 0,004.

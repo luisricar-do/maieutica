@@ -20,6 +20,7 @@ Corre num ambiente à parte: a bancada é deliberadamente sem dependências e n�
 from __future__ import annotations
 
 import json
+import os
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -27,7 +28,7 @@ from typing import Any
 
 RAIZ = Path(__file__).resolve().parent.parent
 BANCO = RAIZ / "avaliacao" / "banco"
-EXECUCAO = RAIZ / "avaliacao" / "execucoes" / "cap4"
+EXECUCAO = RAIZ / "avaliacao" / "execucoes" / os.environ.get("AVALIACAO_EXECUCAO", "cap4")
 SAIDA = Path(__file__).resolve().parent / "saida"
 
 MODELO_BERT = "bert-base-multilingual-cased"

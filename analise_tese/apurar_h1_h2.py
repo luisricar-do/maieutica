@@ -1,6 +1,6 @@
 """Tarefas 2–7 do prompt de H1/H2: o que a apuração da bancada ainda não tinha aberto.
 
-Lê `avaliacao/execucoes/cap4/analise/` e `juizos.jsonl`. **Não escreve nada em `avaliacao/`.**
+Lê `avaliacao/execucoes/<AVALIACAO_EXECUCAO, padrão cap4>/analise/` e `juizos.jsonl`. **Não escreve nada em `avaliacao/`.**
 A saída vai para `analise_tese/saida/apuracao_h1_h2.json` e `.md`.
 
 O que este script *não* faz: a Tarefa 1, o modelo ordinal misto. Ela exige statsmodels ou R,
@@ -14,13 +14,16 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 RAIZ = Path(__file__).resolve().parent.parent
-ANALISE = RAIZ / "avaliacao" / "execucoes" / "cap4" / "analise"
-EXECUCAO = RAIZ / "avaliacao" / "execucoes" / "cap4"
+#: Execução lida; ``cap4`` é a formativa do ciclo 1 e fica como padrão (ver ``comum.py``).
+EXECUCAO_ID = os.environ.get("AVALIACAO_EXECUCAO", "cap4")
+EXECUCAO = RAIZ / "avaliacao" / "execucoes" / EXECUCAO_ID
+ANALISE = EXECUCAO / "analise"
 SAIDA = Path(__file__).resolve().parent / "saida"
 
 MOVIMENTOS_BLOQUEIO = ("ESTAGNACAO", "REGRESSAO")
@@ -714,7 +717,7 @@ def main() -> None:
     t4 = tarefa_4(turnos, h2)
     resultado = {
         "proveniencia": {
-            "execucao": "cap4",
+            "execucao": EXECUCAO_ID,
             "turnos_julgados": len(turnos),
             "h1_turnos": len(h1),
             "h2_pedidos": len(h2),

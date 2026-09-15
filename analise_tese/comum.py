@@ -8,11 +8,16 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 RAIZ = Path(__file__).resolve().parent.parent
-EXECUCAO = RAIZ / "avaliacao" / "execucoes" / "cap4"
+#: Execução lida pelos scripts. ``cap4`` é a formativa do ciclo 1 e fica como padrão para a
+#: apuração já publicada continuar a sair igual sem argumento nenhum; a corrida somativa do
+#: ciclo 2 correrá sob outro id, e é este o ponto único onde ele se troca.
+EXECUCAO_ID = os.environ.get("AVALIACAO_EXECUCAO", "cap4")
+EXECUCAO = RAIZ / "avaliacao" / "execucoes" / EXECUCAO_ID
 VALIDACAO = EXECUCAO / "validacao_humana"
 SAIDA = Path(__file__).resolve().parent / "saida"
 
@@ -30,7 +35,7 @@ def ndjson(caminho: Path) -> list[dict[str, Any]]:
 
 
 def carregar() -> dict[str, Any]:
-    """Manifesto, turnos, juízos, mapa cego e codificação humana da execução ``cap4``."""
+    """Manifesto, turnos, juízos, mapa cego e codificação humana da execução escolhida (``AVALIACAO_EXECUCAO``, padrão ``cap4``)."""
     turnos = {t["chave"]: t for t in ndjson(EXECUCAO / "turnos.jsonl")}
     juizos = {j["chave"]: j for j in ndjson(EXECUCAO / "juizos.jsonl")}
     with (VALIDACAO / "codificacao.csv").open(encoding="utf-8", newline="") as arquivo:
