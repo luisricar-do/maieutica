@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from avaliacao import analise, condicoes, exportacao, importacao, juiz, validacao_humana
+from avaliacao.analise import ESCALA_A_PARTIR_DE
 from avaliacao.config import (
     BANCO_DIR,
     TRADUCAO_DIR,
@@ -136,6 +137,54 @@ def _cmd_prefixos(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
     if args.payload and prefixos:
         print("\npayload de exemplo (condição A):")
         print(json.dumps(condicoes.payload_a(prefixos[0], 1), ensure_ascii=False, indent=2))
+    return 0
+
+
+def _cmd_cobertura(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
+    """Cobertura do banco na faixa de estagnação acumulada em que a política escala.
+
+    A política sustenta o nível até três turnos bloqueados e só escala a partir do quarto. Um
+    banco que não chega lá testa H1 fora da faixa em que ela responde, e é isso que este comando
+    mede: por item, o acumulado máximo; no total, quantos prefixos elegíveis caem em cada faixa.
+    """
+    por_item: list[tuple[int, str, str, int]] = []
+    faixas: Counter[int] = Counter()
+    for item in itens:
+        elegiveis = [
+            p for p in expandir_prefixos(item)
+            if p.tipo == "ouro" and p.k >= 2 and p.movimento_anterior != "PEDIDO_EXPLICITO"
+        ]
+        for prefixo in elegiveis:
+            faixas[prefixo.estagnacao_acumulada] += 1
+        maximo = max((p.estagnacao_acumulada for p in elegiveis), default=0)
+        por_item.append((maximo, item["id"], str(item.get("origem", "")), len(elegiveis)))
+
+    if args.json:
+        print(json.dumps({
+            "por_item": [{"item_id": i, "origem": o, "elegiveis": n, "acumulado_maximo": m}
+                         for m, i, o, n in sorted(por_item, reverse=True)],
+            "prefixos_por_acumulado": {str(k): v for k, v in sorted(faixas.items())},
+            "na_faixa_de_escalada": sum(v for k, v in faixas.items() if k >= ESCALA_A_PARTIR_DE),
+        }, ensure_ascii=False, indent=2))
+        return 0
+
+    print(f"{'item':<38} {'origem':<15} {'elegíveis':<10} acumulado máximo")
+    for maximo, ident, origem, n in sorted(por_item, reverse=True):
+        marca = "  <-- chega à faixa de escalada" if maximo >= ESCALA_A_PARTIR_DE else ""
+        print(f"{ident:<38} {origem:<15} {n:<10} {maximo}{marca}")
+
+    total = sum(faixas.values())
+    escalada = sum(v for k, v in faixas.items() if k >= ESCALA_A_PARTIR_DE)
+    sustenta = sum(v for k, v in faixas.items() if 1 <= k < ESCALA_A_PARTIR_DE)
+    print(f"\nprefixos elegíveis a H1: {total}")
+    print("  (movimento anotado, que é a visão do instrumento; o artefato classifica sem executar")
+    print("   os casos de teste e por isso vê uma distribuição mais rasa — a divergência declarada)")
+    print(f"  acumulado 0 (progresso, não escala): {faixas.get(0, 0)}")
+    print(f"  acumulado 1-{ESCALA_A_PARTIR_DE - 1} (política sustenta o nível): {sustenta}")
+    print(f"  acumulado >= {ESCALA_A_PARTIR_DE} (política escala um degrau): {escalada}")
+    print(f"\ndistribuição: {dict(sorted(faixas.items()))}")
+    itens_fundos = sum(1 for m, _, _, _ in por_item if m >= ESCALA_A_PARTIR_DE)
+    print(f"itens que chegam à faixa de escalada: {itens_fundos} de {len(itens)}")
     return 0
 
 
@@ -449,6 +498,13 @@ def _parser() -> argparse.ArgumentParser:
     prefixos.add_argument("--json", action="store_true")
     prefixos.add_argument("--payload", action="store_true", help="mostra um corpo de requisição")
     prefixos.set_defaults(funcao=_cmd_prefixos)
+
+    cobertura = sub.add_parser(
+        "cobertura",
+        help="cobertura do banco na faixa de estagnação acumulada em que a política escala",
+        parents=[comum])
+    cobertura.add_argument("--json", action="store_true")
+    cobertura.set_defaults(funcao=_cmd_cobertura)
 
     rodar = sub.add_parser("rodar", help="executa a bancada nas condições escolhidas", parents=[comum])
     rodar.add_argument("--execucao", default="", help="id da execução (retoma se já existir)")

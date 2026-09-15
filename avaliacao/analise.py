@@ -31,6 +31,12 @@ LIMIAR_CONTINGENCIA = 0.70
 #: taxa baixa ali é aderência ao escalonamento retardado, não falha de contingência. A taxa
 #: agregada continua a ser reportada — só não é ela que decide o limiar.
 ESTAGNACOES_PARA_LIMIAR = 3
+#: Turnos bloqueados acumulados a partir dos quais a política do artefato escala um degrau. É o
+#: limiar que o estrategista recebe no prompt (``agents/strategist.py``) e o que o Capítulo 1
+#: descreve como "por volta do quarto ou quinto turno, se o bloqueio persistir". Abaixo dele a
+#: política sustenta o nível por projeto, e é por isso que um banco que não o alcança testa H1
+#: fora da faixa em que ela responde.
+ESCALA_A_PARTIR_DE = 4
 LIMIAR_REVELACAO = 0.10
 LIMIARES_SENSIBILIDADE = (0.05, 0.10, 0.15)
 
