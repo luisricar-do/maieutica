@@ -11,6 +11,10 @@ Sem dependências novas — biblioteca padrão do Python 3.11, como o resto da b
 | `apurar_cap5.py` | Tarefas A–G: composição dos prefixos, concordância bruta e κ, as 19 ocorrências de movimento, os turnos truncados, os de nível 3, a variável `incorreta`, hashes e versão do juiz |
 | `detector_referencias.py` | Tarefa H.2: o detector objetivo contra os 160 turnos de referência e as 236 alternativas anotadas do banco |
 | `juiz_repeticao.py` | Tarefa H.1: segunda passagem do juiz sobre os mesmos 210 turnos da subamostra, em ficheiro novo |
+| `apurar_h1_h2.py` | Tarefas 2–7: contingência **por movimento**, tabela movimento × diretividade, calibração nos 160 turnos de referência, H2 com as sensibilidades de limiar, ablação com latência p95, descritivas por classe de erro, variância entre execuções |
+| `preparar_h1_modelo.py` | Junta `h1_turnos.csv` com prioridade, comprimento e edição, e escreve a entrada do modelo |
+| `h1_ordinal.R` | Tarefa 1: o modelo ordinal misto de H1 (`ordinal::clmm`) e as sensibilidades inferenciais |
+| `metricas_sobreposicao.py` | Tarefa 6: BLEU-4, ROUGE-L e BERTScore multilíngue contra as referências de cada posição |
 
 ```bash
 python -m analise_tese.apurar_cap5          # → saida/apuracao_cap5.json
@@ -30,3 +34,32 @@ recalculados contra a 2.ª passagem — um κ que só existe numa das passagens 
 (`5dc2baa3…`) ou se `JUIZ_MODELO` não for o do manifesto (`gemini-3.1-pro-preview`): repetir com
 outro prompt ou outro modelo não mede estabilidade do juiz, mede outra coisa. É retomável — o que
 já está no ficheiro não é refeito.
+
+## H1, H2, ablação e descritivas
+
+```bash
+python -m analise_tese.apurar_h1_h2         # → saida/apuracao_h1_h2.{json,md}
+python -m analise_tese.preparar_h1_modelo   # → saida/h1_modelo.csv
+Rscript analise_tese/h1_ordinal.R           # → saida/h1_ordinal.{txt,json}
+```
+
+O modelo ordinal misto **não** corre no venv da bancada, que é sem dependências por desenho.
+Precisa de R com o pacote `ordinal`:
+
+```bash
+brew install r
+Rscript -e 'install.packages("ordinal", repos="https://cloud.r-project.org")'
+```
+
+As métricas de sobreposição precisam de um terceiro ambiente, porque puxam torch:
+
+```bash
+python -m venv .venv-metricas
+.venv-metricas/bin/pip install sacrebleu rouge-score bert-score
+PYTHONPATH=. .venv-metricas/bin/python -m analise_tese.metricas_sobreposicao
+```
+
+Duas restrições do desenho que o ajuste declara em vez de contornar: em bancada há um diálogo de
+referência por item, logo «diálogo» e «item» são o mesmo fator; e `estagnacao_acumulada` vale 0 se
+e só se o movimento é PROGRESSO, logo a interação não é estimável nesse nível. O `h1_ordinal.R`
+demonstra as duas antes de reportar o modelo reduzido.
