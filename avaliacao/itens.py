@@ -53,7 +53,7 @@ class Prefixo:
     k: int
     tipo: Literal["ouro", "pressao"]
     posicao_pressao: str = ""
-    history: list[dict[str, str]] = field(default_factory=list)
+    history: list[dict[str, Any]] = field(default_factory=list)
     problem_statement: str = ""
     code: str = ""
     errors: list[str] = field(default_factory=list)
@@ -441,7 +441,14 @@ def _prefixos_pressao(item: dict[str, Any], semente: str) -> Iterable[Prefixo]:
             indice += 1
             prefixo_turnos = list(dialogo[: pos_tutor + 1])
             contexto = _contexto(item, prefixo_turnos)
-            contexto["history"] = contexto["history"] + [{"role": "user", "content": frase}]
+            # A frase de pressão não edita código: herda o estado vigente, como qualquer turno
+            # sem edição. Sem ele o serviço não reclassifica o histórico e o contador degrada.
+            contexto["history"] = contexto["history"] + [{
+                "role": "user",
+                "content": frase,
+                "code": contexto["code"],
+                "errors": list(contexto["errors"]),
+            }]
             contexto["movimento_anterior"] = "PEDIDO_EXPLICITO"
             k = sum(1 for t in prefixo_turnos if t.get("papel") == "tutor") + 1
             yield Prefixo(
@@ -460,10 +467,12 @@ def _prefixos_pressao(item: dict[str, Any], semente: str) -> Iterable[Prefixo]:
 def _contexto(item: dict[str, Any], turnos: list[dict[str, Any]]) -> dict[str, Any]:
     """Monta ``history``, estado de código vigente e estado anterior a partir do prefixo."""
     estados = {e.get("id"): e for e in item.get("estados_codigo", [])}
-    history: list[dict[str, str]] = []
+    history: list[dict[str, Any]] = []
     estados_vistos: list[dict[str, Any]] = []
     movimento = "NENHUM"
     acumulada = 0
+    inicial = estados.get("s0") or {"codigo": item["bug_code"], "errors": [], "compilerErrorLines": []}
+    estado_corrente = inicial
 
     for indice, turno in enumerate(turnos):
         texto = turno.get("texto", "")
@@ -472,7 +481,6 @@ def _contexto(item: dict[str, Any], turnos: list[dict[str, Any]]) -> dict[str, A
             # Colado ao primeiro conteúdo do usuário, ele era lido como fala do estudante por
             # toda análise textual do movimento — o "corrija" do enunciado casava com o "meu
             # código" do estudante e saía um pedido explícito que nunca houve.
-            history.append({"role": "user", "content": texto})
             movimento = turno.get("movimento", "NENHUM")
             if movimento in ("ESTAGNACAO", "REGRESSAO"):
                 acumulada += 1
@@ -481,10 +489,20 @@ def _contexto(item: dict[str, Any], turnos: list[dict[str, Any]]) -> dict[str, A
             estado = estados.get(turno.get("estado_codigo"))
             if estado is not None:
                 estados_vistos.append(estado)
+                estado_corrente = estado
+            # O estado de código acompanha cada turno do estudante para que o serviço derive a
+            # estagnação acumulada do próprio histórico, em vez de a receber pronta. Turno sem
+            # estado próprio é turno sem edição: vale o estado corrente, que é o que o
+            # estudante tinha à frente quando falou.
+            history.append({
+                "role": "user",
+                "content": texto,
+                "code": estado_corrente.get("codigo", ""),
+                "errors": list(estado_corrente.get("errors", [])),
+            })
         else:
             history.append({"role": "assistant", "content": texto})
 
-    inicial = estados.get("s0") or {"codigo": item["bug_code"], "errors": [], "compilerErrorLines": []}
     vigente = estados_vistos[-1] if estados_vistos else inicial
     anterior = estados_vistos[-2] if len(estados_vistos) >= 2 else None
 

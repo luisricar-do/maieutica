@@ -199,11 +199,50 @@ async def test_run_strategist_includes_minimal_hint_escalation_pace() -> None:
             history,
             "escreva(1)",
             hint_level=1,
+            stagnation_streak=2,
         )
     system_text = captured[0][0].content
     assert "hint_level 1 (`Mínimo`)" in system_text
-    assert "turns 4-5" in system_text
+    # O ritmo do nível mínimo depende do bloqueio persistente, não do número de turnos: é a
+    # formulação acumulada de H1, e é o que distingue esta regra da que ela substituiu.
+    assert "`stagnation_streak` <= 3" in system_text
+    assert "streak reaches 4-5" in system_text
+    assert "Blocked learner turns accumulated since the last progress: 2" in system_text
     assert "Learner debugging turns in current session: 3" in system_text
+
+
+@pytest.mark.asyncio
+async def test_escalonamento_depende_do_acumulado_e_nao_da_contagem_de_turnos() -> None:
+    """O gatilho declarado é a estagnação acumulada; a contagem de turnos fica como contexto."""
+    diagnosis: Diagnosis = {
+        "errorType": "logic",
+        "errorLine": 5,
+        "affectedVariable": None,
+        "errorDescription": "Laço não termina.",
+        "hintAngle": "Observe o contador.",
+        "severity": "medium",
+    }
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        bound = _patch_bound_chat(mock_cls)
+        bound.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_strategist(
+            diagnosis,
+            [{"role": "user", "content": "Não sei."}],
+            "escreva(1)",
+            student_movement="ESTAGNACAO",
+            stagnation_streak=4,
+        )
+    system_text = captured[0][0].content
+    assert "`ESTAGNACAO` or `REGRESSAO` with `stagnation_streak` >= 4" in system_text
+    assert "NEVER `debug_user_turns`" in system_text
+    assert "resets to 0 the moment the learner progresses" in system_text
+    assert "Blocked learner turns accumulated since the last progress: 4" in system_text
 
 
 @pytest.mark.asyncio

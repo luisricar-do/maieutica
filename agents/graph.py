@@ -38,6 +38,8 @@ class TutorState(TypedDict):
     previous_errors: list[str]
     student_movement: str
     movement_source: str
+    stagnation_streak: int
+    stagnation_source: str
     session_id: str
 
 
@@ -97,6 +99,7 @@ async def strategist_node(state: TutorState) -> dict:
         ast_summary=str(state.get("ast_summary") or ""),
         data_flow_context=str(state.get("data_flow_context") or ""),
         student_movement=str(state.get("student_movement") or "NENHUM"),
+        stagnation_streak=int(state.get("stagnation_streak") or 0),
         problem_statement=str(state.get("problem_statement") or ""),
     )
     return {"actions": actions, "strategist_plan": strategist_plan}

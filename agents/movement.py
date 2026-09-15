@@ -299,3 +299,75 @@ def classify_movement(
         return {"movement": "REGRESSAO", "source": "texto"}
 
     return {"movement": _classify_by_text(user_turns, code), "source": "texto"}
+
+
+#: Movimentos que contam como bloqueio e por isso acumulam. ``PROGRESSO`` zera o contador;
+#: ``PEDIDO_EXPLICITO`` e ``NENHUM`` transportam-no sem o alterar.
+MOVIMENTOS_DE_BLOQUEIO: tuple[StudentMovement, ...] = ("ESTAGNACAO", "REGRESSAO")
+
+StreakSource = Literal["historico", "turno", "nenhum"]
+
+
+class StreakResult(TypedDict):
+    streak: int
+    source: StreakSource
+
+
+def _estado_do_turno(turno: dict) -> tuple[str, list[str]] | None:
+    """Estado do código e erros que o cliente anexou ao turno do estudante, se anexou."""
+    codigo = turno.get("code")
+    if not isinstance(codigo, str):
+        return None
+    erros = turno.get("errors")
+    lista = [str(e) for e in erros] if isinstance(erros, list) else []
+    return codigo, lista
+
+
+def stagnation_streak(
+    history: list[dict], *, current_movement: StudentMovement
+) -> StreakResult:
+    """
+    Turnos de bloqueio acumulados desde o último progresso — a variável independente de H1.
+
+    A definição é a da dissertação: incrementa em ``ESTAGNACAO`` e ``REGRESSAO``, zera em
+    ``PROGRESSO``, e o pedido explícito transporta o contador sem o alterar. O contador é
+    derivado aqui, e não recebido pronto: cada turno do estudante em ``history`` é
+    reclassificado por :func:`classify_movement` sobre o estado de código que o acompanha. É
+    por isso que o artefato consome a própria variável, em vez de o cliente lha entregar.
+
+    Sem os estados por turno o histórico não é reclassificável, e o contador degrada para o que
+    o pedido deixa ver: o turno corrente. ``source`` distingue os dois casos, e a distinção
+    entra na telemetria, porque um contador degradado não sustenta leitura de contingência.
+    """
+    indices = [
+        i for i, item in enumerate(history)
+        if isinstance(item, dict) and item.get("role") == "user"
+    ]
+    if not indices:
+        return {"streak": 0, "source": "nenhum"}
+
+    estados = [_estado_do_turno(history[i]) for i in indices]
+    if any(estado is None for estado in estados):
+        # Estado parcial conta como ausente: um contador montado sobre parte dos turnos erra
+        # em silêncio, e errar em silêncio é pior do que degradar declaradamente.
+        return {
+            "streak": 1 if current_movement in MOVIMENTOS_DE_BLOQUEIO else 0,
+            "source": "turno",
+        }
+
+    streak = 0
+    for posicao, indice in enumerate(indices):
+        anterior = estados[posicao - 1] if posicao else None
+        codigo, erros = estados[posicao]
+        movimento = classify_movement(
+            code=codigo,
+            history=history[: indice + 1],
+            errors=erros,
+            previous_code=anterior[0] if anterior else None,
+            previous_errors=anterior[1] if anterior else None,
+        )["movement"]
+        if movimento in MOVIMENTOS_DE_BLOQUEIO:
+            streak += 1
+        elif movimento == "PROGRESSO":
+            streak = 0
+    return {"streak": streak, "source": "historico"}

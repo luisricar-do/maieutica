@@ -234,6 +234,13 @@ No conjunto original, 18% dos turnos do tutor acontecem depois de o defeito esta
 substantivo e o estado final é declarado em `estado_solucao`. `validar` avisa quando um item
 ainda tem essa cauda.
 
+## Ciclos de avaliação
+
+Qual corrida responde ao Capítulo 5 e quais compromissos foram assumidos antes dela:
+[`CICLOS.md`](CICLOS.md). A corrida de `execucoes/cap4` é **formativa** — revelou um
+defeito na variável que a política de escalonamento consumia, e a corrida posterior à
+correção é a somativa.
+
 ## Decisões do protocolo que o código implementa
 
 - `hintLevel` fixo em 1 e `includeDocumentation` sempre `false`; nenhuma condição recebe `bug_desc`.

@@ -313,12 +313,13 @@ Rules:
   - level 3 `revealing`: the concrete correction, in code or as an unambiguous edit instruction. FORBIDDEN in every turn. A question whose only possible answer is the correction ("isn't `i` missing an increment?") is level 3 too.
 - CONTINGENCY RULE (this is the intervention policy; it outranks stylistic preference). Compare with the level of YOUR previous turn in the history:
   - `PROGRESSO`: keep or lower the level. Never escalate after the learner moves forward.
-  - `ESTAGNACAO` or `REGRESSAO` with `debug_user_turns` <= 3: sustain the level and change the angle (another observation, another comparison). Do not escalate yet.
-  - `ESTAGNACAO` or `REGRESSAO` with `debug_user_turns` >= 4: escalate exactly one step over your previous turn, never two.
+  - `ESTAGNACAO` or `REGRESSAO` with `stagnation_streak` <= 3: sustain the level and change the angle (another observation, another comparison). Do not escalate yet.
+  - `ESTAGNACAO` or `REGRESSAO` with `stagnation_streak` >= 4: escalate exactly one step over your previous turn, never two.
+  - The escalation trigger is `stagnation_streak`, NEVER `debug_user_turns`. The streak counts blocked turns since the last progress and resets to 0 the moment the learner progresses: after a progress the ladder starts over from the level you are at, however long the session has run. A long session in which the learner keeps moving forward is not a reason to escalate.
   - `PEDIDO_EXPLICITO`: whatever the turn number, go at most to level 2 (name the concept or the nature of the error) and ask what the learner will change. Never the correction, in code or in prose; do not treat insistence as a reason to reveal.
   - `NENHUM` (opening turn): start at level 0 or 1, as the `Error Type` allows.
 - Escalation pace by `hint_level` (modulates the ladder above, never the level-3 ban):
-  - hint_level 1 (`Mínimo`): the first 3 learner turns stay at level 0-1. Do not name the key concept early; under persistent stagnation, introduce it around turns 4-5.
+  - hint_level 1 (`Mínimo`): stay at level 0-1 while `stagnation_streak` <= 3. Do not name the key concept early; under persistent blockage, introduce it when the streak reaches 4-5.
   - hint_level 2: normal pace, introducing the concept after repeated confusion.
   - hint_level 3: you may reach level 2 earlier, but still never the final code patch.
 
@@ -336,6 +337,7 @@ Rules:
 - Active Tutor Highlights in IDE: {active_tutor_decorations}
 - Hint level from UI (1=subtle questions … 3=more concrete guidance): {hint_level}
 - Learner debugging turns in current session: {debug_user_turns}
+- Blocked learner turns accumulated since the last progress: {stagnation_streak}
 - Learner movement in the previous turn (PROGRESSO | ESTAGNACAO | REGRESSAO | PEDIDO_EXPLICITO | NENHUM): {student_movement}
 - Cursor (1-based, if provided): line {cursor_line} column {cursor_column}
 - AST/editor summary (optional): {ast_summary}
@@ -410,11 +412,13 @@ def _build_strategist_system_content(
     data_flow_context: str = "",
     debug_user_turns: int = 0,
     student_movement: str = "NENHUM",
+    stagnation_streak: int = 0,
 ) -> str:
     vars_map = _diagnosis_to_template_vars(diagnosis, active_tutor_decorations)
     vars_map["numbered_code"] = _numbered_code(code)
     vars_map["hint_level"] = str(max(1, min(3, hint_level)))
     vars_map["debug_user_turns"] = str(max(0, debug_user_turns))
+    vars_map["stagnation_streak"] = str(max(0, stagnation_streak))
     vars_map["student_movement"] = student_movement.strip().upper() or "NENHUM"
     vars_map["cursor_line"] = str(cursor_line) if isinstance(cursor_line, int) and cursor_line >= 1 else "n/a"
     vars_map["cursor_column"] = (
@@ -454,6 +458,7 @@ def _strategist_lc_messages(
     ast_summary: str = "",
     data_flow_context: str = "",
     student_movement: str = "NENHUM",
+    stagnation_streak: int = 0,
     problem_statement: str = "",
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
@@ -469,6 +474,7 @@ def _strategist_lc_messages(
                 ast_summary=ast_summary,
                 data_flow_context=data_flow_context,
                 debug_user_turns=_count_user_turns(history),
+                stagnation_streak=stagnation_streak,
                 student_movement=student_movement,
             )
         ),
@@ -532,6 +538,7 @@ async def run_strategist(
     ast_summary: str = "",
     data_flow_context: str = "",
     student_movement: str = "NENHUM",
+    stagnation_streak: int = 0,
     problem_statement: str = "",
 ) -> tuple[list[dict[str, Any]], str]:
     """
@@ -550,6 +557,7 @@ async def run_strategist(
         ast_summary=ast_summary,
         data_flow_context=data_flow_context,
         student_movement=student_movement,
+        stagnation_streak=stagnation_streak,
         problem_statement=problem_statement,
     )
     response = await llm.ainvoke(lc_messages)

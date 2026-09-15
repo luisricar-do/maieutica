@@ -9,7 +9,7 @@ from typing import Any, TypedDict
 
 from agents.graph import tutor_graph
 from agents.llm import chat_model_name
-from agents.movement import classify_movement
+from agents.movement import classify_movement, stagnation_streak
 from agents.problem_context import parse_problem_statement
 from agents.usage import TokenUsageCollector
 from services import interaction_log
@@ -25,6 +25,8 @@ def build_tutor_meta_from_actions(
     *,
     intent: str = "",
     student_movement: str = "",
+    stagnation_streak: int = 0,
+    stagnation_source: str = "",
     model: str = "",
     usage: dict[str, int] | None = None,
     finish_reason: str = "",
@@ -46,6 +48,11 @@ def build_tutor_meta_from_actions(
                 break
     meta["intent"] = intent or "DEBUG"
     meta["studentMovement"] = student_movement or "NENHUM"
+    # A estagnação acumulada é a variável independente de H1: vai no meta para que a
+    # análise leia o que a política consumiu, e não só o que ela produziu. ``source``
+    # distingue o contador derivado do histórico do degradado ao turno corrente.
+    meta["stagnationStreak"] = max(0, int(stagnation_streak))
+    meta["stagnationSource"] = stagnation_source or "nenhum"
     meta["model"] = model or chat_model_name()
     if usage is not None:
         # Soma das chamadas do grafo no turno — roteador, analista, estrategista, comunicador.
@@ -82,6 +89,8 @@ class TutorHelpState(TypedDict):
     previous_errors: list[str]
     student_movement: str
     movement_source: str
+    stagnation_streak: int
+    stagnation_source: str
     session_id: str
     problem_statement: str
 
@@ -247,6 +256,10 @@ def parse_help_payload(
         previous_code=previous_code,
         previous_errors=previous_errors,
     )
+    # Estagnação acumulada desde o último progresso: a variável que a política de escalonamento
+    # consome (H1). Derivada do histórico quando o cliente anexa o estado de código de cada
+    # turno; degradada ao turno corrente quando não anexa, com a origem declarada na telemetria.
+    streak = stagnation_streak(history_dicts, current_movement=movement["movement"])
 
     initial_state: TutorHelpState = {
         "problem_statement": problem_statement,
@@ -272,6 +285,8 @@ def parse_help_payload(
         "previous_errors": previous_errors,
         "student_movement": movement["movement"],
         "movement_source": movement["source"],
+        "stagnation_streak": streak["streak"],
+        "stagnation_source": streak["source"],
         "session_id": session_id,
     }
     return initial_state, None, 200
@@ -297,6 +312,8 @@ async def log_turn(
         response=response,
         intent=intent,
         student_movement=state["student_movement"],
+        stagnation_streak=state["stagnation_streak"],
+        stagnation_source=state["stagnation_source"],
         movement_source=state["movement_source"],
         model=chat_model_name(),
         latency_ms=int((time.monotonic() - started) * 1000),
@@ -344,6 +361,8 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
             actions,
             intent=str(result.get("intent") or ""),
             student_movement=initial_state["student_movement"],
+            stagnation_streak=initial_state["stagnation_streak"],
+            stagnation_source=initial_state["stagnation_source"],
             usage=usage.as_dict(),
             finish_reason=usage.finish_reason,
         ),

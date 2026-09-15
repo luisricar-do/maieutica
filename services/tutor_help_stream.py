@@ -59,6 +59,8 @@ def _stream_tutor_meta(
         actions if isinstance(actions, list) else [],
         intent=intent,
         student_movement=state["student_movement"],
+        stagnation_streak=state["stagnation_streak"],
+        stagnation_source=state["stagnation_source"],
     )
 
 

@@ -219,7 +219,12 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
   "code": "inteiro i\nenquanto (i < 10) {\n  escreva(i)\n}",
   "errors": ["Aviso: possível loop infinito"],
   "history": [
-    { "role": "user", "content": "Meu programa não termina." },
+    {
+      "role": "user",
+      "content": "Meu programa não termina.",
+      "code": "inteiro i\nenquanto (i < 10) {\n}",
+      "errors": []
+    },
     { "role": "assistant", "content": "Vamos pensar juntos no fluxo do laço." }
   ],
   "sessionId": "sessao-42",
@@ -235,6 +240,14 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
   no turno anterior. Com eles o serviço classifica o **movimento do estudante** (progresso,
   estagnação, regressão, pedido explícito) pela regra objetiva do compilador; sem eles, decide
   pelo texto do último turno.
+- **`code`** / **`errors`** dentro de cada turno `user` de **`history`** (opcionais): o estado do
+  código e os erros do compilador **naquele** turno. Com eles o serviço reclassifica o histórico
+  inteiro e deriva a **estagnação acumulada desde o último progresso**, que é o gatilho do
+  escalonamento da dica — o contador sobe a cada turno bloqueado e **zera quando o estudante
+  progride**. Turno sem edição repete o estado do turno anterior; enviar só parte dos turnos
+  equivale a não enviar nenhum. Sem eles o serviço degrada para o turno corrente, e a resposta
+  declara-o em `meta.stagnationSource` (`historico` | `turno` | `nenhum`).
+- **`meta.stagnationStreak`** (resposta): o contador que a política consumiu neste turno.
 
 **Response** — `200 OK` (`/api/help`)
 

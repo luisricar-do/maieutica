@@ -79,6 +79,8 @@ def build_record(
     intent: str = "",
     student_movement: str = "",
     movement_source: str = "",
+    stagnation_streak: int = 0,
+    stagnation_source: str = "",
     model: str = "",
     latency_ms: int | None = None,
     error: str | None = None,
@@ -102,6 +104,8 @@ def build_record(
         "intent": intent,
         "studentMovement": student_movement,
         "movementSource": movement_source,
+        "stagnationStreak": max(0, int(stagnation_streak)),
+        "stagnationSource": stagnation_source,
         "model": model,
     }
     if prompt_variant:

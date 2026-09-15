@@ -68,13 +68,28 @@ def test_movimento_no_turno_de_abertura_e_rejeitado():
 def test_prefixos_ouro_param_antes_do_turno_do_tutor():
     prefixos = [p for p in expandir_prefixos(item_minimo()) if p.tipo == "ouro"]
     assert [p.k for p in prefixos] == [1, 2, 3]
-    # O enunciado não entra no turno do estudante: viaja em ``problem_statement``.
-    assert prefixos[0].history == [{"role": "user", "content": "Trava."}]
+    # O enunciado não entra no turno do estudante: viaja em ``problem_statement``. O estado de
+    # código viaja no turno, e é dele que o serviço deriva a estagnação acumulada.
+    assert prefixos[0].history == [
+        {"role": "user", "content": "Trava.", "code": "programa { }", "errors": []}
+    ]
     assert prefixos[0].problem_statement == "Enunciado do problema."
     assert prefixos[1].movimento_anterior == "ESTAGNACAO"
     assert prefixos[1].estagnacao_acumulada == 1
     assert prefixos[2].movimento_anterior == "PROGRESSO"
     assert prefixos[2].estagnacao_acumulada == 0
+
+
+def test_estado_de_codigo_viaja_em_cada_turno_do_estudante():
+    """Sem estado por turno o serviço não deriva o acumulado e degrada para o turno corrente."""
+    ultimo = {p.id: p for p in expandir_prefixos(item_minimo())}["teste_01::k3::ouro"]
+    turnos_do_estudante = [h for h in ultimo.history if h["role"] == "user"]
+    assert [h["code"] for h in turnos_do_estudante] == [
+        "programa { }",            # s0, abertura
+        "programa { }",            # s0 de novo: falou sem editar
+        "programa { i = i + 1 }",  # s1, editou
+    ]
+    assert all("errors" in h for h in turnos_do_estudante)
 
 
 def test_estado_de_codigo_vigente_e_anterior():
