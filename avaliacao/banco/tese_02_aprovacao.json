@@ -9,7 +9,7 @@
     "caso limite"
   ],
   "problem": "O programa deveria ler a nota final de um estudante (real, de 0 a 10) e informar se ele esta aprovado ou reprovado, considerando aprovado quem obtiver nota maior ou igual a 6,0. O programa compila, mas classifica erradamente alguns casos. Localize e corrija o defeito.",
-  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota > 6.0)\n        {\n            escreva(\"Aprovado\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\")\n        }\n    }\n}\n",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota > 6.0)\n        {\n            escreva(\"Aprovado\", \"\\n\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\", \"\\n\")\n        }\n    }\n}\n",
   "bug_desc": "Erro relacional no limite: a condicao nota > 6.0 exclui a nota exatamente igual a 6,0, que deveria ser aprovada.",
   "bug_fixes": [
     "se (nota >= 6.0)"
@@ -19,25 +19,25 @@
       "entrada": [
         "7.5"
       ],
-      "saida_contem": "Aprovado"
+      "saida_contem": "Aprovado\n"
     },
     {
       "entrada": [
         "6.0"
       ],
-      "saida_contem": "Aprovado"
+      "saida_contem": "Aprovado\n"
     },
     {
       "entrada": [
         "4.0"
       ],
-      "saida_contem": "Reprovado"
+      "saida_contem": "Reprovado\n"
     }
   ],
   "estados_codigo": [
     {
       "id": "s0",
-      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota > 6.0)\n        {\n            escreva(\"Aprovado\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\")\n        }\n    }\n}\n",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota > 6.0)\n        {\n            escreva(\"Aprovado\", \"\\n\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\", \"\\n\")\n        }\n    }\n}\n",
       "errors": [],
       "compilerErrorLines": [],
       "casos_ok": 2,
@@ -49,7 +49,7 @@
     },
     {
       "id": "s1",
-      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota >= 6.0)\n        {\n            escreva(\"Aprovado\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\")\n        }\n    }\n}\n",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        real nota\n\n        escreva(\"Digite a nota final: \")\n        leia(nota)\n\n        se (nota >= 6.0)\n        {\n            escreva(\"Aprovado\", \"\\n\")\n        }\n        senao\n        {\n            escreva(\"Reprovado\", \"\\n\")\n        }\n    }\n}\n",
       "errors": [],
       "compilerErrorLines": [],
       "casos_ok": 3,

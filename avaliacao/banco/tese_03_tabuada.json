@@ -21,14 +21,14 @@
       "entrada": [
         "3"
       ],
-      "saida_contem": "3 x 10 = 30",
+      "saida_contem": "3 x 10 = 30\n",
       "saida_nao_contem": "3 x 0 = 0"
     },
     {
       "entrada": [
         "2"
       ],
-      "saida_contem": "2 x 1 = 2",
+      "saida_contem": "2 x 1 = 2\n",
       "saida_nao_contem": "2 x 0 = 0"
     }
   ],

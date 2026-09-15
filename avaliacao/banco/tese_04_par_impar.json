@@ -25,7 +25,7 @@
         "3",
         "0"
       ],
-      "saida_contem": "7 e impar",
+      "saida_contem": "7 e impar\n",
       "saida_nao_contem": "1 e impar"
     },
     {
@@ -36,7 +36,7 @@
         "8",
         "11"
       ],
-      "saida_contem": "-3 e impar",
+      "saida_contem": "-3 e impar\n",
       "saida_nao_contem": "0 e impar"
     },
     {
@@ -47,7 +47,7 @@
         "10",
         "12"
       ],
-      "saida_contem": "12 e par",
+      "saida_contem": "12 e par\n",
       "saida_nao_contem": " e impar"
     }
   ],

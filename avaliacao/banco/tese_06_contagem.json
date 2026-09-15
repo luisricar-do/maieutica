@@ -10,7 +10,7 @@
     "paridade"
   ],
   "problem": "O programa deveria ler um inteiro n (3 <= n <= 15), ler n inteiros em um vetor e imprimir quantos elementos sao impares e maiores que 10. Ele compila e executa, mas devolve a contagem errada. Localize e corrija o defeito.",
-  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 == 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador)\n    }\n}\n",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 == 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador, \"\\n\")\n    }\n}\n",
   "bug_desc": "Erro logico na condicao composta: o teste numeros[i] % 2 == 0 seleciona os numeros pares, enquanto o enunciado pede os impares. A estrutura do laco, o acesso ao vetor e o limiar > 10 estao corretos, o que torna o defeito sutil: o programa conta pares maiores que 10 em vez de impares maiores que 10. O correto e numeros[i] % 2 != 0.",
   "bug_fixes": [
     "numeros[i] % 2 != 0",
@@ -26,7 +26,7 @@
         "4",
         "13"
       ],
-      "saida_contem": "Quantidade: 3"
+      "saida_contem": "Quantidade: 3\n"
     },
     {
       "entrada": [
@@ -36,7 +36,7 @@
         "16",
         "20"
       ],
-      "saida_contem": "Quantidade: 0"
+      "saida_contem": "Quantidade: 0\n"
     },
     {
       "entrada": [
@@ -47,13 +47,13 @@
         "7",
         "13"
       ],
-      "saida_contem": "Quantidade: 2"
+      "saida_contem": "Quantidade: 2\n"
     }
   ],
   "estados_codigo": [
     {
       "id": "s0",
-      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 == 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador)\n    }\n}\n",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 == 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador, \"\\n\")\n    }\n}\n",
       "descricao": "codigo inicial: conta pares maiores que 10",
       "errors": [],
       "compilerErrorLines": [],
@@ -66,7 +66,7 @@
     },
     {
       "id": "s1",
-      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 != 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador)\n    }\n}\n",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, contador\n        inteiro numeros[15]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(numeros[i])\n        }\n\n        contador = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] % 2 != 0 e numeros[i] > 10)\n            {\n                contador = contador + 1\n            }\n        }\n\n        escreva(\"Quantidade: \", contador, \"\\n\")\n    }\n}\n",
       "descricao": "solucao de referencia: paridade invertida para impares",
       "errors": [],
       "compilerErrorLines": [],

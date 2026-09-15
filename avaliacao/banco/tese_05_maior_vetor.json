@@ -10,7 +10,7 @@
     "acumulador"
   ],
   "problem": "O programa deveria ler um inteiro n (3 <= n <= 10), ler n numeros inteiros em um vetor e imprimir o maior valor. O programa pede mais numeros do que os n solicitados e, em certos casos, interrompe a execucao com falha de acesso ao vetor ou imprime um valor que nao pertence a lista digitada. Localize e corrija os defeitos.",
-  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i <= n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i <= n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior, \"\\n\")\n    }\n}\n",
   "bug_desc": "Dois defeitos. Indice fora dos limites: o laco de leitura usa i <= n e acessa numeros[n], uma posicao alem dos n elementos pretendidos, cujos indices validos vao de 0 a n-1; a condicao correta e i < n. Com n menor que 10 o programa apenas pede um numero a mais; com n igual a 10 o acesso a numeros[10] ultrapassa o vetor declarado e a execucao falha. Inicializacao do maior valor: maior = 0 falha quando todos os valores sao negativos, pois 0 nao pertence ao vetor e seria devolvido indevidamente; deve-se inicializar maior = numeros[0] e percorrer a partir de i = 1.",
   "bug_fixes": [
     "para (i = 0; i < n; i++)",
@@ -27,7 +27,7 @@
         "9",
         "2"
       ],
-      "saida_contem": "Maior valor: 9"
+      "saida_contem": "Maior valor: 9\n"
     },
     {
       "entrada": [
@@ -37,7 +37,7 @@
         "-2",
         "-3"
       ],
-      "saida_contem": "Maior valor: -1"
+      "saida_contem": "Maior valor: -1\n"
     },
     {
       "entrada": [
@@ -53,13 +53,13 @@
         "9",
         "2"
       ],
-      "saida_contem": "Maior valor: 42"
+      "saida_contem": "Maior valor: 42\n"
     }
   ],
   "estados_codigo": [
     {
       "id": "s0",
-      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i <= n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i <= n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior, \"\\n\")\n    }\n}\n",
       "descricao": "codigo inicial: laco de leitura com i <= n e maior inicializado em 0",
       "errors": [],
       "compilerErrorLines": [],
@@ -73,7 +73,7 @@
     },
     {
       "id": "s1",
-      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = 0\n        para (i = 0; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior, \"\\n\")\n    }\n}\n",
       "descricao": "fronteira corrigida para i < n; maior ainda inicializado em 0",
       "errors": [],
       "compilerErrorLines": [],
@@ -86,7 +86,7 @@
     },
     {
       "id": "s2",
-      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = numeros[n]\n        para (i = 1; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = numeros[n]\n        para (i = 1; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior, \"\\n\")\n    }\n}\n",
       "descricao": "tentativa do estudante: maior = numeros[n], recaida no erro de fronteira",
       "errors": [],
       "compilerErrorLines": [],
@@ -99,7 +99,7 @@
     },
     {
       "id": "s3",
-      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = numeros[0]\n        para (i = 1; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior)\n    }\n}\n",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i\n        inteiro numeros[10]\n        inteiro maior\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            escreva(\"Digite um numero: \")\n            leia(numeros[i])\n        }\n\n        maior = numeros[0]\n        para (i = 1; i < n; i++)\n        {\n            se (numeros[i] > maior)\n            {\n                maior = numeros[i]\n            }\n        }\n\n        escreva(\"Maior valor: \", maior, \"\\n\")\n    }\n}\n",
       "descricao": "solucao de referencia: maior = numeros[0] e busca a partir de i = 1",
       "errors": [],
       "compilerErrorLines": [],

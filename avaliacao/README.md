@@ -257,6 +257,12 @@ Três convenções que não são óbvias e custam caro se forem esquecidas:
 - **A saída do programa termina em quebra de linha** e os casos de teste a exigem. Sem isso
   `"Media = 2"` casa dentro de `"Media = 2.5"` e um estado com defeito conta como caso aprovado
   — e `casos_ok` é a regra objetiva do movimento, logo o falso positivo entra direto em H1.
+  A exceção é o **prefixo de ponto flutuante como tolerância**: `"Area: 3.141"` sem quebra de
+  linha é aceitável porque quatro dígitos significativos já excluem qualquer valor errado
+  plausível, e exigir `"Area: 3.141592653589793\n"` tornaria o caso refém da formatação do
+  motor. O que não se aceita é prefixo curto: `"Media = 1.6"` casaria `1.65`, e por isso esse
+  caso passou a exigir o valor completo. A régua é se o prefixo distingue o estado correto do
+  defeituoso, não se ele é curto de escrever.
 - **Onde há edição de código, o `movimento` anotado segue a regra objetiva**, não a leitura do
   texto; `validar` levanta a divergência como aviso.
 
