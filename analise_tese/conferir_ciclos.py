@@ -54,6 +54,76 @@ def ndjson(caminho: Path) -> list[dict]:
         return [json.loads(ln) for ln in arquivo if ln.strip()]
 
 
+#: Marcas que identificam a ressalva. Não se exige o texto todo — ele é gerado dos dados e muda
+#: com a corrida —, exige-se que a frase que nega a leitura fácil esteja presente.
+MARCAS_DA_RESSALVA = ("NAO SUSTENTA H1", "remove a contraprova")
+
+
+def conferir_ressalva_da_prioridade() -> None:
+    """O valor perigoso não viaja sozinho: onde ele aparece, a ressalva tem de aparecer.
+
+    A sensibilidade «excluir prioridade 3» não sustenta H1 — a exclusão remove o item cuja
+    diretividade não escala com o acumulado, que é a contraprova. Em `cap5` ela é o único
+    coeficiente de acúmulo com p < 0,05 de todo o conjunto, e é aí que o número fica perigoso:
+    numa tabela sozinho, é o que vai ser citado.
+
+    O coeficiente a procurar vem de `h1_ordinal.json`, não de uma constante — uma constante
+    fixaria a verificação no valor de uma corrida e passaria em silêncio em todas as outras,
+    que é a família de defeito que esta ronda de correcções existe para fechar. Um ficheiro que
+    traga o coeficiente sem as marcas da ressalva reprova, com o caminho. Isto não impede ninguém
+    de copiar o número à mão para o capítulo; impede que ele seja **gerado** desacompanhado, que
+    é onde a citação descuidada nasce.
+    """
+    print("\n== Ressalva obrigatória da sensibilidade de prioridade 3 ==")
+    saida = RAIZ / "analise_tese" / "saida" / EXECUCAO_ID
+    if not saida.is_dir():
+        print(f"  saída da execução não existe: {saida} — NADA A CONFERIR")
+        _falhas.append("saída da execução não existe para conferir a ressalva")
+        return
+
+    ordinal = saida / "h1_ordinal.json"
+    sens = json.loads(ordinal.read_text(encoding="utf-8")).get("sensibilidade_prioridade_3") \
+        if ordinal.is_file() else None
+    if not sens:
+        print(f"  {ordinal.relative_to(RAIZ)} não traz `sensibilidade_prioridade_3` — "
+              "o valor não está a ser emitido com a ressalva ao lado")
+        _falhas.append("`sensibilidade_prioridade_3` ausente de h1_ordinal.json")
+        return
+    valor = f"{sens['coef']:.3f}"
+    print(f"  coeficiente sob vigilância: {valor} (p = {sens['p']:.4f}, n = {sens['n']}), "
+          f"lido de {ordinal.relative_to(RAIZ)}")
+
+    candidatos = [c for c in sorted(saida.rglob("*"))
+                  if c.is_file() and c.suffix in (".json", ".csv", ".tex", ".txt")]
+    portadores, orfaos = [], []
+    for caminho in candidatos:
+        # Espaço normalizado: no .txt a ressalva sai quebrada em linhas por `strwrap`, e procurar
+        # a frase literal daria "SEM RESSALVA" no ficheiro que a tem.
+        texto = " ".join(caminho.read_text(encoding="utf-8", errors="replace").split())
+        if valor not in texto:
+            continue
+        portadores.append(caminho)
+        if not all(marca in texto for marca in MARCAS_DA_RESSALVA):
+            orfaos.append(caminho)
+
+    for caminho in portadores:
+        estado = "SEM RESSALVA" if caminho in orfaos else "com ressalva"
+        print(f"  [{'DIVERGE' if caminho in orfaos else 'ok '}] {caminho.relative_to(RAIZ)} — {estado}")
+    if not portadores:
+        print(f"  nenhum artefato traz {valor}; a sensibilidade não foi gerada nesta saída")
+        _falhas.append(f"nenhum artefato de `{EXECUCAO_ID}` traz a sensibilidade de prioridade 3")
+        return
+    # Os quatro formatos que o prompt do ciclo 2 exige: JSON, CSV e .tex, mais o .txt de onde
+    # todos saem. Faltar um é o valor a existir num caminho que a varredura não cobre.
+    formatos = {c.suffix for c in portadores}
+    for exigido in (".json", ".csv", ".tex"):
+        if exigido not in formatos:
+            _falhas.append(f"sensibilidade de prioridade 3 não emitida em `{exigido}`")
+            print(f"  [DIVERGE] nenhum `{exigido}` traz o valor — o formato não está a ser gerado")
+    if orfaos:
+        _falhas.append(f"{len(orfaos)} artefato(s) com {valor} sem a ressalva")
+
+
 def main() -> None:
     turnos = ndjson(EXECUCAO / "turnos.jsonl")
     juizos = ndjson(EXECUCAO / "juizos.jsonl")
@@ -166,6 +236,8 @@ def main() -> None:
     taxas(refs, "todas as referências — o que a apuração contava com o filtro inerte")
     taxas([j for j in refs if j.get("referencia_autoria", AUTORIA_HUMANA) == AUTORIA_HUMANA],
           "só autoria humana — o que a apuração conta desde a correcção")
+
+    conferir_ressalva_da_prioridade()
 
     print("\n== Validação humana ==")
     cod = VALIDACAO = EXECUCAO / "validacao_humana"

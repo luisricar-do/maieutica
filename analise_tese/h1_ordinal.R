@@ -19,6 +19,7 @@ suppressPackageStartupMessages(library(ordinal))
 
 raiz <- dirname(sub("--file=", "", grep("--file=", commandArgs(FALSE), value = TRUE)[1]))
 if (is.na(raiz) || raiz == "") raiz <- "analise_tese"
+source(file.path(raiz, "ressalva_prioridade.R"))
 saida <- file.path(raiz, "saida")
 dados <- read.csv(file.path(saida, "h1_modelo.csv"), stringsAsFactors = FALSE)
 
@@ -111,9 +112,22 @@ m2 <- ajustar(diretividade ~ movimento + k + (1 | item_id) + (1 | prefixo_id),
               dados, "AJUSTE 2 — efeito do movimento sobre todos os elegíveis (ref.: ESTAGNACAO)")
 
 # -- Sensibilidades ------------------------------------------------------------------------------
-ajustar(diretividade ~ movimento + estagnacao_acumulada + k + (1 | item_id) + (1 | prefixo_id),
+# A de prioridade não decide H1 em corrida nenhuma: a exclusão remove a contraprova — o item cuja
+# diretividade não escala com o acumulado. Em `cap5` ela é o único coeficiente de acúmulo com
+# p < 0,05 (0,0357, contra 0,3243 do ajuste 1b), e é aí que o número fica perigoso; neste ciclo dá
+# 0,1986 e nem significativo é. A ressalva sai de `ressalva_prioridade.R`, é construída dos dados
+# — inclusive a abertura, que depende do p medido — e acompanha o valor em toda a saída.
+# `conferir_ciclos.py` reprova se ele aparecer num artefato gerado sem ela.
+s_prioridade <- ajustar(
+        diretividade ~ movimento + estagnacao_acumulada + k + (1 | item_id) + (1 | prefixo_id),
         droplevels(subset(bloqueados, prioridade != 3)),
         "SENSIBILIDADE — acúmulo, excluindo itens de prioridade 3")
+RESSALVA <- ressalva_prioridade(
+  bloqueados,
+  if (is.null(s_prioridade)) NA_real_ else coef(summary(s_prioridade))["estagnacao_acumulada", 4])
+di("  RESSALVA OBRIGATORIA (acompanha este valor em todos os artefatos):")
+for (pedaco in strwrap(RESSALVA, width = 100)) di("    %s", pedaco)
+di("")
 ajustar(diretividade ~ movimento + k + (1 | item_id) + (1 | prefixo_id),
         droplevels(subset(dados, prioridade != 3)),
         "SENSIBILIDADE — movimento, excluindo itens de prioridade 3")
@@ -162,13 +176,22 @@ di("  %s", veredito)
 writeLines(linhas, file.path(saida, "h1_ordinal.txt"))
 cat(paste(linhas, collapse = "\n"), "\n")
 
+co_p <- if (is.null(s_prioridade)) NULL else coef(summary(s_prioridade))
+sens_json <- if (is.null(co_p) || !("estagnacao_acumulada" %in% rownames(co_p))) "null" else
+  sprintf('{"coef": %s, "ep": %s, "p": %s, "n": %d, "ressalva": "%s"}',
+          format(co_p["estagnacao_acumulada", 1]), format(co_p["estagnacao_acumulada", 2]),
+          format(co_p["estagnacao_acumulada", 4]),
+          nrow(droplevels(subset(bloqueados, prioridade != 3))), json_str(RESSALVA))
+
 json <- sprintf('{
   "pacote": "ordinal %s (R %s), clmm, ligação logit, aproximação de Laplace",
   "n_elegiveis": %d,
   "acumulo": {"coef": %s, "p": %s, "positivo_a_5pc": %s},
   "progresso": {"coef": %s, "p": %s, "nao_positivo": %s},
+  "sensibilidade_prioridade_3": %s,
   "veredito": "%s"
 }', as.character(packageVersion("ordinal")), paste0(R.version$major, ".", R.version$minor),
     nrow(dados), format(coef_acumulo), format(p_acumulo), tolower(as.character(criterio_acumulo)),
-    format(coef_progresso), format(p_progresso), tolower(as.character(criterio_progresso)), veredito)
+    format(coef_progresso), format(p_progresso), tolower(as.character(criterio_progresso)),
+    sens_json, veredito)
 writeLines(json, file.path(saida, "h1_ordinal.json"))
