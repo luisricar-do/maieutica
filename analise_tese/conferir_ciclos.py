@@ -153,8 +153,11 @@ def main() -> None:
     checa("prefixos bloqueados na faixa >= 3 (nota do limiar descritivo)", len(faixa3), 10)
 
     print("\n== Classificador de movimento na corrida (seção «O nó ... fica desligado») ==")
+    # `.get`: o campo nasceu antes de `cap5`; em `cap4` não existe, e a conferência tem de
+    # divergir em vez de rebentar — é assim que o script corre sobre o ciclo 1.
     checa("classificador_de_movimento no manifesto",
-          json.loads((EXECUCAO / "manifesto.json").read_text())["classificador_de_movimento"], "regra")
+          json.loads((EXECUCAO / "manifesto.json").read_text()).get("classificador_de_movimento"),
+          "regra")
     faixa = lambda v: 0 if v == 0 else (1 if 1 <= v <= 3 else 2)  # noqa: E731
     ex, fx = 0, 0
     dist_art, dist_banco = collections.Counter(), collections.Counter()

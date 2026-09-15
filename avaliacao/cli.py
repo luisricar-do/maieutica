@@ -332,10 +332,44 @@ def _cmd_analisar(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
     diretorio = diretorio_execucao(args.execucao, criar=False)
     if not diretorio.is_dir():
         raise SystemExit(f"execução não encontrada: {diretorio}")
+    _itens_da_corrida(diretorio, itens)
     resumo = analise.analisar(diretorio, itens, juiz_modelo=args.juiz_modelo)
     print((diretorio / "analise" / "resumo.md").read_text(encoding="utf-8"))
     print(f"tabelas e CSVs em {diretorio / 'analise'}")
     return 0 if resumo else 1
+
+
+def _itens_da_corrida(diretorio: Path, itens: list[dict[str, Any]]) -> None:
+    """Recusa analisar uma corrida com um banco que não é o dela.
+
+    `analisar` lê o banco **vivo** — prefixos, movimento anotado, autoria — e cruza-o com os
+    vereditos gravados. Sobre uma corrida antiga com um banco que cresceu entretanto, isso não
+    falha: fabrica tabelas coerentes e falsas (``cap4`` regenerado hoje diria «Itens & 45» com
+    2 020 vereditos de 25). O manifesto grava ``itens`` no arranque do `rodar`; é a mesma
+    conferência que `congelar` faz com os hashes do serviço — o que está gravado tem de bater com
+    o que está a ser lido, senão não se segue.
+    """
+    manifesto = ler_json(diretorio / "manifesto.json")
+    gravados = manifesto.get("itens")
+    if gravados is None:
+        print(
+            "AVISO: o manifesto não grava `itens` (corrida anterior ao campo); não dá para "
+            "conferir se o banco lido é o da corrida."
+        )
+        return
+    vivos = [item["id"] for item in itens]
+    if sorted(gravados) == sorted(vivos):
+        return
+    a_mais = sorted(set(vivos) - set(gravados))
+    a_menos = sorted(set(gravados) - set(vivos))
+    raise SystemExit(
+        f"o banco lido não é o da corrida {manifesto.get('id_execucao') or diretorio.name!r}: "
+        f"{len(vivos)} itens vivos contra {len(gravados)} no manifesto"
+        + (f"; a mais: {', '.join(a_mais)}" if a_mais else "")
+        + (f"; em falta: {', '.join(a_menos)}" if a_menos else "")
+        + ". As tabelas sairiam coerentes e falsas. Restrinja com `--itens` aos itens da "
+        "corrida, ou aponte `--banco` ao banco no commit do manifesto."
+    )
 
 
 def _cmd_amostra(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
