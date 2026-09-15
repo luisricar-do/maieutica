@@ -17,7 +17,12 @@ dir.create("analise_tese/saida", showWarnings = FALSE, recursive = TRUE)
 sink("analise_tese/saida/poder_h1_corpus.txt", split = TRUE)
 
 LIMIARES <- c(-4.437, 3.266); SD_ITEM <- sqrt(1.0127); SD_PREF <- sqrt(13.3996)
-BETA <- 0.6; R <- 40; N_EXEC <- 3
+BETA <- 0.6; N_EXEC <- 3
+# R = numero de replicas de Monte Carlo. A 40 o EP simulado tem DP ~0,223 entre replicas,
+# o que da +-0,035 na media e troca a ordem de celulas vizinhas (ver a varredura). Qualquer
+# numero de poder que va ao capitulo precisa de R >= 200. Sobrepor com R_REPLICAS=40 para
+# reproduzir os valores antigos.
+R <- as.integer(Sys.getenv("R_REPLICAS", "200"))
 
 ciclo1 <- read.csv("analise_tese/saida/h1_modelo.csv", stringsAsFactors = FALSE)
 ciclo1 <- ciclo1[ciclo1$movimento %in% c("ESTAGNACAO", "REGRESSAO"), ]
