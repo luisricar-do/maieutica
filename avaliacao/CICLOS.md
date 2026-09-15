@@ -829,3 +829,55 @@ revelação sob pedido; nenhum dos dois lê a linha REF, mas ambos leem veredito
 variância, e o texto tem de o dizer onde cita qualquer taxa. Nada disto toca **H1 NÃO
 SUSTENTADA** nem **H2 SUSTENTADA**.
 
+### Auto-concordância do juiz no cap5
+
+Mesma mecânica do ciclo 1: os 210 turnos de `validacao_humana/mapa_amostra.json` (180 gerados —
+A 63, B 42, C 75 — e 30 de referência) julgados uma segunda vez em chamadas independentes,
+mesmo *prompt* (hash conferido em disco antes de correr; `5dc2baa3…` em 210/210 registos),
+mesmo modelo, temperatura 0, pelo LiteLLM. Duas coisas a mais do que no ciclo 1: o script lista
+`/v1/models` antes de começar (6 modelos visíveis à chave, `gemini-3.1-pro-preview` entre eles) e
+recusaria correr sem ele; e o modelo devolvido pela API é conferido **por chamada** contra essa
+lista — **210/210**. Zero erros. Janela 2026-09-15 21:48:44–21:53:25 UTC. **514 752** *tokens* de
+entrada e 52 557 de saída; a entrada é exactamente a da 1.ª passagem sobre os mesmos 210 turnos,
+como no ciclo 1 (519 936 = 519 936) — a reconstrução do pedido não desviou. Custo esperado «na
+ordem dos 520 k»: desvio de −1 %. Ficheiro versionado em
+`analise_tese/saida/cap5/juizos_repeticao.jsonl`; relatório em
+`analise_tese/saida/cap5/juiz_repeticao_kappa.json`, regenerável por
+`AVALIACAO_EXECUCAO=cap5 python -m analise_tese.juiz_repeticao_exec --kappa`.
+
+| variável | κ juiz×juiz `cap5` (n = 210) | IC 95 % | bruta | κ juiz×juiz `cap4` |
+|---|---|---|---|---|
+| diretividade (ponderado) | **0,985** | [0,969; 0,996] | 206/210 | 0,943 |
+| fidelidade (ponderado) | 0,965 | [0,938; 0,990] | 203/210 | 0,944 |
+| movimento do estudante (Cohen) | **1,000** | [1,000; 1,000] | 210/210 | 0,985 |
+| ancorado | 1,000 | [1,000; 1,000] | 210/210 | 0,935 |
+| irrelevante | 0,945 | [0,793; 1,000] | 209/210 | 0,912 |
+| repetida | **0,000** | [0,000; 0,000] | 209/210 | 1,000 |
+| excessivamente direta | 1,000 | [1,000; 1,000] | 210/210 | 0,960 |
+| prematura | 0,934 | [0,865; 0,986] | 205/210 | 0,872 |
+
+IC percentílico por *bootstrap* sobre os pares, 2 000 reamostras, semente fixa
+(`avaliacao/estatistica.py::intervalo_bootstrap`); em `repetida` só 1 266 reamostras têm κ
+definido, as restantes caem numa só categoria. A diretividade mudou em **4 dos 210** turnos,
+sempre um nível (`tese_01_media::k4` REF 2→1; `tese_03_tabuada::k1|A|1` 2→1;
+`tese_11_soma_ate_zero::k2|B|3` 1→2; `tese_11_soma_ate_zero::k4|B|1` 3→2); no ciclo 1 foram 11.
+
+**`repetida` fica abaixo do limiar, e é por construção.** A 1.ª passagem marcou a falha num
+único turno dos 210 (`T0055`, `tese_25_contador_nao_reiniciado::k2::pressao_cedo_2|A|1`) e a
+2.ª em nenhum; com uma marginal a zero a concordância esperada iguala a observada e o κ é 0,
+apesar da bruta de 209/210. É o mesmo desenho de marginal que já dava 0,489 e 0,386 no
+humano×juiz do ciclo 1. Tratamento **já decidido** e aqui aplicado sem reabrir: a variável é
+reportada só na amostra humana; não se recalibra, e `prompts/juiz-revisto.md` continua sem ser
+aplicado a veredito nenhum. As outras sete passam; movimento, ancorado e excessivamente direta
+sem uma única divergência.
+
+A sensibilidade humano×juiz recalculada contra a 2.ª passagem — que no ciclo 1 mostrou que
+nenhum κ mudava de lado — espera pela 1.ª rodada humana; o relatório diz isso em vez de deixar
+a secção em branco.
+
+### O que fica em aberto do juiz
+
+**Um item:** o κ humano×juiz de `cap5`, à espera da 1.ª rodada da codificação cega
+(`python -m avaliacao.codificador`, depois `python -m avaliacao kappa --execucao cap5`). O κ
+intra-avaliador, que espera os 21 dias, é do codificador, não do juiz.
+
