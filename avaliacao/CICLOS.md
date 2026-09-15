@@ -109,11 +109,25 @@ cerca de 3 540 chamadas.
 
 Três coisas ficam declaradas antes, para não serem lidas depois como justificação.
 
-Os 20 itens são todos `origem: tese`, redigidos pelo autor. A sensibilidade por origem, que já
-está no plano analítico, passa a ser o teste de dependência do corpus construído: se H1 se
-sustentar só nos itens `tese` e não nos traduzidos, isso é resultado a reportar. No ciclo 1 o
+Os 20 itens são todos `origem: tese`, redigidos pelo autor — que é também quem anota o movimento
+e quem codifica a amostra humana, porque o estudo tem um só codificador e nenhum revisor externo
+do banco, por desenho declarado na metodologia. A extensão concentra ainda mais o instrumento na
+mesma mão: os itens construídos passam de 6 em 25 para 26 em 45, e com eles a fatia dos prefixos
+bloqueados que existe porque o autor decidiu que existiria. É o custo de tornar o teste capaz, e
+tem de aparecer nas limitações junto com o que já lá está sobre codificador único.
+
+A sensibilidade por origem, que já está no plano analítico, é o único controlo disponível contra
+isso, e deixa de ser decorativa: se H1 se sustentar nos itens `tese` e não nos traduzidos, a
+leitura honesta é que o efeito vive no corpus construído, não que H1 se sustenta. No ciclo 1 o
 coeficiente do acúmulo já diverge por origem — −0,975 em `tese` contra +0,579 em `al_hossami_v2`
-—, o que torna a checagem obrigatória e não decorativa.
+—, portanto a divergência é esperada e a checagem é obrigatória.
+
+Um agravante a registar: os turnos de tutor de referência dos itens novos são 160, e são o padrão
+humano contra o qual o artefato é medido, a âncora a partir da qual ele escala em bancada e a
+fonte do `d_{k-1}` da taxa de contingência. Se fossem gerados por modelo de linguagem, a bancada
+deixaria de comparar o artefato com tutoria humana e passaria a comparar dois modelos. São
+escritos pelo autor, como os 25 itens existentes, e `notas_traducao` de cada item novo registra a
+procedência.
 
 As componentes de variância que dimensionaram a extensão vieram do artefato com o contador
 partido. Assume-se que a heterogeneidade entre prefixos persiste na versão corrigida. É

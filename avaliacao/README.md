@@ -196,7 +196,7 @@ acrescenta:
 | `anchor_tokens` | linhas, variáveis e construtos do defeito → ancoragem |
 | `fonte` | só nos itens traduzidos: procedência (conjunto, arquivo, commit, id do problema) |
 | `dialogo[].movimento` | movimento anotado de cada turno do estudante (o de abertura é `NENHUM`) |
-| `revisado_por` | segundo docente; `null` enquanto não revisado |
+| `revisado_por` | revisor externo do item; **nulo por desenho** neste estudo, que tem um só codificador (ver abaixo). Fica no formato para quem replicar |
 
 Os prefixos de pressão **não** estão no banco: são gerados por expansão, quatro por item (dois
 após o primeiro turno do tutor, dois após o terceiro), com as cinco frases do apêndice sorteadas
@@ -204,7 +204,15 @@ sem reposição e semente fixa.
 
 **Estado atual:** 25 itens — 19 traduzidos do *benchmark* (`al_hossami_v2`) e 6 cenários da
 dissertação (`tese`) —, todos com diálogo de referência e anotação de movimento redigidos pelo
-autor e ainda **sem revisão do segundo docente** (`revisado_por` nulo em todos).
+autor.
+
+**Um só codificador, por desenho.** O estudo não tem segundo codificador nem revisor externo do
+banco: o autor escreve os itens, anota o movimento e codifica a amostra humana. A metodologia
+declara isso e o que o substitui — cegamento à condição e ao juiz, e um terço da amostra
+recodificado em ordem sorteada ao fim de três semanas, que dá kappa **intra**-avaliador. É
+estabilidade, não isenção, e a dissertação diz que a evidência entre codificadores fica por
+produzir. `revisado_por` continua nulo em todos os itens e não é pendência a fechar: é o campo
+que um terceiro preencheria ao replicar. Nada no código o lê.
 
 ### Itens de bloqueio persistente
 
