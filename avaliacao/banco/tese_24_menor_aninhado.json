@@ -1,0 +1,178 @@
+{
+  "id": "tese_24_menor_aninhado",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "fluxo_dados",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "aninhamento",
+    "blocos"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor e imprimir o maior e o menor deles numa unica linha. Ele compila e executa, o maior sai certo e o menor quase sempre errado. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, maior, menor\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        maior = valores[0]\n        menor = valores[0]\n        para (i = 1; i < n; i++)\n        {\n            se (valores[i] > maior)\n            {\n                maior = valores[i]\n                se (valores[i] < menor)\n                {\n                    menor = valores[i]\n                }\n            }\n        }\n\n        escreva(\"Maior: \", maior, \" Menor: \", menor, \"\\n\")\n    }\n}",
+  "bug_desc": "O se que atualiza o menor esta dentro do bloco do se que atualiza o maior. Ele so e consultado quando um novo maximo aparece, e nessa situacao o valor nunca e menor que o minimo corrente, de modo que o menor quase nunca muda.",
+  "bug_fixes": [
+    "}\n            se (valores[i] < menor)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "3",
+        "5",
+        "4",
+        "3"
+      ],
+      "saida_contem": "Maior: 5 Menor: 3\n"
+    },
+    {
+      "entrada": [
+        "4",
+        "7",
+        "2",
+        "9",
+        "1"
+      ],
+      "saida_contem": "Maior: 9 Menor: 1\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "2",
+        "8",
+        "5"
+      ],
+      "saida_contem": "Maior: 8 Menor: 2\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, maior, menor\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        maior = valores[0]\n        menor = valores[0]\n        para (i = 1; i < n; i++)\n        {\n            se (valores[i] > maior)\n            {\n                maior = valores[i]\n                se (valores[i] < menor)\n                {\n                    menor = valores[i]\n                }\n            }\n        }\n\n        escreva(\"Maior: \", maior, \" Menor: \", menor, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "fluxo_dados"
+      ],
+      "casos_ok": 1,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, maior, menor\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        maior = valores[0]\n        menor = valores[0]\n        para (i = 1; i < n; i++)\n        {\n            se (valores[i] > maior)\n            {\n                maior = valores[i]\n            }\n            se (valores[i] < menor)\n            {\n                menor = valores[i]\n            }\n        }\n\n        escreva(\"Maior: \", maior, \" Menor: \", menor, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "\\}\\s*\\n\\s*se\\s*\\(\\s*valores\\[i\\]\\s*<\\s*menor"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      21
+    ],
+    "variaveis": [
+      "maior",
+      "menor"
+    ],
+    "construtos": [
+      "aninhamento",
+      "blocos",
+      "chaves"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Digitei 5, 4 e 3. O maior sai certo, 5, mas o menor tambem sai 5. Devia ser 3.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O menor ficou com o valor que ele recebeu antes do laco. Qual foi esse valor?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "valores[0], que e o 5. Entao o se do menor nunca rodou.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Nunca rodou nesta lista. Para ele rodar, o programa teria de chegar ate ele. Que condicao precisa ser verdadeira antes disso?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A do menor, que compara com valores[i]. Ela e verdadeira para o 4 e para o 3.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Seria, se o programa a testasse. A minha pergunta e anterior: para o programa chegar a testar essa condicao, que outra condicao teve de ser satisfeita primeiro?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O laco comeca em i igual a 1 e por isso pula o primeiro. E dai que vem o erro.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Comecar em 1 e correto: o elemento 0 ja foi usado para dar o valor inicial das duas variaveis. E isso nao explicaria o menor ficar em 5, que e justamente o elemento 0. Volte a pergunta: que condicao esta por fora da do menor?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A do maior. O se do menor esta escrito dentro das chaves dela.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entao siga o 4 pelo programa: ele satisfaz a condicao do maior?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nao, 4 nao e maior que 5. Entao nem entra.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "E o 3? E, de forma geral, um numero que e candidato a menor tem chance de ser tambem candidato a maior?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nao tem. Sao coisas opostas. Mas eu precisei aninhar para testar os dois no mesmo numero.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Testar os dois no mesmo numero e o que voce quer. Aninhar faz o segundo depender do primeiro. Que arranjo testaria os dois de forma independente, na mesma volta?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Os dois se lado a lado, dentro do laco. Tirei o de dentro para fora e agora da Menor: 3.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}

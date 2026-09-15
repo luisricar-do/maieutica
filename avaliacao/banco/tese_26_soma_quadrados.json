@@ -1,0 +1,174 @@
+{
+  "id": "tese_26_soma_quadrados",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "acumulador",
+    "expressao"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor e imprimir a soma dos quadrados deles. Ele compila e executa, mas o resultado e grande demais. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        soma = 0\n        para (i = 0; i < n; i++)\n        {\n            soma = soma + valores[i]\n        }\n        soma = soma * soma\n\n        escreva(\"Soma dos quadrados: \", soma, \"\\n\")\n    }\n}",
+  "bug_desc": "O programa soma os valores e eleva o total ao quadrado no fim, o que produz o quadrado da soma. A soma dos quadrados exige elevar cada valor antes de acumular.",
+  "bug_fixes": [
+    "soma = soma + valores[i] * valores[i]"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "3",
+        "1",
+        "2",
+        "3"
+      ],
+      "saida_contem": "Soma dos quadrados: 14\n"
+    },
+    {
+      "entrada": [
+        "2",
+        "3",
+        "4"
+      ],
+      "saida_contem": "Soma dos quadrados: 25\n"
+    },
+    {
+      "entrada": [
+        "1",
+        "5"
+      ],
+      "saida_contem": "Soma dos quadrados: 25\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        soma = 0\n        para (i = 0; i < n; i++)\n        {\n            soma = soma + valores[i]\n        }\n        soma = soma * soma\n\n        escreva(\"Soma dos quadrados: \", soma, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "logica"
+      ],
+      "casos_ok": 1,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        soma = 0\n        para (i = 0; i < n; i++)\n        {\n            soma = soma + valores[i] * valores[i]\n        }\n\n        escreva(\"Soma dos quadrados: \", soma, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "valores\\[i\\]\\s*\\*\\s*valores\\[i\\]"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      21
+    ],
+    "variaveis": [
+      "soma",
+      "valores"
+    ],
+    "construtos": [
+      "acumulador",
+      "quadrado",
+      "ordem das operacoes"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Digitei 1, 2 e 3. A soma dos quadrados e 1 mais 4 mais 9, ou seja 14. O programa diz 36.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Trinta e seis e um quadrado exato. De que numero?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "De seis. E seis e 1 mais 2 mais 3.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entao o programa elevou ao quadrado alguma coisa que nao era para ser elevada. Que linha do seu codigo faz um quadrado?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A linha soma igual a soma vezes soma, depois do laco. Mas o enunciado pede quadrados, entao ela tem que existir.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Pede quadrados de que, exatamente? Leia o enunciado e diga o que e elevado ao quadrado, no plural ou no singular.",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A ordem esta errada. Se eu puser essa linha antes do laco o quadrado sai primeiro e resolve.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Antes do laco a soma ainda vale zero, e zero ao quadrado continua zero. Volte ao enunciado: soma dos quadrados. Quantos quadrados existem nessa expressao?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Um por numero. Tres quadrados, no meu caso.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "E quantos a sua linha faz?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Um so, no fim. Mas se eu elevar cada um, onde ponho isso?",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Pense onde cada numero e visto individualmente pelo programa. Que trecho olha um valor de cada vez?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O laco, na linha que acumula. Mas essa linha so soma.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Ela soma o que estiver escrito a direita. Se o que deve ser acumulado nao e o valor mas o quadrado dele, o que precisaria estar escrito ali?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O valor vezes ele mesmo. Escrevi valores[i] vezes valores[i] no acumulo, apaguei a linha do fim e agora da 14.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}

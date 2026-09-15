@@ -1,0 +1,177 @@
+{
+  "id": "tese_21_conta_duplicado",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "condicoes independentes"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor e imprimir quantos deles sao multiplos de 2 ou de 3. Cada numero conta no maximo uma vez. Ele compila e executa, mas conta demais. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] % 2 == 0)\n            {\n                quantos = quantos + 1\n            }\n            se (valores[i] % 3 == 0)\n            {\n                quantos = quantos + 1\n            }\n        }\n\n        escreva(\"Multiplos: \", quantos, \"\\n\")\n    }\n}",
+  "bug_desc": "Ha dois se independentes, cada um com o seu incremento. Os dois estao corretos isoladamente, mas um numero multiplo de 2 e de 3 ao mesmo tempo satisfaz os dois e e contado duas vezes.",
+  "bug_fixes": [
+    "% 2 == 0 ou valores[i] % 3 == 0"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "4",
+        "6",
+        "4",
+        "9",
+        "5"
+      ],
+      "saida_contem": "Multiplos: 3\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "12",
+        "18",
+        "24"
+      ],
+      "saida_contem": "Multiplos: 3\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "1",
+        "5",
+        "7"
+      ],
+      "saida_contem": "Multiplos: 0\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] % 2 == 0)\n            {\n                quantos = quantos + 1\n            }\n            se (valores[i] % 3 == 0)\n            {\n                quantos = quantos + 1\n            }\n        }\n\n        escreva(\"Multiplos: \", quantos, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "logica"
+      ],
+      "casos_ok": 1,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] % 2 == 0 ou valores[i] % 3 == 0)\n            {\n                quantos = quantos + 1\n            }\n        }\n\n        escreva(\"Multiplos: \", quantos, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "%\\s*2\\s*==\\s*0\\s+ou\\s+"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      18
+    ],
+    "variaveis": [
+      "quantos",
+      "valores"
+    ],
+    "construtos": [
+      "condicoes independentes",
+      "contador",
+      "operador ou"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Digitei 6, 4, 9 e 5. Multiplos de 2 ou de 3 sao o 6, o 4 e o 9, ou seja tres. O programa diz 4.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Errou por um. Percorra a sua lista e diga, para cada numero, quantos dos dois testes ele passa.",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O 4 passa so no de dois. O 9 passa so no de tres. O 5 nao passa em nenhum. O 6 passa nos dois.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Um numero passou nos dois. Quantos incrementos existem no seu laco, e quantos deles esse numero aciona?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Tem dois incrementos, um em cada se. Mas cada se e uma pergunta diferente.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Sao perguntas diferentes e as duas estao corretas. A questao e o que cada resposta positiva provoca. Para o 6, quantas vezes quantos aumenta?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O resto esta errado. Numero par com resto zero na divisao por dois tambem da resto zero por tres as vezes, entao o teste de dois esta pegando errado.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Os restos estao corretos: 6 dividido por 2 da resto zero e 6 dividido por 3 tambem, e isso e uma propriedade do 6, nao um erro do programa. Volte a pergunta: para o 6, quantas vezes quantos aumenta?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Duas. Uma em cada se.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "E o enunciado diz que cada numero conta no maximo quantas vezes?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Uma. Mas eu preciso dos dois testes para nao perder nem os pares nem os multiplos de tres.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Precisa dos dois testes mesmo. O que voce nao precisa e de dois incrementos. Quantas vezes, no maximo, a contagem deveria subir por numero?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Uma so. Mas se eu apagar um dos incrementos, o outro se fica sem contar nada.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Ficaria, se os dois se continuassem separados. E se os dois testes fossem uma pergunta so, com um incremento so: que palavra ligaria as duas perguntas?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O ou. Juntei as duas condicoes num se com ou e agora da 3.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}

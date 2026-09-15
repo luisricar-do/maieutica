@@ -1,0 +1,178 @@
+{
+  "id": "tese_19_soma_do_indice",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "fluxo_dados",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "indice",
+    "conteudo"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor e imprimir a soma deles. Ele compila e executa, mas devolve sempre o mesmo resultado para a mesma quantidade de numeros, seja qual for o que se digita. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        soma = 0\n        para (i = 0; i < n; i++)\n        {\n            soma = soma + i\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+  "bug_desc": "O acumulador soma a variavel de controle do laco em vez do elemento do vetor na posicao correspondente. O resultado depende apenas de quantos valores foram lidos, e nao de quais.",
+  "bug_fixes": [
+    "soma = soma + valores[i]"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "3",
+        "10",
+        "20",
+        "30"
+      ],
+      "saida_contem": "Soma: 60\n"
+    },
+    {
+      "entrada": [
+        "2",
+        "5",
+        "5"
+      ],
+      "saida_contem": "Soma: 10\n"
+    },
+    {
+      "entrada": [
+        "4",
+        "1",
+        "1",
+        "1",
+        "1"
+      ],
+      "saida_contem": "Soma: 4\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        soma = 0\n        para (i = 0; i < n; i++)\n        {\n            soma = soma + i\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "fluxo_dados"
+      ],
+      "casos_ok": 0,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        soma = 0\n        para (i = 0; i < n; i++)\n        {\n            soma = soma + valores[i]\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "soma\\s*\\+\\s*valores\\s*\\["
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      18
+    ],
+    "variaveis": [
+      "soma",
+      "i",
+      "valores"
+    ],
+    "construtos": [
+      "indice",
+      "elemento do vetor",
+      "acumulador"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Digitei 10, 20 e 30 e deu Soma: 3. Depois digitei 1, 2 e 3 e deu Soma: 3 outra vez.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O mesmo resultado para listas diferentes. O que as duas execucoes tiveram em comum?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A quantidade, tres numeros nas duas. Mas a soma tem que olhar os valores.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Tem de olhar. Leia a linha que acumula e diga o nome de tudo o que aparece do lado direito do sinal de igual.",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Aparece soma e aparece i.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Dois nomes. Um deles e o acumulador. O outro, o i, guarda o que ao longo do laco?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O leia esta errado. Ele deve estar guardando a posicao em vez do numero que eu digito.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O leia escreve em valores[i], que e a posicao i do vetor, e e la que o seu numero fica guardado. Volte a pergunta: ao longo do laco, que valores o i assume?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Zero, um e dois. Sao as posicoes.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Zero mais um mais dois da quanto?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Tres. E foi o que apareceu nas duas vezes. Mas eu escrevi i porque e o que percorre o vetor.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O i percorre mesmo. Ele diz onde olhar. A pergunta seguinte e: o i e o lugar, ou o que esta no lugar?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "E o lugar. O que esta la e outra coisa.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Como se escreve, no seu programa, o que esta guardado na posicao i? Voce ja usou essa escrita no laco de leitura.",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "valores[i]. Troquei o i por valores[i] e agora da 60.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}

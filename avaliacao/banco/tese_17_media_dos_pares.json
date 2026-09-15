@@ -1,0 +1,182 @@
+{
+  "id": "tese_17_media_dos_pares",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "media",
+    "contador"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor e imprimir a media apenas dos valores pares. Garante-se que ha ao menos um par. Ele compila e executa, mas a media sai baixa demais. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n        real media\n\n        soma = 0\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] % 2 == 0)\n            {\n                soma = soma + valores[i]\n                quantos = quantos + 1\n            }\n        }\n\n        media = soma / n\n\n        escreva(\"Media dos pares: \", media, \"\\n\")\n    }\n}",
+  "bug_desc": "A soma acumula so os pares, mas a divisao usa n, a quantidade total de valores lidos. O contador de pares e mantido corretamente e nunca e usado.",
+  "bug_fixes": [
+    "media = soma / quantos"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "4",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "saida_contem": "Media dos pares: 3\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "10",
+        "20",
+        "30"
+      ],
+      "saida_contem": "Media dos pares: 20\n"
+    },
+    {
+      "entrada": [
+        "5",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "saida_contem": "Media dos pares: 3\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n        real media\n\n        soma = 0\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] % 2 == 0)\n            {\n                soma = soma + valores[i]\n                quantos = quantos + 1\n            }\n        }\n\n        media = soma / n\n\n        escreva(\"Media dos pares: \", media, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "logica"
+      ],
+      "casos_ok": 1,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, soma, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n        real media\n\n        soma = 0\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] % 2 == 0)\n            {\n                soma = soma + valores[i]\n                quantos = quantos + 1\n            }\n        }\n\n        media = soma / quantos\n\n        escreva(\"Media dos pares: \", media, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "soma\\s*/\\s*quantos"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      26
+    ],
+    "variaveis": [
+      "media",
+      "soma",
+      "quantos",
+      "n"
+    ],
+    "construtos": [
+      "media",
+      "divisao",
+      "contador"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Digitei 2, 3, 4 e 5. Os pares sao 2 e 4, a media deles e 3. O programa diz 1.5.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Um e meio e metade de tres. De onde poderia sair uma divisao que corta o resultado certo pela metade?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nao sei. A soma dos pares da 6, e 6 dividido por 2 da 3, que e o certo.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce dividiu por 2. Abra a linha da divisao no programa: por quanto ela divide?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Por n. E n vale 4, porque eu digitei quatro numeros.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Seis dividido por quatro da um e meio, que e o que apareceu. Agora compare os dois divisores: o seu 2 e o n do programa. O que cada um conta?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A soma esta errada, entao. Ela deve estar somando os impares tambem e por isso preciso dividir por quatro.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Se a soma incluisse os impares ela daria 14 e nao 6, e o resultado seria maior e nao menor. Fique na comparacao: o seu 2 conta o que?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Conta quantos pares tem. E o n conta todos os numeros.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entao a divisao usa um total que nao corresponde ao que foi somado. Existe no programa alguma variavel que ja guarde a contagem que voce usou a mao?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Tem o quantos, que eu incremento junto com a soma. Mas ele nao aparece na conta.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Nao aparece. Percorra o programa e diga onde quantos e lido depois de ser escrito.",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Em lugar nenhum. Ele so cresce e nunca e usado.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Uma variavel que so cresce e nunca e lida costuma denunciar onde ela deveria ter sido usada. Em que conta ela caberia?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Na divisao, no lugar do n. Troquei e agora da 3.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}

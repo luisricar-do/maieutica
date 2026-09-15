@@ -107,6 +107,30 @@ Os itens novos correm em todas as condições, como os 25 existentes, para o ban
 uniforme e alimentar também as descritivas e a ablação. A corrida somativa passa de 1 860 para
 cerca de 3 540 chamadas.
 
+### Extensão concluída
+
+Os vinte itens estão no banco, `tese_07` a `tese_26`, e o banco rende **167 prefixos
+bloqueados** — o ponto de desenho exato que a simulação dimensionou para erro-padrão 0,216 e
+79% de poder. A cobertura na faixa em que a política escala passou de 7 para 67 prefixos, e de
+3 para 23 itens em 45.
+
+As classes de defeito distribuem-se por `fluxo_dados` (8), `logica` (8), `limite` (3) e
+`laco_infinito` (1). Todos os estados foram executados no motor headless: o estado com defeito
+passa entre 0 e 2 dos 3 casos e o corrigido passa os 3, e onde o defeituoso passa algum é sempre
+o caso degenerado ou aquele que o defeito não afeta.
+
+Dois itens planeados caíram na verificação, e valem como registro do que o motor decide e a
+intuição não. Um item de `tipo` por divisão inteira não existe: neste Portugol
+`inteiro / inteiro` para destino `real` dá divisão real, e a truncagem só vem do destino
+`inteiro`, que é o defeito que `tese_01_media` já tem. E um item de índice deslocado também não:
+ler posição não inicializada do vetor aborta o programa em silêncio, com `executed` verdadeiro e
+saída vazia, de modo que o estudante não veria número errado, veria nada.
+
+Um terceiro caiu por análise errada minha, apanhada pela execução: numa contagem com sentinela,
+ler antes de contar e contar antes de ler dão o mesmo total, porque o incremento conta o valor
+anterior, que a condição já validou. Não havia defeito nenhum a depurar, e o item foi
+substituído por dois laços `enquanto` que partilham a variável de controle sem a reiniciar.
+
 ### O que a extensão não resolve
 
 Três coisas ficam declaradas antes, para não serem lidas depois como justificação.

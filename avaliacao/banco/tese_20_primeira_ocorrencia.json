@@ -1,0 +1,182 @@
+{
+  "id": "tese_20_primeira_ocorrencia",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "limite",
+  "conceitos": [
+    "vetor",
+    "busca",
+    "primeira ocorrencia"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor, ler um valor alvo e imprimir a posicao da PRIMEIRA vez em que ele aparece, contando a partir de 1, ou 0 se nao aparecer. Ele compila e executa, mas erra quando o alvo aparece mais de uma vez. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, alvo, posicao\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        escreva(\"Procurar: \")\n        leia(alvo)\n\n        posicao = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] == alvo)\n            {\n                posicao = i + 1\n            }\n        }\n\n        escreva(\"Posicao: \", posicao, \"\\n\")\n    }\n}",
+  "bug_desc": "O laco percorre o vetor inteiro e atualiza a posicao a cada ocorrencia encontrada. A ultima atualizacao sobrescreve as anteriores, de modo que o programa reporta a ultima ocorrencia e nao a primeira.",
+  "bug_fixes": [
+    "se (valores[i] == alvo e posicao == 0)"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "5",
+        "7",
+        "3",
+        "7",
+        "1",
+        "7",
+        "7"
+      ],
+      "saida_contem": "Posicao: 1\n"
+    },
+    {
+      "entrada": [
+        "4",
+        "2",
+        "5",
+        "5",
+        "9",
+        "5"
+      ],
+      "saida_contem": "Posicao: 2\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "1",
+        "2",
+        "3",
+        "8"
+      ],
+      "saida_contem": "Posicao: 0\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, alvo, posicao\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        escreva(\"Procurar: \")\n        leia(alvo)\n\n        posicao = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] == alvo)\n            {\n                posicao = i + 1\n            }\n        }\n\n        escreva(\"Posicao: \", posicao, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "limite"
+      ],
+      "casos_ok": 1,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, alvo, posicao\n        inteiro valores[20]\n\n        escreva(\"Quantos numeros? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        escreva(\"Procurar: \")\n        leia(alvo)\n\n        posicao = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] == alvo e posicao == 0)\n            {\n                posicao = i + 1\n            }\n        }\n\n        escreva(\"Posicao: \", posicao, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "fix_patterns": [
+    "alvo\\s+e\\s+posicao\\s*==\\s*0"
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      24
+    ],
+    "variaveis": [
+      "posicao",
+      "alvo"
+    ],
+    "construtos": [
+      "busca",
+      "primeira ocorrencia",
+      "sobrescrita"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Procurei o 7 na lista 7, 3, 7, 1, 7. Ele diz Posicao: 5, mas o primeiro 7 esta na posicao 1.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Cinco e a posicao de um 7 que existe mesmo na sua lista. Qual deles?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O ultimo. Mas eu quero o primeiro.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entao o programa encontrou os tres e ficou com o ultimo. Quantas vezes a linha que guarda a posicao foi executada nessa busca?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Tres vezes, uma para cada 7.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "E cada execucao escreve na mesma variavel. O que acontece com o valor que estava la quando a segunda escreve?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A conta do i mais um esta errada. Ele esta somando um a mais e por isso da 5 em vez de 1.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O i mais um esta certo: para o 7 da posicao 5 o indice e 4, e 4 mais 1 da 5. O numero impresso corresponde mesmo a um 7 real. Volte a pergunta: o que acontece com o valor anterior quando a variavel e escrita de novo?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "E perdido. Mas eu preciso que ela seja escrita quando encontra.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Precisa que seja escrita quando encontra o primeiro. Da segunda vez em diante, o que voce gostaria que acontecesse?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Que nao escrevesse. Mas o laco nao sabe se ja encontrou antes.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Nao sabe pela condicao que esta la hoje. Mas ha no programa uma variavel cujo valor muda assim que a primeira ocorrencia aparece. Qual e, e quanto ela vale antes disso?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "E a propria posicao. Antes vale zero, que e o que eu uso para dizer que nao achou.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entao ela ja distingue os dois casos. Que pergunta voce faria sobre ela antes de deixar a escrita acontecer?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Se ela ainda vale zero. Acrescentei isso a condicao e agora da 1.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}
