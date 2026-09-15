@@ -1,0 +1,173 @@
+{
+  "id": "tese_11_soma_ate_zero",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "laco_infinito",
+  "conceitos": [
+    "laco enquanto",
+    "condicao de parada",
+    "leitura dentro do laco"
+  ],
+  "problem": "O programa deve ler inteiros ate que o usuario digite 0 e imprimir a soma dos numeros lidos, sem contar o 0. Ele compila, mas quando o primeiro numero nao e 0 ele nunca termina. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro valor, soma\n\n        soma = 0\n        escreva(\"Digite numeros, 0 para terminar: \")\n        leia(valor)\n\n        enquanto (valor != 0)\n        {\n            soma = soma + valor\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+  "bug_desc": "A leitura do proximo valor esta fora do enquanto. A variavel testada na condicao nunca muda depois da primeira leitura, e o laco repete para sempre somando o mesmo numero.",
+  "bug_fixes": [
+    "soma = soma + valor\n            leia(valor)"
+  ],
+  "fix_patterns": [
+    "soma\\s*\\+\\s*valor\\s*\\n\\s*leia"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "3",
+        "4",
+        "5",
+        "0"
+      ],
+      "saida_contem": "Soma: 12\n"
+    },
+    {
+      "entrada": [
+        "0"
+      ],
+      "saida_contem": "Soma: 0\n"
+    },
+    {
+      "entrada": [
+        "7",
+        "-7",
+        "2",
+        "0"
+      ],
+      "saida_contem": "Soma: 2\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro valor, soma\n\n        soma = 0\n        escreva(\"Digite numeros, 0 para terminar: \")\n        leia(valor)\n\n        enquanto (valor != 0)\n        {\n            soma = soma + valor\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "laco_infinito"
+      ],
+      "casos_ok": 1,
+      "casos_total": 3,
+      "timeout": true
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro valor, soma\n\n        soma = 0\n        escreva(\"Digite numeros, 0 para terminar: \")\n        leia(valor)\n\n        enquanto (valor != 0)\n        {\n            soma = soma + valor\n            leia(valor)\n        }\n\n        escreva(\"Soma: \", soma, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      11
+    ],
+    "variaveis": [
+      "valor",
+      "soma"
+    ],
+    "construtos": [
+      "laco enquanto",
+      "condicao de parada",
+      "leitura"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Meu programa trava. Eu digito 3 e ele nunca para, fica rodando sozinho ate eu interromper.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O enquanto so continua enquanto a condicao dele for verdadeira. Qual e a condicao que voce escreveu?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Valor diferente de zero. E eu quero mesmo que ele pare quando for zero.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "A condicao expressa exatamente isso. Entao o programa so para se valor chegar a valer zero em algum momento. Depois que voce digitou 3, o que faria valor deixar de ser 3?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Eu digitar outro numero. Mas ele nem me pede.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Ele nao pede. Aponte no codigo a linha que pede um numero ao usuario, e diga o que esta acima e o que esta abaixo dela.",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O enquanto esta errado, tinha que ser um para, porque com enquanto nao da para ler varias vezes.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O enquanto e justamente o laco para quando nao se sabe quantas voltas serao dadas, que e o seu caso: o usuario decide quando parar. Fique no codigo: onde esta o leia, em relacao as chaves do enquanto?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Esta em cima, antes das chaves abrirem.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entao ele pertence ao que acontece antes do laco. Quantas vezes uma linha que esta antes do laco e executada, se o laco der mil voltas?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Uma so. Mas ela e que da o primeiro valor, sem ela o enquanto nem comeca.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Ela e necessaria mesmo, e por isso fica. A pergunta seguinte e outra: alem dessa primeira vez, em que outro momento o programa precisaria de um numero novo?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A cada volta. Mas so tenho um leia.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Tem um. Voce acabou de dizer onde precisaria de outro e com que frequencia. Que lugar do codigo e executado a cada volta?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O que esta dentro das chaves. Pus um leia depois da soma e agora ele para quando eu digito zero.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}

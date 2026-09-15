@@ -1,0 +1,180 @@
+{
+  "id": "tese_10_faixa_valores",
+  "origem": "tese",
+  "prioridade": 1,
+  "tipo_bug": "logica",
+  "conceitos": [
+    "vetor",
+    "laco",
+    "condicao composta",
+    "operadores logicos"
+  ],
+  "problem": "O programa deve ler um inteiro n (1 <= n <= 20), ler n inteiros em um vetor e imprimir quantos estao na faixa de 10 a 20, incluindo os extremos. Ele compila e executa, mas conta demais. Localize e corrija o defeito.",
+  "bug_code": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos valores? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] >= 10 ou valores[i] <= 20)\n            {\n                quantos = quantos + 1\n            }\n        }\n\n        escreva(\"Na faixa: \", quantos, \"\\n\")\n    }\n}",
+  "bug_desc": "As duas comparacoes da condicao estao corretas, mas ligadas por ou. Como todo inteiro e maior ou igual a 10 ou menor ou igual a 20, a condicao e sempre verdadeira e o programa conta todos os valores lidos.",
+  "bug_fixes": [
+    "valores[i] >= 10 e valores[i] <= 20"
+  ],
+  "fix_patterns": [
+    ">=\\s*10\\s+e\\s+"
+  ],
+  "unit_tests": [
+    {
+      "entrada": [
+        "5",
+        "5",
+        "15",
+        "25",
+        "10",
+        "20"
+      ],
+      "saida_contem": "Na faixa: 3\n"
+    },
+    {
+      "entrada": [
+        "3",
+        "1",
+        "2",
+        "3"
+      ],
+      "saida_contem": "Na faixa: 0\n"
+    },
+    {
+      "entrada": [
+        "4",
+        "11",
+        "12",
+        "13",
+        "14"
+      ],
+      "saida_contem": "Na faixa: 4\n"
+    }
+  ],
+  "estados_codigo": [
+    {
+      "id": "s0",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos valores? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] >= 10 ou valores[i] <= 20)\n            {\n                quantos = quantos + 1\n            }\n        }\n\n        escreva(\"Na faixa: \", quantos, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [
+        "logica"
+      ],
+      "casos_ok": 1,
+      "casos_total": 3,
+      "timeout": false
+    },
+    {
+      "id": "s1",
+      "codigo": "programa\n{\n    funcao inicio()\n    {\n        inteiro n, i, quantos\n        inteiro valores[20]\n\n        escreva(\"Quantos valores? \")\n        leia(n)\n\n        para (i = 0; i < n; i++)\n        {\n            leia(valores[i])\n        }\n\n        quantos = 0\n        para (i = 0; i < n; i++)\n        {\n            se (valores[i] >= 10 e valores[i] <= 20)\n            {\n                quantos = quantos + 1\n            }\n        }\n\n        escreva(\"Na faixa: \", quantos, \"\\n\")\n    }\n}",
+      "errors": [],
+      "compilerErrorLines": [],
+      "defeitos_vigentes": [],
+      "casos_ok": 3,
+      "casos_total": 3,
+      "timeout": false
+    }
+  ],
+  "anchor_tokens": {
+    "linhas": [
+      19
+    ],
+    "variaveis": [
+      "valores",
+      "quantos"
+    ],
+    "construtos": [
+      "condicao composta",
+      "operador ou",
+      "operador e"
+    ]
+  },
+  "estado_solucao": "s1",
+  "revisado_por": null,
+  "referencia_autoria": "autor_com_assistencia",
+  "notas_traducao": "Cenario da dissertacao, item de bloqueio persistente (CICLOS.md). Diálogo de referência e anotação de movimento redigidos com assistência de modelo de linguagem e revistos pelo autor; `referencia_autoria` marca isso, e a calibração humana dos limiares exclui estes turnos. Reescrito pelo autor, o campo passa a `autor`.",
+  "dialogo": [
+    {
+      "papel": "estudante",
+      "texto": "Digitei 5, 15, 25, 10 e 20 e o programa diz Na faixa: 5. So tres deles estao entre 10 e 20.",
+      "estado_codigo": "s0",
+      "movimento": "NENHUM"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Cinco e exatamente quantos numeros voce digitou. O programa deixou algum de fora?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Nenhum. Ele contou todos.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Entao a condicao do se aceitou os cinco, inclusive o 5 e o 25. Leia a condicao em voz alta aplicada so ao 25: que resposta cada metade dela da?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "A primeira da verdadeiro, 25 e maior que 10. A segunda da falso, 25 nao e menor que 20. Eu escrevi as duas comparacoes certas.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "As duas comparacoes estao mesmo certas. O que decide a entrada no se nao e cada metade sozinha: e o resultado de juntar as duas. Que palavra as junta na sua linha?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "O sinal de maior ou igual esta errado. Devia ser so maior, porque a faixa nao inclui o 10.",
+      "estado_codigo": "s0",
+      "movimento": "REGRESSAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "O enunciado diz incluindo os extremos, entao maior ou igual esta certo, e trocar isso perderia o 10, que voce quer contar. Volte a pergunta: que palavra liga as duas comparacoes?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "E o ou. Mas eu quis dizer que o numero tem que estar de um jeito ou de outro dentro da faixa.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Em portugues do dia a dia ou as vezes soa assim. Para o programa ele tem um significado so: com verdadeiro de um lado e falso do outro, o que ou devolve?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "Devolve verdadeiro. Por isso o 25 entrou.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Isso. Agora diga o que voce precisa que aconteca com o 25: quantas das duas comparacoes tem de ser verdadeiras para ele ser contado?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "As duas. Mas nao sei como escrever isso.",
+      "estado_codigo": "s0",
+      "movimento": "ESTAGNACAO"
+    },
+    {
+      "papel": "tutor",
+      "texto": "Voce ja usou a palavra certa numa frase, quando disse que o numero tem de estar entre 10 e 20. Que palavra e essa, e o que ela faz com verdadeiro e falso?",
+      "alternativas": []
+    },
+    {
+      "papel": "estudante",
+      "texto": "E o e. Troquei o ou pelo e e agora da 3.",
+      "estado_codigo": "s1",
+      "movimento": "PROGRESSO"
+    }
+  ]
+}
