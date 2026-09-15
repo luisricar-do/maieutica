@@ -79,11 +79,6 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   ├── test_telemetry.py
 │   ├── test_telemetry_store.py
 │   └── conftest.py
-├── avaliacao/          # Bancada de avaliação (Cap. 4): harness, juiz LLM e análise
-│   ├── banco/          # Banco de itens de depuração (um JSON por diálogo)
-│   ├── prompts/        # Prompt do juiz e instrução da condição C
-│   ├── cli.py          # `python -m avaliacao <comando>`
-│   └── README.md       # Fluxo completo da bancada
 ├── scripts/
 │   └── fetch_telemetry.py   # Baixa e consolida a telemetria (NDJSON + CSV)
 ├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/telemetry
@@ -480,25 +475,33 @@ telemetria, relevante para a análise de sensibilidade prevista no protocolo.
 
 Projeto de investigação em **Ciência da Computação na Educação**, alinhado a práticas de **Design Science Research** e integração com ecossistema Portugol. Ajuste autores e metadados em `pyproject.toml` conforme a sua dissertação.
 
-## Bancada de avaliação (`avaliacao/`)
+## Bancada de avaliação (repositório à parte)
 
-O harness da avaliação do Capítulo 4 vive em [`avaliacao/`](avaliacao/README.md). Executa o tutor
-sobre um banco de itens de depuração, classifica cada turno com um juiz automático (LLM as a
-judge, modelo de família distinta da do tutor) e gera as tabelas do Capítulo 5. Só chamadas HTTP,
-sem dependências além da biblioteca padrão.
+O harness dos Capítulos 4 e 5 — executar o tutor sobre o banco de itens, julgar cada turno com um
+juiz automático de família distinta, codificar a subamostra às cegas e apurar H1/H2 — vive em
+**[maieutica-avaliacoes](https://github.com/luisricar-do/maieutica-avaliacoes)** (privado: contém
+os dados de pesquisa ainda não publicados).
+
+Ficou separado por duas razões. Este repositório é o serviço — Azure Functions, LangGraph,
+langchain; a bancada é biblioteca padrão e fala com o serviço só por HTTP, e uma medida que
+precisasse de conhecer o interior do que mede não seria medida. E as corridas, os vereditos do
+juiz e a codificação humana são **versionados** lá, ao contrário do que acontecia aqui, onde eram
+saída de ferramenta no `.gitignore`.
+
+Para correr a avaliação, clone-o ao lado desta pasta e suba o serviço em modo de avaliação
+(`EVALUATION_MODE=1` e `INTERACTION_LOG_DIR` no `local.settings.json`):
 
 ```bash
-# serviço em modo de avaliação: EVALUATION_MODE=1 e INTERACTION_LOG_DIR no local.settings.json
-make start
+make start                    # aqui: o serviço de pé
 
-python -m avaliacao validar
-python -m avaliacao rodar --simular     # quantas chamadas a corrida dá
-python -m avaliacao rodar               # condições A (artefato) e C (referência)
-python -m avaliacao julgar              # juiz de ensaio (gpt-4o, barato)
-python -m avaliacao julgar --juiz-protocolo   # juiz do protocolo (Gemini), para a corrida da tese
-python -m avaliacao analisar            # H1, H2, descritivas, tabelas .tex
+cd ../maieutica-avaliacoes
+make aval-validar
+make aval-rodar               # condições A (artefato), B (ablação), C (referência)
+make aval-julgar --juiz-protocolo
+make aval-analisar
 ```
 
-Cada corrida fica em `avaliacao/execucoes/<id>/` (fora do versionamento) com o manifesto de
-reprodutibilidade, os turnos, os juízos e a análise. Detalhes, formato do banco de itens e
-ressalvas metodológicas: [`avaliacao/README.md`](avaliacao/README.md).
+As rotas que a bancada consome — `POST /api/help`, `POST /api/help/single` e
+`GET /api/help/single/prompts` — estão documentadas acima, e os três prompts são congelados por
+SHA-256: se um hash mudar, a corrida anterior deixa de ser comparável e a bancada recusa-se a
+fechar a execução.

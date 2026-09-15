@@ -1,5 +1,4 @@
-.PHONY: test dev start watch dev-watch lock install sync \
-	aval-validar aval-rodar aval-julgar aval-analisar aval-amostra aval-kappa
+.PHONY: test dev start watch dev-watch lock install sync
 
 # Testes (mesmo que `poetry run pytest`)
 test:
@@ -28,24 +27,6 @@ install:
 sync:
 	poetry lock && poetry install
 
-# ---------------------------------------------------------------- bancada de avaliação
-# Ver avaliacao/README.md. Exige o serviço de pé com EVALUATION_MODE=1 e, para julgar,
-# GEMINI_API_KEY. Use AVAL="--itens x --execucoes 1" para passar argumentos.
-
-aval-validar:
-	python3 -m avaliacao validar $(AVAL)
-
-aval-rodar:
-	python3 -m avaliacao rodar $(AVAL)
-
-aval-julgar:
-	python3 -m avaliacao julgar $(AVAL)
-
-aval-analisar:
-	python3 -m avaliacao analisar $(AVAL)
-
-aval-amostra:
-	python3 -m avaliacao amostra-humana $(AVAL)
-
-aval-kappa:
-	python3 -m avaliacao kappa $(AVAL)
+# A bancada de avaliação (harness, juiz e apuração dos Caps. 4 e 5) vive em repositório próprio:
+# https://github.com/luisricar-do/maieutica-avaliacoes — clonado ao lado desta pasta, os seus
+# `make aval-*` e `make apurar-*` correm de lá contra este serviço, por HTTP.

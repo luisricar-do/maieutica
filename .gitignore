@@ -14,20 +14,3 @@ dist/
 # Registro estruturado por turno do serviço (INTERACTION_LOG_DIR): NDJSON de uso real
 # e de bancada, com código e falas de estudante. Nunca versionado.
 registro_interacoes/
-
-# Saídas das corridas da bancada (o manifesto e as tabelas vão à mão para a tese)
-avaliacao/execucoes/
-
-# Rascunhos da importação do conjunto de Al-Hossami: texto original em inglês,
-# derivados e regeneráveis por `python -m avaliacao importar`.
-avaliacao/traducao/
-
-# Saídas da apuração do Capítulo 5: derivadas, regeneráveis pelos scripts da pasta.
-# A 2.ª passagem do juiz é a exceção — 210 chamadas que não se repetem de graça, e é
-# dela que sai o κ de estabilidade reportado no capítulo. Essa fica versionada.
-analise_tese/saida/*
-!analise_tese/saida/juizos_repeticao.jsonl
-# O mesmo vale para a 2.ª passagem de cada execução posterior, em `saida/<execução>/`.
-!analise_tese/saida/*/
-analise_tese/saida/*/*
-!analise_tese/saida/*/juizos_repeticao.jsonl

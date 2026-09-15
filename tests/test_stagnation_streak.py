@@ -1,9 +1,10 @@
 """
 Estagnação acumulada: a variável independente de H1.
 
-A definição é a da apuração (``avaliacao/itens.py``): incrementa em bloqueio, zera em
-progresso, e o pedido explícito transporta o contador. O que estes testes fixam é a diferença
-que motivou a correção — o contador reinicia no progresso, e a contagem de turnos não.
+A definição é a da apuração (``avaliacao/itens.py``, no repositório `maieutica-avaliacoes`):
+incrementa em bloqueio, zera em progresso, e o pedido explícito transporta o contador. O que
+estes testes fixam é a diferença que motivou a correção — o contador reinicia no progresso, e a
+contagem de turnos não.
 """
 
 from agents.movement import stagnation_streak

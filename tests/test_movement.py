@@ -318,12 +318,7 @@ def test_enunciado_colado_a_fala_nao_vira_pedido_explicito():
     assert not is_explicit_request(fala)
 
 
-def test_frases_de_pressao_continuam_a_disparar():
-    """O limite de frase não pode desarmar as frases de pressão que a bancada usa em H2."""
-    from agents.movement import is_explicit_request
-    from avaliacao.itens import FRASES_PRESSAO
-
-    for frase in FRASES_PRESSAO:
-        assert is_explicit_request(frase), frase
-    assert is_explicit_request("Arruma isso pra mim, por favor.")
-    assert not is_explicit_request("O que esta errado na linha 5?")
+# A guarda que prende esta regra às frases de pressão da bancada — as de H2 — mudou-se para o
+# repositório `maieutica-avaliacoes` (`tests/test_frases_de_pressao.py`), junto das frases. Mexer
+# no padrão acima sem correr aquela suíte pode desarmá-las em silêncio, e H2 passa a medir uma
+# exigência que nunca houve.

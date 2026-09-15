@@ -12,11 +12,28 @@ pronta — só orientação por perguntas. Pacote Poetry: `portugol-tutor-api`.
 ## Estrutura e comandos
 
 - **Raiz da API:** `function_app.py`, `host.json`, `agents/`, `services/`, `tests/`
-- **Bancada de avaliação:** `avaliacao/` — harness HTTP, juiz LLM e análise do Cap. 4 da tese
-  (stdlib apenas; ver `avaliacao/README.md`). Saídas em `avaliacao/execucoes/`, não versionadas.
 - **Comandos:** `make test` (`pytest`), `make start` / `make dev`, `make watch` (ver `Makefile`)
 - **Dependências:** Poetry (`pyproject.toml`); deploy Azure usa `requirements.txt` exportado
 - **Config local:** `local.settings.json` (não versionado); ver `local.settings.example.json`
+
+## Bancada de avaliação (repositório à parte)
+
+O harness dos Caps. 4 e 5 vive em **`../maieutica-avaliacoes`**
+(https://github.com/luisricar-do/maieutica-avaliacoes, privado). Não trazer nada disso para cá: a
+bancada é stdlib e só toca o serviço por HTTP, e é isso que a torna uma medida.
+
+O que isto impõe a mudanças **neste** repositório:
+
+- **Rotas que a bancada consome:** `POST /api/help`, `POST /api/help/single` (`promptVariant`
+  `socratic`/`neutral`) e `GET /api/help/single/prompts`. Mudança de contrato aí invalida as
+  corridas já feitas — alinhar antes.
+- **Prompts congelados:** os três prompts da chamada única têm SHA-256 registrado no manifesto de
+  cada execução. Editá-los torna a corrida anterior incomparável; se for deliberado, é execução
+  nova, não correção.
+- **`agents/movement.py`:** as frases de pressão de H2 e a anotação do banco dependem de
+  `is_explicit_request` e `classify_movement`. A guarda que prende a regra às frases está em
+  `maieutica-avaliacoes/tests/test_frases_de_pressao.py` — correr aquela suíte depois de mexer no
+  padrão, ou H2 passa a medir uma exigência que nunca houve, em silêncio.
 
 ## Integração com a IDE (portugol-ai-tutor)
 
