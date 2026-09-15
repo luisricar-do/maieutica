@@ -473,6 +473,34 @@ texto quase perfeito, e "quase perfeito" aqui significa julgar se a hipótese af
 que é precisamente o que o nó tentou e fez pior. As duas reprovações e o tecto dizem a mesma coisa
 por três vias.
 
+### O manifesto grava proxies do estado, e os proxies não cobrem tudo
+
+Três vezes no mesmo ciclo o mesmo padrão: o manifesto grava um **proxy** do estado — o SHA do
+commit, os hashes dos prompts, o nome do modelo — e o proxy não cobre alguma coisa que determina a
+saída.
+
+1. **O estimador.** `CLASSIFICADOR_DE_MOVIMENTO` não entrava em hash nenhum, portanto os dois
+   braços da corrida A/A produziriam manifestos idênticos em todos os campos registados com o
+   artefato a comportar-se de forma diferente. Corrigido antes do `cap5`: o serviço reporta a sua
+   configuração de política em `GET /api/help/single/prompts` e o harness grava-a. Lê-se do
+   **serviço** e não do ambiente do harness — são processos distintos, e `EVALUATION_MODE` vive no
+   `local.settings.json` que só o host carrega, pelo que lê-lo no harness gravaria `""` numa
+   corrida em modo de avaliação.
+2. **A árvore de trabalho.** `commit_maieutica` foi gravado no arranque do `rodar` como `b6f0fa7`,
+   com 41 ficheiros por committar — entre eles os 20 itens reanotados, que **são** o regressor de
+   H1. Quem fizesse checkout desse SHA apanhava a anotação antiga e reproduzia outra corrida. O
+   trabalho foi committado em `1e7e5cd` durante a corrida — `git commit` não altera a árvore, logo
+   o harness continuou a ler exactamente os mesmos bytes — e o campo foi corrigido no
+   `manifesto.json` **depois** de a geração terminar, com a correcção declarada no próprio ficheiro,
+   em `correcoes_pos_corrida`. A prosa aqui é complemento: o manifesto é o que o `congelar` e o
+   pacote de replicação leem por máquina.
+
+Fica por fazer, e **não entra nesta corrida**: `rodar` devia verificar a árvore à entrada, como o
+`congelar` já recusa fechar quando os hashes divergem. Ou recusa correr com árvore suja, ou grava
+`arvore_suja` e o SHA-256 de `git diff HEAD`, de modo que a corrida fique pinada mesmo sem commit.
+Vale como linha da seção metodológica: **a reprodutibilidade por commit pressupõe árvore limpa, e o
+protocolo não o verificava.**
+
 ### A régua, declarada
 
 Tudo acima é medido contra a **anotação de movimento do banco**, que é o regressor de H1 e que foi
