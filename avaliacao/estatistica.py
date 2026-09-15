@@ -163,3 +163,73 @@ def _ordenavel(valor) -> tuple[int, float, str]:
     if isinstance(valor, (int, float)):
         return (0, float(valor), "")
     return (1, 0.0, str(valor))
+
+
+@dataclass(frozen=True)
+class Intervalo:
+    """Intervalo a 95% de um κ, por bootstrap; ``reamostras_validas`` conta as que deram κ definido."""
+
+    inferior: float
+    superior: float
+    reamostras_validas: int
+    reamostras: int
+
+    def como_texto(self, casas: int = 3) -> str:
+        if self.reamostras_validas == 0:
+            return "[—; —]"
+        return f"[{self.inferior:.{casas}f}; {self.superior:.{casas}f}]"
+
+
+def intervalo_bootstrap(
+    a: Sequence,
+    b: Sequence,
+    funcao,
+    *,
+    reamostras: int = 2000,
+    semente: int = 20260912,
+) -> Intervalo:
+    """IC percentílico a 95% de uma estatística de concordância, por bootstrap sobre os pares.
+
+    Reamostram-se os pares ``(a_i, b_i)`` com reposição, ``reamostras`` vezes, e recalcula-se
+    ``funcao`` (um dos kappas acima) em cada reamostra; o intervalo são os percentis 2,5 e 97,5
+    das estimativas **definidas** — uma reamostra que caia numa só categoria dá ``nan`` e é
+    descartada, e o número descartado fica visível em ``reamostras_validas``. A semente é fixa
+    para o intervalo ser o mesmo em cada corrida do script: um IC que muda entre execuções sem
+    os dados mudarem não é reprodutível.
+
+    É não paramétrico de propósito: a variância assintótica do κ ponderado (Fleiss, Cohen e
+    Everitt, 1969) exige marginais bem povoadas, e as falhas raras da rubrica não as têm.
+    """
+    import random
+
+    pares = [(x, y) for x, y in zip(a, b) if x is not None and y is not None]
+    if len(pares) < 2:
+        return Intervalo(float("nan"), float("nan"), 0, reamostras)
+    gerador = random.Random(semente)
+    n = len(pares)
+    estimativas: list[float] = []
+    for _ in range(reamostras):
+        indices = [gerador.randrange(n) for _ in range(n)]
+        valor = funcao([pares[i][0] for i in indices], [pares[i][1] for i in indices])
+        if valor == valor:  # não é nan
+            estimativas.append(valor)
+    if not estimativas:
+        return Intervalo(float("nan"), float("nan"), 0, reamostras)
+    estimativas.sort()
+    return Intervalo(
+        _percentil(estimativas, 2.5),
+        _percentil(estimativas, 97.5),
+        len(estimativas),
+        reamostras,
+    )
+
+
+def _percentil(ordenados: Sequence[float], p: float) -> float:
+    """Percentil por interpolação linear sobre uma sequência já ordenada."""
+    if len(ordenados) == 1:
+        return ordenados[0]
+    posicao = (len(ordenados) - 1) * p / 100
+    baixo = math.floor(posicao)
+    alto = min(baixo + 1, len(ordenados) - 1)
+    fracao = posicao - baixo
+    return ordenados[baixo] + (ordenados[alto] - ordenados[baixo]) * fracao

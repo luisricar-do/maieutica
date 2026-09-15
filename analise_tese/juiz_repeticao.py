@@ -4,24 +4,32 @@ O protocolo pede que a subamostra seja julgada **duas vezes**, em chamadas indep
 se reporte a concordância do juiz consigo mesmo no mesmo limiar de 0,60. Um juiz que não se
 reproduz não sustenta a classificação, ainda que o κ contra o humano passe.
 
-Este script re-julga os **mesmos 210 turnos** de ``validacao_humana/mapa_amostra.json`` com o
-prompt e o modelo congelados da corrida ``cap4`` (``prompts/juiz.md``, hash
-``5dc2baa3…``; ``gemini-3.1-pro-preview``), e escreve num **ficheiro novo**:
+Este script re-julga os **mesmos 210 turnos** de ``validacao_humana/mapa_amostra.json`` da
+execução escolhida (``AVALIACAO_EXECUCAO``, padrão ``cap4``) com o prompt e o modelo congelados
+no seu manifesto (``prompts/juiz.md``, hash ``5dc2baa3…``; ``gemini-3.1-pro-preview``), e
+escreve num **ficheiro novo**:
 
-    analise_tese/saida/juizos_repeticao.jsonl
+    analise_tese/saida/juizos_repeticao.jsonl                 # cap4, o caminho histórico
+    analise_tese/saida/<execução>/juizos_repeticao.jsonl      # via ``juiz_repeticao_exec``
 
-Nada em ``avaliacao/execucoes/cap4/`` é lido senão para montar a entrada, e nada é reescrito. Os
-2 020 vereditos originais ficam intactos.
+Nada em ``avaliacao/execucoes/<execução>/`` é lido senão para montar a entrada, e nada é
+reescrito. Os vereditos originais ficam intactos.
 
 Três modos:
 
     python -m analise_tese.juiz_repeticao                # simula: chamadas e tokens, não chama nada
     python -m analise_tese.juiz_repeticao --executar     # faz as 210 chamadas
-    python -m analise_tese.juiz_repeticao --kappa        # κ 1.ª × 2.ª passagem, por variável
+    python -m analise_tese.juiz_repeticao --kappa        # κ 1.ª × 2.ª passagem, por variável, com IC
 
-``--executar`` recusa-se a correr se o hash do prompt em disco não for o da corrida, ou se o
-modelo configurado não for o do manifesto: repetir com outro prompt ou outro modelo não mede
-estabilidade, mede outra coisa.
+``--executar`` recusa-se a correr se o hash do prompt em disco não for o da corrida, se o
+modelo configurado não for o do manifesto, ou se o proxy não encaminhar esse modelo
+(``/v1/models``): repetir com outro prompt ou outro modelo não mede estabilidade, mede outra
+coisa. Cada veredito grava ``modelo_conferido``: o identificador que a API devolveu é o pedido
+**e** está na lista do proxy. O relatório do ``--kappa`` conta-os, N/N.
+
+O IC de cada κ é percentílico por bootstrap sobre os pares (``estatistica.intervalo_bootstrap``,
+2 000 reamostras, semente fixa). Não depende da codificação humana: a estabilidade do juiz
+mede-se antes de a primeira rodada existir, e é por isso que ``kappa.json`` é opcional aqui.
 """
 
 from __future__ import annotations
@@ -37,14 +45,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from avaliacao import juiz  # noqa: E402
 from avaliacao.config import BANCO_DIR, Config, carregar_settings_local  # noqa: E402
-from avaliacao.estatistica import kappa_cohen, kappa_ponderado  # noqa: E402
+from avaliacao.estatistica import intervalo_bootstrap, kappa_cohen, kappa_ponderado  # noqa: E402
 from avaliacao.itens import carregar_banco, turnos_de_referencia  # noqa: E402
 from avaliacao.julgamento import indexar_prefixos  # noqa: E402
 from analise_tese import comum  # noqa: E402
 
+#: Caminhos da 2.ª passagem. ``juiz_repeticao_exec`` redirecciona-os para ``saida/<execução>/``;
+#: aqui ficam os históricos de ``cap4``, que é onde a 2.ª passagem do ciclo 1 está versionada.
 ARQUIVO_REPETICAO = comum.SAIDA / "juizos_repeticao.jsonl"
+ARQUIVO_KAPPA = comum.SAIDA / "juiz_repeticao_kappa.json"
 ESCALAS = {"diretividade": (0, 1, 2, 3), "fidelidade": (1, 2, 3)}
 ACEITACAO_KAPPA = 0.60
+REAMOSTRAS = 2000
 
 
 def _pendencias(dados: dict) -> list[dict]:
@@ -101,6 +113,7 @@ def simular(dados: dict) -> dict:
     saida = sum(dados["juizos"][c]["tokens"]["completion_tokens"] for c in chaves)
     latencias = sorted(dados["juizos"][c]["latencia_ms"] for c in chaves)
     return {
+        "execucao": comum.EXECUCAO_ID,
         "chamadas": len(pendencias),
         "gerados": sum(1 for p in pendencias if p["unidade"] == "gerado"),
         "referencia": sum(1 for p in pendencias if p["unidade"] == "referencia"),
@@ -121,6 +134,13 @@ def simular(dados: dict) -> dict:
     }
 
 
+def _modelos_no_proxy(cfg: Config) -> list[str] | None:
+    """Lista de ``/v1/models`` da chave do juiz; ``None`` quando o transporte não é o proxy."""
+    if cfg.juiz_provedor != "litellm":
+        return None
+    return juiz.listar_modelos(cfg)
+
+
 def executar(dados: dict, cfg: Config, paralelismo: int, limite: int | None = None) -> dict:
     esperado = dados["manifesto"]["hash_prompt_juiz"]
     if juiz.hash_prompt() != esperado:
@@ -134,6 +154,14 @@ def executar(dados: dict, cfg: Config, paralelismo: int, limite: int | None = No
             f"({dados['manifesto']['juiz_modelo']!r}); exporte o mesmo modelo."
         )
     cfg.exige_juiz()
+    # A conferência que `julgar` faz antes da corrida: o proxy tem de encaminhar o modelo pedido.
+    # Sem ela um proxy que recaia noutro modelo produziria uma «segunda passagem» de outro juiz.
+    disponiveis = _modelos_no_proxy(cfg)
+    if disponiveis is not None and cfg.juiz_modelo not in disponiveis:
+        raise SystemExit(
+            f"o proxy não encaminha {cfg.juiz_modelo!r} para esta chave; "
+            f"disponíveis: {', '.join(disponiveis) or '(nenhum)'}"
+        )
 
     itens = {item["id"]: item for item in carregar_banco(BANCO_DIR)}
     pendencias = _pendencias(dados)
@@ -150,11 +178,31 @@ def executar(dados: dict, cfg: Config, paralelismo: int, limite: int | None = No
     if limite is not None:
         pendencias = pendencias[:limite]
 
-    comum.SAIDA.mkdir(parents=True, exist_ok=True)
-    resumo = collections.Counter(reaproveitados=len(feitos), planejados=len(pendencias))
+    ARQUIVO_REPETICAO.parent.mkdir(parents=True, exist_ok=True)
+    resumo: dict = {
+        "execucao": comum.EXECUCAO_ID,
+        "destino": str(ARQUIVO_REPETICAO),
+        "modelo": cfg.juiz_modelo,
+        "modelos_no_proxy": None if disponiveis is None else len(disponiveis),
+        "reaproveitados": len(feitos),
+        "planejados": len(pendencias),
+        "ok": 0,
+        "erros": 0,
+        "modelo_conferido": 0,
+        "tokens": {"entrada": 0, "saida": 0},
+    }
 
     def trabalho(pendencia: dict) -> dict:
         veredito = juiz.julgar(cfg, itens[pendencia["item_id"]], pendencia["contexto"], pendencia["turno"])
+        devolvido = str(veredito.get("juiz_versao") or "")
+        # O identificador que a API devolveu é o pedido e está na lista do proxy — por chamada,
+        # não só antes da corrida. `juiz_versao` recai na configuração se a resposta não trouxer
+        # `model` (juiz.py), e é esse risco residual que a lista do proxy fecha.
+        veredito["modelo_conferido"] = bool(
+            not veredito.get("erro")
+            and devolvido == cfg.juiz_modelo
+            and (disponiveis is None or devolvido in disponiveis)
+        )
         return {
             "chave": pendencia["chave"],
             "id_cego": pendencia["id_cego"],
@@ -170,21 +218,75 @@ def executar(dados: dict, cfg: Config, paralelismo: int, limite: int | None = No
                 arquivo.write(json.dumps(registro, ensure_ascii=False) + "\n")
                 arquivo.flush()
                 resumo["erros" if registro.get("erro") else "ok"] += 1
-    return dict(resumo)
+                resumo["modelo_conferido"] += int(bool(registro.get("modelo_conferido")))
+                uso = registro.get("tokens") or {}
+                resumo["tokens"]["entrada"] += int(uso.get("prompt_tokens") or 0)
+                resumo["tokens"]["saida"] += int(uso.get("completion_tokens") or 0)
+    return resumo
 
 
-def kappa(dados: dict) -> dict:
+def _funcao(variavel: str):
+    if variavel in ESCALAS:
+        return lambda x, y: kappa_ponderado(x, y, escala=ESCALAS[variavel])
+    return kappa_cohen
+
+
+def _arredondar(valor: float) -> float | None:
+    return None if valor != valor else round(valor, 4)
+
+
+def _segunda_passagem() -> tuple[list[dict], dict[str, dict]]:
+    """Todos os registos da 2.ª passagem, e os bem-sucedidos indexados por chave."""
     if not ARQUIVO_REPETICAO.is_file():
         raise SystemExit(
             f"{ARQUIVO_REPETICAO} não existe: corra `--executar` primeiro. "
             "Sem segunda passagem não há estabilidade a medir."
         )
-    segunda = {
+    todos = comum.ndjson(ARQUIVO_REPETICAO)
+    ok = {
         registro["chave"]: registro
-        for registro in comum.ndjson(ARQUIVO_REPETICAO)
+        for registro in todos
         if not registro.get("erro") and registro.get("diretividade") is not None
     }
-    saida = {"n_pares": 0, "por_variavel": {}}
+    return todos, ok
+
+
+def _proveniencia(todos: list[dict], ok: dict[str, dict], manifesto: dict) -> dict:
+    """O que o Cap. 4 e o `hashes-congelados.md` citam da 2.ª passagem: modelo, tokens, janela."""
+    marcas = sorted(r["ts"] for r in ok.values() if r.get("ts"))
+    conferidos = [r.get("modelo_conferido") for r in ok.values()]
+    if all(c is None for c in conferidos):
+        conferencia = "não registado por chamada (passagem anterior ao campo `modelo_conferido`)"
+    else:
+        conferencia = f"{sum(1 for c in conferidos if c)}/{len(conferidos)}"
+    return {
+        "ficheiro": str(ARQUIVO_REPETICAO),
+        "registros": len(todos),
+        "ok": len(ok),
+        "erros": sum(1 for r in todos if r.get("erro")),
+        "modelo_pedido": manifesto.get("juiz_modelo"),
+        "modelo_devolvido": dict(collections.Counter(r.get("juiz_versao") for r in ok.values())),
+        "modelo_conferido_em_v1_models": conferencia,
+        "hash_prompt": dict(collections.Counter(r.get("juiz_prompt_hash") for r in ok.values())),
+        "hash_prompt_da_corrida": manifesto.get("hash_prompt_juiz"),
+        "janela_utc": {"inicio": marcas[0] if marcas else None, "fim": marcas[-1] if marcas else None},
+        "tokens": {
+            "entrada": sum(int((r.get("tokens") or {}).get("prompt_tokens") or 0) for r in ok.values()),
+            "saida": sum(int((r.get("tokens") or {}).get("completion_tokens") or 0) for r in ok.values()),
+        },
+        "unidades": dict(collections.Counter(r.get("unidade") for r in ok.values())),
+    }
+
+
+def kappa(dados: dict) -> dict:
+    todos, segunda = _segunda_passagem()
+    saida: dict = {
+        "execucao": comum.EXECUCAO_ID,
+        "segunda_passagem": _proveniencia(todos, segunda, dados["manifesto"]),
+        "ic": f"percentílico, bootstrap sobre os pares, {REAMOSTRAS} reamostras, semente fixa",
+        "n_pares": 0,
+        "por_variavel": {},
+    }
     for variavel in comum.VARIAVEIS:
         a, b = [], []
         for chave, registro in sorted(segunda.items()):
@@ -196,21 +298,21 @@ def kappa(dados: dict) -> dict:
         saida["n_pares"] = len(a)
         if not a:
             continue
-        funcao = (
-            (lambda x, y: kappa_ponderado(x, y, escala=ESCALAS[variavel]))
-            if variavel in ESCALAS
-            else kappa_cohen
-        )
+        funcao = _funcao(variavel)
         valor = funcao(a, b)
+        intervalo = intervalo_bootstrap(a, b, funcao, reamostras=REAMOSTRAS)
         acordos = sum(1 for x, y in zip(a, b) if x == y)
         saida["por_variavel"][variavel] = {
-            "kappa": None if valor != valor else round(valor, 4),
+            "kappa": _arredondar(valor),
+            "ic95": [_arredondar(intervalo.inferior), _arredondar(intervalo.superior)],
+            "reamostras_validas": intervalo.reamostras_validas,
             "bruta": round(acordos / len(a), 3),
             "conta": f"{acordos}/{len(a)}",
         }
     # Sensibilidade: os κ humano×juiz reportados no Cap. 5 recalculados contra a 2.ª passagem.
     # Se a classificação se sustenta, trocar uma passagem pela outra não os move de forma
-    # relevante; um κ que só existe numa das passagens não é resultado, é sorteio.
+    # relevante; um κ que só existe numa das passagens não é resultado, é sorteio. Só existe
+    # depois da primeira rodada humana; antes dela a secção fica vazia, e diz porquê.
     inverso = {chave: id_cego for id_cego, chave in dados["mapa"].items()}
     saida["sensibilidade_humano_juiz"] = {}
     for variavel in comum.VARIAVEIS:
@@ -225,19 +327,16 @@ def kappa(dados: dict) -> dict:
             repetida.append(comum.valor_juiz(registro, variavel))
         if not humano:
             continue
-        funcao = (
-            (lambda x, y: kappa_ponderado(x, y, escala=ESCALAS[variavel]))
-            if variavel in ESCALAS
-            else kappa_cohen
-        )
-        def _arredondar(valor: float) -> float | None:
-            return None if valor != valor else round(valor, 4)
-
+        funcao = _funcao(variavel)
         saida["sensibilidade_humano_juiz"][variavel] = {
             "n": len(humano),
             "kappa_1a_passagem": _arredondar(funcao(humano, primeira)),
             "kappa_2a_passagem": _arredondar(funcao(humano, repetida)),
         }
+    if not saida["sensibilidade_humano_juiz"]:
+        saida["sensibilidade_humano_juiz"] = (
+            "sem codificação humana preenchida: a sensibilidade humano×juiz espera pela 1.ª rodada"
+        )
 
     saida["abaixo_da_aceitacao"] = sorted(
         nome
@@ -261,7 +360,10 @@ def main() -> None:
     dados = comum.carregar()
     if args.kappa:
         relatorio = {"H1_estabilidade_do_juiz": kappa(dados)}
-        comum.escrever("juiz_repeticao_kappa.json", relatorio)
+        ARQUIVO_KAPPA.parent.mkdir(parents=True, exist_ok=True)
+        ARQUIVO_KAPPA.write_text(
+            json.dumps(relatorio, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
     elif args.executar:
         carregar_settings_local()
         relatorio = {"execucao": executar(dados, Config(), args.paralelismo, args.limite)}

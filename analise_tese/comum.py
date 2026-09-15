@@ -46,7 +46,13 @@ def carregar() -> dict[str, Any]:
         "juizos": juizos,
         "mapa": json.loads((VALIDACAO / "mapa_amostra.json").read_text(encoding="utf-8")),
         "codificacao": codificacao,
-        "kappa": json.loads((VALIDACAO / "kappa.json").read_text(encoding="utf-8")),
+        # ``kappa.json`` só existe depois da primeira rodada humana (`python -m avaliacao kappa`).
+        # Antes dela, a estabilidade do juiz (que não depende do humano) tem de poder correr.
+        "kappa": (
+            json.loads((VALIDACAO / "kappa.json").read_text(encoding="utf-8"))
+            if (VALIDACAO / "kappa.json").is_file()
+            else None
+        ),
     }
 
 

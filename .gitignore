@@ -27,3 +27,7 @@ avaliacao/traducao/
 # dela que sai o κ de estabilidade reportado no capítulo. Essa fica versionada.
 analise_tese/saida/*
 !analise_tese/saida/juizos_repeticao.jsonl
+# O mesmo vale para a 2.ª passagem de cada execução posterior, em `saida/<execução>/`.
+!analise_tese/saida/*/
+analise_tese/saida/*/*
+!analise_tese/saida/*/juizos_repeticao.jsonl
