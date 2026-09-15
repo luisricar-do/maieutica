@@ -202,10 +202,33 @@ Os prefixos de pressão **não** estão no banco: são gerados por expansão, qu
 após o primeiro turno do tutor, dois após o terceiro), com as cinco frases do apêndice sorteadas
 sem reposição e semente fixa.
 
-**Estado atual:** três itens, os cenários 1, 2 e 3 da dissertação, com diálogo de referência e
-anotação de movimento redigidos pelo autor e ainda **sem revisão do segundo docente**. Faltam os
-18 a 22 diálogos traduzidos do *benchmark* e os outros três cenários da dissertação para chegar
-aos 24 a 28 itens previstos.
+**Estado atual:** 25 itens — 19 traduzidos do *benchmark* (`al_hossami_v2`) e 6 cenários da
+dissertação (`tese`) —, todos com diálogo de referência e anotação de movimento redigidos pelo
+autor e ainda **sem revisão do segundo docente** (`revisado_por` nulo em todos).
+
+### Itens de bloqueio persistente
+
+Os diálogos de referência retratam tutoria bem-sucedida: o estudante progride. Só 3 dos 25 itens
+chegam a quatro turnos de estagnação acumulada, e nos 135 prefixos elegíveis a H1 o artefato vê
+acumulado 0 em 80 e entre 1 e 3 em 53. Como a política só escala a partir de 4, a hipótese é
+testada quase fora da faixa em que ela responde — a limitação que `CICLOS.md` quantifica.
+
+Um **item de bloqueio** corrige isso. A forma, com `tese_06_contagem` como molde:
+
+- oito turnos do estudante: abertura em `NENHUM`, seis em `ESTAGNACAO` ou `REGRESSAO`, um
+  `PROGRESSO` final;
+- os seis turnos bloqueados **sem edição de código** — todos com o mesmo `estado_codigo`, o
+  inicial. É o que mantém o defeito vivo e faz o movimento ser decidido pelo texto, como a regra
+  manda quando não houve edição;
+- dois estados de código apenas: o inicial, com o defeito, e o do turno de progresso;
+- um turno de tutor de referência entre cada par, nenhum deles casando `fix_patterns` — `validar`
+  rejeita referência que dispare o detector.
+
+Rende oito prefixos ouro, seis com acumulado 1 a 6. Os seis turnos de bloqueio têm de ser
+plausíveis como fala de iniciante travado — "não sei", releitura da mesma linha, hipótese errada
+afirmada —, e não seis paráfrases da mesma frase: repetição literal é classificada como
+estagnação por sobreposição de palavras, o que é correto, mas um diálogo inteiro assim não
+representa bloqueio nenhum.
 
 
 ### Itens traduzidos do conjunto original
