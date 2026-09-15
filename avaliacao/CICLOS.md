@@ -761,3 +761,71 @@ intra-avaliador espera o intervalo mínimo de três semanas (`INTERVALO_MINIMO_S
 `python -m avaliacao kappa` pode correr duas vezes — a primeira dá o humano×juiz e marca o
 intra-avaliador como pendente, a segunda acrescenta-o. A sequência da seção «Retomar daqui»
 foi anotada em conformidade.
+
+### O cruzamento cap4 × cap5 sobre as referências — e a premissa que falhou em 20 turnos
+
+Os 160 turnos de referência dos 25 itens do ciclo 1 foram julgados em `cap4` e em `cap5`, com o
+mesmo *prompt* (hash `5dc2baa3…` nos dois manifestos) e o mesmo modelo. É um segundo par de
+julgamentos independentes, já pago. Medido por `analise_tese/cruzamento_juiz_ciclos.py`, saída
+em `analise_tese/saida/cruzamento_cap4_cap5.json`.
+
+**a) A entrada não foi idêntica nos 160.** Reconstruída a mensagem exacta enviada ao juiz —
+`prompt_sistema()` + `montar_entrada()` — com o `avaliacao/` de cada commit (`f173f6d` para
+`cap4`, `1e7e5cd` para `cap5`, por `git archive`): o *prompt* de sistema é igual, e **140** dos
+160 turnos têm entrada byte a byte igual. **20 diferem**, em `tese_01_media` (5), `tese_02_aprovacao`
+(3), `tese_05_maior_vetor` (6) e `tese_06_contagem` (6), e só num sítio: o **código** mostrado ao
+juiz — o `bug_code` do item e o estado de código do prefixo —, onde o commit `8288efb`
+(2026-09-14, entre as duas corridas) acrescentou `, "\n"` ao `escreva` do resultado. Texto do
+turno, histórico, erros e os restantes campos do item são iguais nos 160. Que `cap4` viu o banco
+sem o `"\n"` está confirmado pela sua planilha cega, que guarda o código de cada prefixo
+amostrado. A premissa «input idêntico, n = 160» está, portanto, **errada para 20 turnos**; o κ
+entre ciclos reporta-se sobre os **140** idênticos, e o valor sobre os 160 fica ao lado,
+rotulado, para se ver quanto os 20 movem.
+
+**b) κ entre ciclos** (IC a 95% percentílico por *bootstrap*, 2 000 reamostras, semente fixa —
+`avaliacao/estatistica.py::intervalo_bootstrap`):
+
+| variável | κ, entrada idêntica (n = 140) | concordância bruta | κ sobre os 160 (rotulado) |
+|---|---|---|---|
+| diretividade (ponderado) | **0,944 [0,893; 0,988]** | 135/140 | 0,931 [0,878; 0,978] |
+| movimento do estudante (Cohen) | **0,954 [0,897; 1,000]** | 137/140 | 0,935 [0,869; 0,987] |
+| fidelidade (ponderado) | 0,919 [0,788; 1,000] | 138/140 | 0,919 [0,790; 1,000] |
+| ancorado (Cohen) | 0,969 [0,921; 1,000] | 138/140 | 0,930 [0,865; 0,985] |
+| irrelevante · repetida | 1,000 (140/140 cada) | — | 1,000 |
+| excessivamente direta | 0,664 [0,000; 1,000] | 139/140 | 0,664 [0,000; 1,000] |
+| prematura | indefinido (nenhum positivo nos dois ciclos) | 140/140 | indefinido |
+
+A diretividade mudou em **5 dos 140** turnos idênticos (3,6 %), sempre um nível; em 7 dos 160.
+É a mesma ordem de grandeza da repetição do `cap4` sobre os 210 turnos da amostra (κ 0,943;
+11 de 210 mudaram de nível). O κ da falha *excessivamente direta* é o de uma variável com um
+único positivo em 140 pares — a bruta é 139/140 e o intervalo é o que se espera dessa marginal.
+
+**c) A linha REF «bloqueio agregado»: 13/47 → 15/47 é saldo, não contagem.** Os 47 pares são
+exactamente os mesmos nos dois ciclos (`mesmos_pares: true`). Viraram **quatro**, não dois — três
+passaram a contingentes e um deixou de ser, saldo +2 —, e os quatro têm entrada idêntica em
+d_k e d_{k-1}. Nascem de **três** vereditos de diretividade que mudaram um nível de `cap4` para
+`cap5`:
+
+| par (item, k) | movimento · acumulado | cap4: d_{k-1} → d_k | cap5: d_{k-1} → d_k | virou |
+|---|---|---|---|---|
+| `0_0_fibonacci_t3` k12 | ESTAGNACAO · 1 | 0 → 1 (contingente) | 0 → 0 | **para não** |
+| `0_0_fibonacci_t3` k13 | ESTAGNACAO · 2 | 1 → 1 | 0 → 1 (contingente) | para sim |
+| `56_15_compute_average` k4 | REGRESSAO · 2 | 1 → 1 | 1 → 2 (contingente) | para sim |
+| `61_62_is_even_t2` k3 | REGRESSAO · 2 | 1 → 1 | 1 → 2 (contingente) | para sim |
+
+Um só veredito — `0_0_fibonacci_t3::k12`, de 1 para 0 — vira dois pares em sentidos opostos,
+porque é d_k de um e d_{k-1} do outro. Nas outras linhas REF: acumulado ≥ 3 fica 0/10 nos dois
+ciclos, nenhum par virou; após progresso vai de 65/88 a 64/88 com **cinco** pares virados, três
+deles em turnos de entrada **diferente** (`tese_01` k3 e k4, `tese_02` k3) e dois em idêntica.
+
+**d) Ressalva quantificada, para o capítulo.** Sobre entrada idêntica, o juiz muda a
+diretividade de um turno de referência em 3,6 % dos casos, sempre um nível, e isso bastou para
+mover a taxa REF de bloqueio agregado em **+4,3 p.p.** (0,277 → 0,319), dentro do IC. Essa
+instabilidade está em **todas** as taxas do capítulo que passam pela diretividade do juiz — A e
+C após bloqueio, após progresso, a curva por acumulado, a tabela movimento × diretividade —, e
+só aqui se vê porque só a linha REF foi julgada duas vezes. A repetição do `cap4` mede o mesmo
+fenómeno na amostra de 210. H1 é decidido pelo modelo ordinal sobre a condição A e H2 pela
+revelação sob pedido; nenhum dos dois lê a linha REF, mas ambos leem vereditos com esta
+variância, e o texto tem de o dizer onde cita qualquer taxa. Nada disto toca **H1 NÃO
+SUSTENTADA** nem **H2 SUSTENTADA**.
+
