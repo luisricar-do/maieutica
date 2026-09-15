@@ -99,6 +99,36 @@ O número sai da simulação (`analise_tese/poder_h1.R`), não de conveniência.
 erro-padrão do efeito do acúmulo cai de 0,617 para 0,216: 79% de poder para um efeito de 0,6, e
 detectável a 80% qualquer efeito a partir de 0,60. Com 10 itens seriam 51%; com 35, 92%.
 
+> **CORRECÇÃO, escrita em 2026-09-15, depois de `cap5` correr.** Os números do parágrafo acima —
+> **EP 0,216** e **79% de poder** — estão **errados** e ficam à vista por isso: foram o que
+> justificou a extensão do banco e não podem desaparecer da justificação. Erram por duas razões
+> independentes.
+>
+> *Primeira: a população.* O 0,216 foi calculado sobre 167 prefixos bloqueados e 67 na faixa
+> ≥ 4, que era o que a anotação pelo **estado do código** produzia. A reanotação pela regra de
+> conteúdo (seção «Decisão: opção 1») deixa **74** prefixos bloqueados e **7** na faixa. Sobre a
+> população que existe, `analise_tese/poder_h1_corpus.R` com **R = 200** réplicas dá
+> **EP 0,571**, intervalo de Monte Carlo a 95% **[0,539; 0,604]** — duas sementes independentes
+> na mesma célula deram 0,574 e 0,569 —, **18% de poder** para β = 0,6, e efeito mínimo
+> detectável a 80% de **1,60** logitos por turno acumulado, não 0,60. O intervalo usa o desvio
+> entre réplicas medido na população do ciclo 1 (0,236 sobre 218 réplicas), assumido igual aqui.
+>
+> *Segunda: o ruído de Monte Carlo.* O 0,216 saiu de R = 40, onde o erro da média é ±0,037. É o
+> mesmo defeito que a seção «Um aviso sobre todos os números de poder deste documento» já
+> regista para o 0,617.
+>
+> **O que a corrida mediu, e que nenhuma simulação previu.** O ajuste 1b de `cap5` dá
+> **EP 0,411** para o efeito do acúmulo — 28% melhor do que os 0,571 simulados. A simulação
+> consome a variância de prefixo do ciclo 1, **13,3996**; `cap5` mede **7,6405**. Cai por terra
+> a suposição declarada na seção «O que a extensão não resolve» — *«Assume-se que a
+> heterogeneidade entre prefixos persiste na versão corrigida. É suposição declarada, não
+> medida»* —, que agora está medida e **não persiste**. Com o EP realizado, o efeito mínimo
+> detectável a 80% é **1,15**, ainda muito acima do 0,6 de referência.
+>
+> Reproduzir: `R_REPLICAS=200 Rscript analise_tese/poder_h1_corpus.R` →
+> `analise_tese/saida/poder_h1_corpus.txt`; o EP medido está em
+> `analise_tese/saida/cap5/h1_ordinal.txt`, ajuste 1b.
+
 A profundidade não se troca por quantidade. Vinte itens de profundidade 4 dão erro-padrão 0,364,
 **pior** que dez de profundidade 6 (0,304), apesar de mais prefixos: o que conta é a dispersão do
 acumulado entre prefixos, e `Var(1..4) = 1,25` contra `Var(1..6) = 2,92`.
@@ -113,6 +143,12 @@ Os vinte itens estão no banco, `tese_07` a `tese_26`, e o banco rende **167 pre
 bloqueados** — o ponto de desenho exato que a simulação dimensionou para erro-padrão 0,216 e
 79% de poder. A cobertura na faixa em que a política escala passou de 7 para 67 prefixos, e de
 3 para 23 itens em 45.
+
+> **CORRECÇÃO (2026-09-15).** Este parágrafo repete o **0,216** e os **79%**, e repete-os sobre
+> os **167 prefixos** e **67 na faixa**, que a reanotação da seção «Decisão: opção 1» reduziu a
+> **74** e **7**. Fica à vista porque é o registo de como a extensão foi justificada. Os valores
+> corrigidos são **EP 0,571 [0,539; 0,604]** e **18% de poder** (simulados, R = 200), e
+> **EP 0,411** medido em `cap5`. O bloco de correcção completo está no fim da seção anterior.
 
 As classes de defeito distribuem-se por `fluxo_dados` (8), `logica` (8), `limite` (3) e
 `laco_infinito` (1). Todos os estados foram executados no motor headless: o estado com defeito
@@ -155,9 +191,37 @@ deixaria de comparar o artefato com tutoria humana e passaria a comparar dois mo
 escritos pelo autor, como os 25 itens existentes, e `notas_traducao` de cada item novo registra a
 procedência.
 
+> **CORRECÇÃO (2026-09-15).** São **140**, não 160. Cada item novo tem oito turnos do estudante e
+> **sete** de tutor — um entre cada par, e o de cortesia cortado —, como a seção «Extensão do
+> banco» acima especifica: 20 × 7 = 140. O 160 é a contagem dos turnos do **estudante**
+> (20 × 8), trocada aqui pela do tutor. Medido em `avaliacao/banco/*.json`, papel `tutor` nos 20
+> itens com `referencia_autoria: autor_com_assistencia`; conferido por
+> `AVALIACAO_EXECUCAO=cap5 python -m analise_tese.conferir_ciclos` e visível também em
+> `juizos.jsonl` de `cap5`, que traz 300 vereditos de referência — 160 humanos e 140 assistidos.
+>
+> Fica também corrigida a última frase do parágrafo. Os turnos de tutor dos itens novos **não**
+> são escritos como os dos 25 itens existentes: estão marcados `autor_com_assistencia`, e é por
+> isso que ficam fora da calibração humana (ver a correcção no fim desta seção).
+
 As componentes de variância que dimensionaram a extensão vieram do artefato com o contador
 partido. Assume-se que a heterogeneidade entre prefixos persiste na versão corrigida. É
 suposição declarada, não medida.
+
+> **CORRECÇÃO (2026-09-15): suposição testada e derrubada.** Deixou de ser declarada e passou a
+> ser medida, e **não persiste**. A variância de prefixo do ciclo 1 é **13,3996**
+> (`analise_tese/saida/cap4/h1_ordinal.txt`, ajuste 1b); `cap5` mede **7,6405**
+> (`analise_tese/saida/cap5/h1_ordinal.txt`, ajuste 1b) — pouco mais de metade.
+>
+> É a explicação de por que o EP realizado é **melhor** que o simulado: a simulação consome a
+> variância de prefixo do ciclo 1, e a corrida encontrou prefixos menos heterogéneos entre si.
+> EP simulado **0,571 [0,539; 0,604]** a R = 200 (`analise_tese/saida/poder_h1_corpus.txt`)
+> contra EP medido **0,411** no ajuste 1b de `cap5`.
+>
+> A direcção é favorável e mesmo assim não salva o dimensionamento: com o EP realizado, o efeito
+> mínimo detectável a 80% é **1,15** logitos por turno acumulado, contra o 0,6 que o
+> dimensionamento tomava por plausível. Uma suposição que falha para o lado bom continua a ser
+> uma suposição que falhou, e é registada como tal — o bloco de correcção da seção «Extensão do
+> banco» já a usava; aqui fica ao lado do texto que a declarou.
 
 E poder não faz o efeito existir. Em bancada o turno anterior do tutor é humano e fica em 0,277
 de diretividade após bloqueio, e a política escala **um degrau sobre o turno anterior**: o teto
@@ -303,6 +367,28 @@ O dimensionamento que a extensão justificava — erro-padrão 0,216 e 79% de po
 efeito**, porque foi calculado sobre os 167 prefixos bloqueados e 67 na faixa. O que existe agora
 é 74 e 7. Refazer o cálculo de poder sobre estes números é passo obrigatório antes de a corrida
 valer como somativa.
+
+> **FEITO (2026-09-15), e é esta a correcção que substitui o 0,216 e os 79%.**
+> `R_REPLICAS=200 Rscript analise_tese/poder_h1_corpus.R`, sobre os 74 prefixos bloqueados e 40
+> itens do banco reanotado, `Var(acumulado) = 1,573`:
+>
+> | | prefixos bloqueados | itens | EP simulado (R = 200) | poder (β = 0,6) | β detectável a 80% |
+> |---|---:|---:|---|---:|---:|
+> | ciclo 1 (25 itens), controlo | 47 | 20 | 0,574 | 0,18 | 1,61 |
+> | banco reanotado (45 itens) | 74 | 40 | **0,571 [0,539; 0,604]** | **0,18** | **1,60** |
+> | idem, **EP medido** no ajuste 1b de `cap5` | 74 | 40 | **0,411** | — | **1,15** |
+>
+> O intervalo é de Monte Carlo (DP entre réplicas 0,236, R = 200 → ±0,017), não de amostragem.
+> A extensão continua a não comprar precisão: as duas primeiras linhas são a mesma quantidade.
+>
+> O EP **medido** (0,411) é melhor que o simulado (0,571) porque a simulação consome a variância
+> de prefixo do ciclo 1 (13,3996) e `cap5` mede 7,6405 — a suposição de que a heterogeneidade
+> entre prefixos persistiria está agora medida e é **falsa**. Mesmo assim o efeito mínimo
+> detectável a 80% fica em 1,15, contra o 0,6 que o dimensionamento tomava por plausível.
+>
+> A pergunta invertida também fecha, e confirma o «~21» que esta seção regista: com **R = 200**,
+> profundidade 6 precisa de **~20** itens novos com bloqueio sustentado para 80%; profundidade 4
+> **não chega** — 40 itens dão 0,61.
 
 ### O nó de classificação não se justifica, e fica desligado
 
@@ -607,6 +693,48 @@ Os vinte itens novos estão com `referencia_autoria: autor_com_assistencia`. Ree
 de tutor na voz do autor, o campo passa a `autor` e o item volta à calibração humana dos
 limiares. Enquanto estiver como está, `apurar_h1_h2` exclui esses turnos dessa calibração e
 reporta quantos excluiu.
+
+> **CORRECÇÃO (2026-09-15).** «`apurar_h1_h2` exclui esses turnos» era falso quando foi escrito.
+> O filtro lia `j["contexto"]["referencia_autoria"]`; não existe chave `contexto` em veredito
+> nenhum — o campo está no topo do registo. `.get("contexto", {})` devolvia `{}`, o `or` caía no
+> valor humano, e o filtro **não excluía nada**, reportando 0 excluídos como se fosse medida.
+> `avaliacao/analise.py::_taxas_referencia`, que é quem gera `resumo.md` e `tab_5_3_h1.tex`, não
+> filtrava autoria de todo — e as duas saídas rotulam a linha `REF` como «turnos de referência
+> humanos». Os 140 turnos assistidos estiveram dentro do padrão humano desde que entraram.
+>
+> Corrigido nos dois caminhos, com a exclusão conferida contra o **banco** (fonte independente da
+> chave que o filtro lê) e a levantar quando as contas não batem; regressão em
+> `tests/test_calibracao_referencia.py`. As taxas de calibração, regeneradas:
+>
+> | REF (turnos de referência humanos) | antes (filtro inerte) | depois |
+> |---|---|---|
+> | bloqueio agregado | 18/74 = 0,243 [0,160; 0,352] | **15/47 = 0,319 [0,204; 0,462]** |
+> | após progresso | 134/181 = 0,740 [0,672; 0,799] | **64/88 = 0,727 [0,626; 0,809]** |
+> | bloqueio, acumulado ≥ 3 | não era calculado («—» na tabela) | **0/10 = 0,000 [0,000; 0,278]** |
+>
+> O **n cai de 74 para 47** e de 181 para 88: a calibração corre agora sobre os 160 turnos de
+> referência dos 25 itens do ciclo 1, que são os únicos de autoria humana. A faixa ≥ 3 **não
+> muda** — os 10 pares dessa faixa já eram todos de autoria humana, porque sob a regra de
+> conteúdo nenhum item novo chega a acumulado 3 (seção «Decisão: opção 1»). É a faixa sobre a
+> qual o limiar de 0,70 decide, e por isso passou a ser reportada em vez de ficar em branco.
+>
+> Ficheiros: `avaliacao/execucoes/cap5/analise/h1_contingencia.csv`, `resumo.md` e
+> `tabelas/tab_5_3_h1.tex`; `analise_tese/saida/cap5/apuracao_h1_h2.{json,md}`.
+>
+> **Alcance no cap4: nenhum.** Contado por execução, não suposto: `cap4` corre 25 itens de
+> referência, e os 20 marcados `autor_com_assistencia` não estão entre eles — o campo
+> `referencia_autoria` nem sequer existe nos seus 160 vereditos de referência. A exclusão
+> correcta ali é 0, que é o que o filtro partido já produzia por acidente. Os números do
+> Capítulo 4 não mudam: `REF` em `cap4` continua 0,277 [0,169; 0,418] (n=47) após bloqueio e
+> 0,739 [0,638; 0,819] (n=88) após progresso. O defeito só morde a partir de `cap5`.
+>
+> Nenhum veredito muda. A calibração é descritiva; H1 corre no modelo ordinal sobre a condição A
+> e H2 sobre os prefixos de pressão — nem um nem outro lê a linha `REF`.
+>
+> **O 47/140 fica como limitação declarada**, não como trabalho pendente: reescrever os 140
+> turnos assistidos agora seria fazê-lo depois de saber que a calibração carrega o argumento de
+> H1, e não sairia de graça — os turnos de referência são o `d_{k-1}` da taxa de contingência,
+> logo mudá-los mudaria também a taxa do artefato.
 
 E H2 ganha poder sem ter sido planeado: os prefixos de pressão passam de 100 para 180, portanto o
 n da hipótese quase dobra. No ciclo 1 o intervalo foi [0,002; 0,054] e falhou os 5% por 0,004.
