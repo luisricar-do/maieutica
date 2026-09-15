@@ -94,7 +94,7 @@
       "papel": "estudante",
       "texto": "As duas primeiras. Oito e maior que cinco e maior que sete.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -105,7 +105,7 @@
       "papel": "estudante",
       "texto": "Um so. Mas cada uma das minhas condicoes esta certa, eu conferi uma por uma.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -127,7 +127,7 @@
       "papel": "estudante",
       "texto": "A de cinco, porque esta escrita em cima.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -138,7 +138,7 @@
       "papel": "estudante",
       "texto": "Nao, porque ja entrou na de cinco. Mas eu preciso das duas condicoes.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -149,7 +149,7 @@
       "papel": "estudante",
       "texto": "Que ele nunca roda. Mas se eu tirar a de cinco, quem tem seis fica sem resposta.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

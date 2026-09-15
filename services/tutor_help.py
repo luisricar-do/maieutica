@@ -5,7 +5,7 @@ Pedido de ajuda socrática: valida o payload, corre o grafo LangGraph e devolve 
 import logging
 import re
 import time
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 from agents.graph import tutor_graph
 from agents.llm import chat_model_name
@@ -25,8 +25,11 @@ def build_tutor_meta_from_actions(
     *,
     intent: str = "",
     student_movement: str = "",
+    movement_source: str = "",
     stagnation_streak: int = 0,
     stagnation_source: str = "",
+    movement_baseline: str = "",
+    stagnation_streak_baseline: int = 0,
     model: str = "",
     usage: dict[str, int] | None = None,
     finish_reason: str = "",
@@ -53,6 +56,14 @@ def build_tutor_meta_from_actions(
     # distingue o contador derivado do histórico do degradado ao turno corrente.
     meta["stagnationStreak"] = max(0, int(stagnation_streak))
     meta["stagnationSource"] = stagnation_source or "nenhum"
+    meta["movementSource"] = movement_source or "nenhum"
+    # O que a regra determinística teria dito no mesmo turno. Não alimenta política nenhuma:
+    # existe para que a comparação entre o estimador e a regex saia da própria corrida, sem a
+    # repetir, e para que a queda do estimador para a regra apareça na apuração em vez de
+    # desaparecer dentro de um rótulo igual aos outros.
+    if movement_baseline:
+        meta["movementBaseline"] = movement_baseline
+        meta["stagnationStreakBaseline"] = max(0, int(stagnation_streak_baseline))
     meta["model"] = model or chat_model_name()
     if usage is not None:
         # Soma das chamadas do grafo no turno — roteador, analista, estrategista, comunicador.
@@ -292,6 +303,32 @@ def parse_help_payload(
     return initial_state, None, 200
 
 
+#: Campos de movimento que o nó ``classifier`` pode reescrever durante o grafo.
+CAMPOS_DE_MOVIMENTO = (
+    "student_movement",
+    "movement_source",
+    "stagnation_streak",
+    "stagnation_source",
+)
+
+
+def estado_pos_grafo(initial_state: TutorHelpState, result: Any) -> TutorHelpState:
+    """Estado com o movimento que a política **consumiu**, e não o que o serviço adivinhou.
+
+    O serviço classifica pela regra determinística antes do grafo — é o que vale para as
+    intenções que não passam pelo estrategista e é a queda quando o estimador não responde. O nó
+    ``classifier``, quando corre, reescreve esses campos, e é essa versão que vai à telemetria e
+    ao ``tutorMeta``: registrar a outra seria registrar uma variável que ninguém leu.
+    """
+    if not isinstance(result, dict):
+        return initial_state
+    final = dict(initial_state)
+    for campo in CAMPOS_DE_MOVIMENTO:
+        if campo in result and result[campo] not in (None, ""):
+            final[campo] = result[campo]
+    return cast(TutorHelpState, final)
+
+
 async def log_turn(
     payload: Any,
     state: TutorHelpState,
@@ -353,6 +390,7 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
     if not isinstance(actions, list):
         actions = []
 
+    final_state = estado_pos_grafo(initial_state, result)
     body = {
         "message": result.get("tutor_response", ""),
         "diagnosis": result.get("diagnosis", {}),
@@ -360,16 +398,19 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
         "tutorMeta": build_tutor_meta_from_actions(
             actions,
             intent=str(result.get("intent") or ""),
-            student_movement=initial_state["student_movement"],
-            stagnation_streak=initial_state["stagnation_streak"],
-            stagnation_source=initial_state["stagnation_source"],
+            student_movement=final_state["student_movement"],
+            movement_source=final_state["movement_source"],
+            stagnation_streak=final_state["stagnation_streak"],
+            stagnation_source=final_state["stagnation_source"],
+            movement_baseline=initial_state["student_movement"],
+            stagnation_streak_baseline=initial_state["stagnation_streak"],
             usage=usage.as_dict(),
             finish_reason=usage.finish_reason,
         ),
     }
     await log_turn(
         payload,
-        initial_state,
+        final_state,
         response=body,
         intent=str(result.get("intent") or ""),
         started=started,

@@ -106,7 +106,7 @@
       "papel": "estudante",
       "texto": "valores[0], que e o 5. Entao o se do menor nunca rodou.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -139,7 +139,7 @@
       "papel": "estudante",
       "texto": "A do maior. O se do menor esta escrito dentro das chaves dela.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -150,7 +150,7 @@
       "papel": "estudante",
       "texto": "Nao, 4 nao e maior que 5. Entao nem entra.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -161,7 +161,7 @@
       "papel": "estudante",
       "texto": "Nao tem. Sao coisas opostas. Mas eu precisei aninhar para testar os dois no mesmo numero.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

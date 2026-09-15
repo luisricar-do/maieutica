@@ -105,7 +105,7 @@
       "papel": "estudante",
       "texto": "O 4 passa so no de dois. O 9 passa so no de tres. O 5 nao passa em nenhum. O 6 passa nos dois.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -116,7 +116,7 @@
       "papel": "estudante",
       "texto": "Tem dois incrementos, um em cada se. Mas cada se e uma pergunta diferente.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -138,7 +138,7 @@
       "papel": "estudante",
       "texto": "Duas. Uma em cada se.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -149,7 +149,7 @@
       "papel": "estudante",
       "texto": "Uma. Mas eu preciso dos dois testes para nao perder nem os pares nem os multiplos de tres.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -160,7 +160,7 @@
       "papel": "estudante",
       "texto": "Uma so. Mas se eu apagar um dos incrementos, o outro se fica sem contar nada.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

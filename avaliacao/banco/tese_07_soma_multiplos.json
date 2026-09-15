@@ -109,7 +109,7 @@
       "papel": "estudante",
       "texto": "E o ultimo, o seis. Mas nao sei o que isso quer dizer.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -120,7 +120,7 @@
       "papel": "estudante",
       "texto": "Na linha do se, acho. Eu ja conferi essa condicao um monte de vezes e ela esta certa.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -142,7 +142,7 @@
       "papel": "estudante",
       "texto": "Le soma igual a zero, depois o se, depois soma mais valores de i. Continuo sem ver o problema.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -153,7 +153,7 @@
       "papel": "estudante",
       "texto": "Uma a cada volta, acho. Mas ela so poe zero, nao tira nada de lugar nenhum.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "REGRESSAO"
     },
     {
       "papel": "tutor",
@@ -164,7 +164,7 @@
       "papel": "estudante",
       "texto": "Zero. Mas eu preciso zerar em algum lugar, senao a soma comeca com lixo.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

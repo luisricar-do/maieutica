@@ -114,7 +114,7 @@
       "papel": "estudante",
       "texto": "Depois da primeira da 1, depois da segunda da 2.5, depois da terceira da 4.25.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -136,7 +136,7 @@
       "papel": "estudante",
       "texto": "Porque dividi por dois tendo somado so um valor.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -147,7 +147,7 @@
       "papel": "estudante",
       "texto": "Tres vezes. E o 6 so uma. Por isso o ultimo pesa mais.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -158,7 +158,7 @@
       "papel": "estudante",
       "texto": "Uma so, no fim. Mas o laco tem que ir calculando alguma coisa.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

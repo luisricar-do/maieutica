@@ -108,7 +108,7 @@
       "papel": "estudante",
       "texto": "Nenhum. Ele contou todos.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -119,7 +119,7 @@
       "papel": "estudante",
       "texto": "A primeira da verdadeiro, 25 e maior que 10. A segunda da falso, 25 nao e menor que 20. Eu escrevi as duas comparacoes certas.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -141,7 +141,7 @@
       "papel": "estudante",
       "texto": "E o ou. Mas eu quis dizer que o numero tem que estar de um jeito ou de outro dentro da faixa.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -152,7 +152,7 @@
       "papel": "estudante",
       "texto": "Devolve verdadeiro. Por isso o 25 entrou.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -163,7 +163,7 @@
       "papel": "estudante",
       "texto": "As duas. Mas nao sei como escrever isso.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

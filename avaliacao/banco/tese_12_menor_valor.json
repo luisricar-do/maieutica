@@ -106,7 +106,7 @@
       "papel": "estudante",
       "texto": "Na linha em que eu digo menor igual a zero, antes do laco.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -117,7 +117,7 @@
       "papel": "estudante",
       "texto": "O se teria de ser verdadeiro. Mas ele compara valores com menor, e a comparacao esta certa, eu conferi.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -139,7 +139,7 @@
       "papel": "estudante",
       "texto": "Com zero. E 3 nao e menor que zero, entao nao entra.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -150,7 +150,7 @@
       "papel": "estudante",
       "texto": "Nenhuma, todos sao positivos. Mas a comparacao nao deveria ser ao contrario, entao?",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "REGRESSAO"
     },
     {
       "papel": "tutor",
@@ -161,7 +161,7 @@
       "papel": "estudante",
       "texto": "Mas eu preciso comecar com alguma coisa, senao nao tenho com que comparar.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

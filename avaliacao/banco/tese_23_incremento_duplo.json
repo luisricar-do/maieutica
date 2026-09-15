@@ -106,7 +106,7 @@
       "papel": "estudante",
       "texto": "O 1 e o 3. Sao o primeiro e o terceiro.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -117,7 +117,7 @@
       "papel": "estudante",
       "texto": "Entraram o 0 e o 2, ficaram de fora o 1 e o 3. Ele so pega os pares.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -139,7 +139,7 @@
       "papel": "estudante",
       "texto": "O i mais mais no cabecalho do para.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -150,7 +150,7 @@
       "papel": "estudante",
       "texto": "A segunda linha faz i igual a i mais um. Mas eu pus isso para o laco andar.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -161,7 +161,7 @@
       "papel": "estudante",
       "texto": "O i mais mais do cabecalho. Entao tem duas coisas a andar.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

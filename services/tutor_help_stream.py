@@ -8,13 +8,19 @@ import time
 from collections.abc import AsyncIterator
 from typing import Any, cast
 
-from agents.graph import analyst_node, rag_retrieve_node, strategist_node
+from agents.graph import (
+    analyst_node,
+    classifier_node,
+    rag_retrieve_node,
+    strategist_node,
+)
 from agents.router import run_router
 from agents.strategist import suggested_doc_topics
 from agents.tutor import run_communicator_stream
 from services.tutor_help import (
     TutorHelpState,
     build_tutor_meta_from_actions,
+    estado_pos_grafo,
     log_turn,
     parse_help_payload,
 )
@@ -53,14 +59,22 @@ def format_sse(event: str | None, data: dict[str, Any]) -> bytes:
 
 
 def _stream_tutor_meta(
-    actions: Any, intent: str, state: TutorHelpState
+    actions: Any,
+    intent: str,
+    state: TutorHelpState,
+    *,
+    baseline: TutorHelpState | None = None,
 ) -> dict[str, Any]:
+    referencia = baseline or state
     return build_tutor_meta_from_actions(
         actions if isinstance(actions, list) else [],
         intent=intent,
         student_movement=state["student_movement"],
+        movement_source=state["movement_source"],
         stagnation_streak=state["stagnation_streak"],
         stagnation_source=state["stagnation_source"],
+        movement_baseline=referencia["student_movement"],
+        stagnation_streak_baseline=referencia["stagnation_streak"],
     )
 
 
@@ -160,6 +174,10 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
         state.update(await analyst_node(cast(Any, state)))
         yield format_sse("diagnosis", state["diagnosis"])
         collected["diagnosis"] = state["diagnosis"]
+        # Movimento e estagnação acumulada com o diagnóstico à mão, antes do estrategista:
+        # é a mesma ordem do grafo de ``/api/help``, e a política tem de consumir o mesmo.
+        state.update(await classifier_node(cast(Any, state)))
+        final = estado_pos_grafo(initial, state)
         incl_doc = bool(state.get("include_documentation"))
         logger.info(
             "help/stream DEBUG: analista OK; include_documentation=%s; rag_retrieve …",
@@ -192,9 +210,11 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             collected["message"] += delta
             yield format_sse("token", {"text": delta})
         logger.info("help/stream DEBUG: stream concluído")
-        collected["tutorMeta"] = _stream_tutor_meta(actions, intent, initial)
+        collected["tutorMeta"] = _stream_tutor_meta(
+            actions, intent, final, baseline=initial
+        )
         yield format_sse("done", {"tutorMeta": collected["tutorMeta"]})
-        await _log_stream_turn(payload, initial, collected, intent, started)
+        await _log_stream_turn(payload, final, collected, intent, started)
     except Exception as exc:
         logger.error(
             "help/stream: falha [%s] %s",

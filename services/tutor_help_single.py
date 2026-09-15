@@ -27,10 +27,10 @@ from agents.problem_context import (
     PROBLEM_SHA256,
     PROBLEM_TEMPLATE,
     build_problem_content,
-    parse_problem_statement,
 )
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
+from agents.config import classificador_por_modelo, evaluation_mode
 from agents.llm import chat_model_name
 
 # Cliente de chat do comunicador: a fala do tutor comparada na condição A sai daqui, com estes
@@ -283,7 +283,13 @@ async def _log_turn(
 
 
 def prompts_response() -> dict[str, Any]:
-    """Prompts congelados e os seus hashes, para reprodutibilidade e conferência do harness."""
+    """Prompts congelados, hashes e configuração de política, para o manifesto da corrida.
+
+    ``config`` existe porque o harness corre noutro processo: as variáveis de política vivem no
+    ambiente do **serviço** (``local.settings.json``), e lê-las no harness gravaria o que o
+    harness vê, que é outra coisa. São só de leitura — não entram em nenhum hash e não tocam num
+    único turno gerado.
+    """
     return {
         "prompts": {
             variant: {
@@ -294,6 +300,11 @@ def prompts_response() -> dict[str, Any]:
         },
         "context": {"text": CONTEXT_TEMPLATE, "sha256": CONTEXT_SHA256},
         "problem": {"text": PROBLEM_TEMPLATE, "sha256": PROBLEM_SHA256},
+        "config": {
+            "evaluationMode": evaluation_mode(),
+            "classificadorDeMovimento": "modelo" if classificador_por_modelo() else "regra",
+            "model": chat_model_name(),
+        },
     }
 
 

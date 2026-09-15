@@ -107,7 +107,7 @@
       "papel": "estudante",
       "texto": "Qualquer coisa menor que 1, que e o meu menor numero. Zero, por exemplo.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -118,7 +118,7 @@
       "papel": "estudante",
       "texto": "Recebe zero antes dos lacos e recebe soma dividido por n depois. As duas estao la, eu nao esqueci de calcular.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -140,7 +140,7 @@
       "papel": "estudante",
       "texto": "A contagem. Depois a soma, e por ultimo a divisao.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -151,7 +151,7 @@
       "papel": "estudante",
       "texto": "Nenhuma. Mas a linha da divisao esta escrita ali no programa.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -162,7 +162,7 @@
       "papel": "estudante",
       "texto": "Zero, que foi o que eu pus no comeco. Mas eu preciso desse zero para inicializar.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

@@ -110,7 +110,7 @@
       "papel": "estudante",
       "texto": "O ultimo. Mas eu quero o primeiro.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -121,7 +121,7 @@
       "papel": "estudante",
       "texto": "Tres vezes, uma para cada 7.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -143,7 +143,7 @@
       "papel": "estudante",
       "texto": "E perdido. Mas eu preciso que ela seja escrita quando encontra.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -154,7 +154,7 @@
       "papel": "estudante",
       "texto": "Que nao escrevesse. Mas o laco nao sabe se ja encontrou antes.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -165,7 +165,7 @@
       "papel": "estudante",
       "texto": "E a propria posicao. Antes vale zero, que e o que eu uso para dizer que nao achou.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

@@ -380,12 +380,44 @@ def test_hashes_do_servico_le_os_quatro_hashes(monkeypatch):
             }
         ),
     )
+    # Serviço sem o bloco ``config``: os campos de política ficam declarados como desconhecidos,
+    # em vez de receberem um valor plausível lido do ambiente errado (o do harness).
     assert condicoes.hashes_do_servico(CFG) == {
         "prompt_socratic": "aa",
         "prompt_neutral": "bb",
         "contexto": "cc",
         "enunciado": "dd",
+        "classificador_de_movimento": "(não reportado)",
+        "evaluation_mode": "(não reportado)",
+        "modelo_do_servico": "(não reportado)",
     }
+
+
+def test_hashes_do_servico_le_a_config_de_politica(monkeypatch):
+    """O manifesto tem de distinguir os dois braços da corrida A/A, que só diferem nisto."""
+    monkeypatch.setattr(
+        http,
+        "get_json",
+        lambda url, **_: _resposta(
+            {
+                "prompts": {
+                    "socratic": {"text": "…", "sha256": "aa"},
+                    "neutral": {"text": "…", "sha256": "bb"},
+                },
+                "context": {"text": "…", "sha256": "cc"},
+                "problem": {"text": "…", "sha256": "dd"},
+                "config": {
+                    "evaluationMode": True,
+                    "classificadorDeMovimento": "modelo",
+                    "model": "gpt-4o-mini",
+                },
+            }
+        ),
+    )
+    lido = condicoes.hashes_do_servico(CFG)
+    assert lido["classificador_de_movimento"] == "modelo"
+    assert lido["evaluation_mode"] == "True"
+    assert lido["modelo_do_servico"] == "gpt-4o-mini"
 
 
 def test_hashes_do_servico_aborta_com_servico_fora(monkeypatch):

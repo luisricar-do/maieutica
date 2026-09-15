@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 from typing import Literal, TypedDict
 
 StudentMovement = Literal[
@@ -38,12 +39,19 @@ StudentMovement = Literal[
     "NENHUM",
 ]
 
-MovementSource = Literal["codigo", "texto", "nenhum"]
+MovementSource = Literal["codigo", "texto", "modelo", "nenhum"]
 
 
 class MovementResult(TypedDict):
     movement: StudentMovement
     source: MovementSource
+
+
+#: Estimador que substitui a regra textual quando o texto é quem decide. Recebe as falas do
+#: estudante até à que se classifica e o estado de código vigente; devolve ``None`` quando não
+#: tem estimativa para aquele turno, e aí vale a regra determinística. É por aqui que o nó do
+#: grafo entra: a precedência — pedido explícito, depois compilador, depois texto — não muda.
+TextClassifier = Callable[[list[str], str], "StudentMovement | None"]
 
 
 #: Pedido explícito de resposta, correção ou código (H2). Exige marca imperativa/possessiva:
@@ -267,6 +275,7 @@ def classify_movement(
     errors: list[str] | None = None,
     previous_code: str | None = None,
     previous_errors: list[str] | None = None,
+    classificador_textual: TextClassifier | None = None,
 ) -> MovementResult:
     """
     Classifica o último turno do estudante.
@@ -274,6 +283,10 @@ def classify_movement(
     Precedência: pedido explícito > regra do código (quando houve edição e o compilador
     decide) > sinal do texto. No turno de abertura não há movimento a classificar — não existe
     turno anterior do estudante contra o qual comparar —, e o resultado é ``NENHUM``.
+
+    ``classificador_textual`` substitui **só** o último degrau, o do texto. O pedido explícito e
+    a regra do compilador continuam determinísticos: o primeiro é a condição de H2 e o segundo é
+    evidência objetiva, e nenhum dos dois melhora por ser estimado.
     """
     user_turns = _user_turns(history)
     if not user_turns:
@@ -298,6 +311,10 @@ def classify_movement(
     if not houve_edicao and afirma_que_esta_correto(user_turns[-1]):
         return {"movement": "REGRESSAO", "source": "texto"}
 
+    if classificador_textual is not None:
+        estimado = classificador_textual(user_turns, code)
+        if estimado is not None:
+            return {"movement": estimado, "source": "modelo"}
     return {"movement": _classify_by_text(user_turns, code), "source": "texto"}
 
 
@@ -324,7 +341,10 @@ def _estado_do_turno(turno: dict) -> tuple[str, list[str]] | None:
 
 
 def stagnation_streak(
-    history: list[dict], *, current_movement: StudentMovement
+    history: list[dict],
+    *,
+    current_movement: StudentMovement,
+    classificador_textual: TextClassifier | None = None,
 ) -> StreakResult:
     """
     Turnos de bloqueio acumulados desde o último progresso — a variável independente de H1.
@@ -365,9 +385,30 @@ def stagnation_streak(
             errors=erros,
             previous_code=anterior[0] if anterior else None,
             previous_errors=anterior[1] if anterior else None,
+            classificador_textual=classificador_textual,
         )["movement"]
         if movimento in MOVIMENTOS_DE_BLOQUEIO:
             streak += 1
         elif movimento == "PROGRESSO":
             streak = 0
     return {"streak": streak, "source": "historico"}
+
+
+def turnos_que_o_texto_decide(history: list[dict]) -> list[int]:
+    """Posições dos turnos do estudante (0-based) em que o degrau do texto é quem decide.
+
+    É a lista que o estimador do nó precisa de rotular. Sai de correr a **própria** precedência
+    com uma sonda no lugar da regra textual, em vez de a reimplementar: mudar
+    :func:`classify_movement` muda esta função junto, sem ninguém se lembrar dela.
+
+    Vazia quando o histórico não é reclassificável — sem o estado de código por turno não há o
+    que percorrer, e o contador degrada como sempre degradou.
+    """
+    vistos: list[int] = []
+
+    def _sonda(user_turns: list[str], code: str) -> StudentMovement:
+        vistos.append(len(user_turns) - 1)
+        return "ESTAGNACAO"
+
+    stagnation_streak(history, current_movement="NENHUM", classificador_textual=_sonda)
+    return vistos

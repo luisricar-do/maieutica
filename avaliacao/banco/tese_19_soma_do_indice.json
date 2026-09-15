@@ -106,7 +106,7 @@
       "papel": "estudante",
       "texto": "A quantidade, tres numeros nas duas. Mas a soma tem que olhar os valores.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -117,7 +117,7 @@
       "papel": "estudante",
       "texto": "Aparece soma e aparece i.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -139,7 +139,7 @@
       "papel": "estudante",
       "texto": "Zero, um e dois. Sao as posicoes.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -150,7 +150,7 @@
       "papel": "estudante",
       "texto": "Tres. E foi o que apareceu nas duas vezes. Mas eu escrevi i porque e o que percorre o vetor.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -161,7 +161,7 @@
       "papel": "estudante",
       "texto": "E o lugar. O que esta la e outra coisa.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

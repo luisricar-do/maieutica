@@ -4,7 +4,8 @@ from typing import Literal, TypedDict, cast
 from langgraph.graph import END, START, StateGraph
 
 from agents.analyst import Diagnosis, run_analyst
-from agents.config import evaluation_mode
+from agents.classifier import run_classifier
+from agents.config import classificador_por_modelo, evaluation_mode
 from agents.rag.query import (
     build_rag_query,
     build_theory_rag_query,
@@ -58,6 +59,19 @@ async def analyst_node(state: TutorState) -> dict:
         data_flow_context=str(state.get("data_flow_context") or ""),
     )
     return {"diagnosis": diagnosis}
+
+
+async def classifier_node(state: TutorState) -> dict:
+    """Movimento do estudante e estagnação acumulada, estimados com o diagnóstico à mão.
+
+    Vem depois do analista porque julgar se a hipótese do estudante está errada exige saber qual
+    é o defeito, e antes do estrategista porque é a estagnação acumulada que a política consome.
+    Devolve ``{}`` quando a chave não o pede, quando não há nada a estimar, ou quando o modelo
+    falha: em qualquer dos casos fica valendo o que o serviço derivou pela regra determinística.
+    """
+    if not classificador_por_modelo():
+        return {}
+    return await run_classifier(dict(state))
 
 
 async def rag_retrieve_node(state: TutorState) -> dict:
@@ -144,6 +158,7 @@ def build_graph():
     builder = StateGraph(TutorState)
     builder.add_node("router", router_node)
     builder.add_node("analyst", analyst_node)
+    builder.add_node("classifier", classifier_node)
     builder.add_node("rag_retrieve", rag_retrieve_node)
     builder.add_node("strategist", strategist_node)
     builder.add_node("tutor", tutor_node)
@@ -157,7 +172,8 @@ def build_graph():
             "tutor": "tutor",
         },
     )
-    builder.add_edge("analyst", "rag_retrieve")
+    builder.add_edge("analyst", "classifier")
+    builder.add_edge("classifier", "rag_retrieve")
     builder.add_conditional_edges(
         "rag_retrieve",
         route_after_rag,

@@ -11,6 +11,10 @@ dist/
 
 .DS_Store
 
+# Registro estruturado por turno do serviço (INTERACTION_LOG_DIR): NDJSON de uso real
+# e de bancada, com código e falas de estudante. Nunca versionado.
+registro_interacoes/
+
 # Saídas das corridas da bancada (o manifesto e as tabelas vão à mão para a tese)
 avaliacao/execucoes/
 

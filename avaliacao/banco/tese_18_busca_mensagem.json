@@ -111,7 +111,7 @@
       "papel": "estudante",
       "texto": "O laco. Mas a mensagem nao tem nada a ver com o laco, ela e a resposta final.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "REGRESSAO"
     },
     {
       "papel": "tutor",
@@ -122,7 +122,7 @@
       "papel": "estudante",
       "texto": "As chaves. Mas eu abri o se depois do outro se, nao dentro dele.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -144,7 +144,7 @@
       "papel": "estudante",
       "texto": "Fecha depois do senao, la no fim.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -155,7 +155,7 @@
       "papel": "estudante",
       "texto": "Tres, uma por numero. Mas a decisao precisa do achou pronto.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -166,7 +166,7 @@
       "papel": "estudante",
       "texto": "Depois de terminar, porque so ai eu sei que olhei todos.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

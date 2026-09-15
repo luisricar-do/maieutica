@@ -238,6 +238,15 @@ def _cmd_rodar(args, cfg: Config, itens: list[dict[str, Any]]) -> int:
             "hash_contexto": hashes["contexto"],
             "hash_enunciado": hashes["enunciado"],
             "hash_prompt_juiz": juiz.hash_prompt(),
+            # Entradas de política que não vivem em nenhum dos hashes nem no commit: sem elas,
+            # os dois braços da corrida A/A produzem manifestos idênticos em todos os campos
+            # registados, com o artefato a comportar-se de forma diferente. Vêm do **serviço**,
+            # pela mesma rota dos hashes: lidas no ambiente do harness dariam o que o harness vê,
+            # que é outra coisa — ``EVALUATION_MODE`` está no ``local.settings.json`` do serviço
+            # e não no shell que corre a bancada. O harness aqui **grava** estado, não o muda.
+            "classificador_de_movimento": hashes["classificador_de_movimento"],
+            "evaluation_mode": hashes["evaluation_mode"],
+            "modelo_do_servico": hashes["modelo_do_servico"],
             "commit_maieutica": commit_atual(Path(__file__).resolve().parent.parent),
         },
     )

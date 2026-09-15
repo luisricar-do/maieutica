@@ -86,11 +86,20 @@ def hashes_do_servico(cfg: Config) -> dict[str, str]:
         )
     try:
         corpo = resposta.json()
+        # ``config`` é o estado de política do **serviço**, não do harness: são processos
+        # distintos e as variáveis vivem no ambiente do serviço. Serviço antigo não a traz, e aí
+        # fica declarado como desconhecido em vez de se inventar um valor plausível.
+        config = corpo.get("config") or {}
         return {
             "prompt_socratic": corpo["prompts"]["socratic"]["sha256"],
             "prompt_neutral": corpo["prompts"]["neutral"]["sha256"],
             "contexto": corpo["context"]["sha256"],
             "enunciado": corpo["problem"]["sha256"],
+            "classificador_de_movimento": str(
+                config.get("classificadorDeMovimento", "(não reportado)")
+            ),
+            "evaluation_mode": str(config.get("evaluationMode", "(não reportado)")),
+            "modelo_do_servico": str(config.get("model", "(não reportado)")),
         }
     except (ValueError, KeyError, TypeError) as exc:
         raise SystemExit(f"resposta inesperada de /help/single/prompts: {exc}") from exc
@@ -121,6 +130,14 @@ def executar_a(cfg: Config, prefixo: Prefixo, execucao: int) -> dict[str, Any]:
             "modelo": meta.get("model", ""),
             "intent": meta.get("intent", ""),
             "movimento_runtime": meta.get("studentMovement", ""),
+            # A variável que a política consumiu, e a sua origem ("modelo" quando o nó de
+            # classificação a estimou, "texto"/"codigo" quando decidiu a regra determinística).
+            # Com o par ``*_baseline`` ao lado, a comparação entre o estimador e a regex sai
+            # desta corrida, sem correr outra.
+            "movimento_fonte": meta.get("movementSource", ""),
+            "estagnacao_runtime": meta.get("stagnationStreak", None),
+            "movimento_baseline": meta.get("movementBaseline", ""),
+            "estagnacao_baseline": meta.get("stagnationStreakBaseline", None),
             # Soma das chamadas do grafo no turno, comparável com a chamada única de B e C.
             "tokens": meta.get("usage", {}) or {},
             # "length" quando alguma etapa do grafo bateu no teto de tokens. Ficava fixo em vazio

@@ -104,7 +104,7 @@
       "papel": "estudante",
       "texto": "O segundo enquanto. Mas ele esta escrito ali, logo depois do primeiro.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -115,7 +115,7 @@
       "papel": "estudante",
       "texto": "i menor que n. E n vale 4.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -137,7 +137,7 @@
       "papel": "estudante",
       "texto": "O para da leitura, o i igual a zero antes do primeiro enquanto, e o i mais um dentro de cada um dos dois.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -148,7 +148,7 @@
       "papel": "estudante",
       "texto": "Quatro, porque ele para quando i chega a n.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -159,7 +159,7 @@
       "papel": "estudante",
       "texto": "Falsa. Entao ele nao entra nenhuma vez. Mas eu ja tinha posto i igual a zero.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",

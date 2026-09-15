@@ -180,6 +180,337 @@ haver o que ver.
   são a assimetria já declarada na metodologia — o artefato classifica sem executar os casos de
   teste, a medida os executa.
 
+## Segunda correção, antes de o ciclo 2 existir
+
+Escrito em 2026-09-15, com o ensaio feito e a corrida somativa por disparar. Vale a mesma regra
+do topo deste documento: o que aqui está é anterior à corrida, e por isso conta.
+
+### O nó de classificação do movimento
+
+O artefato ganha um nó no grafo, entre o analista e o estrategista (`agents/classifier.py`). Ele
+substitui **um** degrau da classificação do movimento — o do texto — por um estimador com modelo
+de linguagem. A precedência da dissertação não muda: pedido explícito primeiro, regra do
+compilador depois, texto por último; e o estimador cai de volta na regra determinística sempre
+que não devolve rótulo.
+
+A razão é de construto, não de desempenho. A regra textual lê "hipótese ou observação nova" como
+progresso, e a dissertação chama **regressão** à hipótese incorreta afirmada. Decidir se a
+hipótese está errada é julgar conteúdo contra o código, e nenhum padrão textual o faz — o próprio
+docstring de `agents/movement.py` já o declarava fora de alcance. O nó vem depois do analista
+porque é o diagnóstico que diz qual é o defeito, e sem isso não se julga se o estudante aponta
+para ele.
+
+Cada turno é estimado **só com o que existia até ele**: o rótulo do turno 2 não pode depender do
+que o estudante disse no turno 5, sob pena de o contador deixar de ser o que a política teria
+consumido naquele momento. O acumulador continua aritmético — soma em bloqueio, zera em
+progresso. Estima-se o rótulo, não o acumulado.
+
+O que **não** muda: o limiar de escalonamento continua em 4, o juiz continua
+`gemini-3.1-pro-preview`, o critério de sustentação de H1 fica como está, e o pedido explícito —
+condição de H2 — continua determinístico, fora do alcance do modelo. `rodar --simular` continua a
+dizer 3 420: o nó é chamada interna do grafo, não requisição da bancada.
+
+Cada turno passa a registar também o que a regra determinística teria dito
+(`tutorMeta.movementBaseline`, `stagnationStreakBaseline`) e a origem do rótulo consumido
+(`movementSource`). A comparação entre a regex e o estimador sai da própria corrida, sem a
+repetir.
+
+### A concordância medida antes de gastar a corrida
+
+`scripts/concordancia_movimento.py` mede o contador derivado pelo artefato contra a
+`estagnacao_acumulada` anotada no banco, nos 480 prefixos, sem juiz. Com o analista a correr de
+verdade, e com o limiar da política a separar as faixas:
+
+| | 0 | 1–3 | ≥ 4 | exata | por faixa |
+|---|---:|---:|---:|---|---|
+| banco (regressor de H1) | 253 | 160 | 67 | — | — |
+| artefato: regra | 347 | 131 | 2 | 276/480 (57,5%) | 292/480 (61%) |
+| artefato: regra + nó | 273 | 187 | 20 | 292/480 (60,8%) | 334/480 (70%) |
+
+O nó melhora, e não resolve: 20 prefixos na faixa de escalonamento contra os 67 do banco. O
+diagnóstico de porquê é a segunda coisa que este registo tem de fixar.
+
+O estimador **não é perfeitamente reprodutível** entre corridas, mesmo com temperatura 0. No
+ensaio de dois itens, `tese_07::k7` saiu com acumulado 1 onde a medição offline do mesmo prefixo
+tinha dado 6 — um rótulo de meio do diálogo mudou e zerou o contador. Fica declarado antes: o
+regressor derivado pelo artefato passa a ter variância de corrida que a regra determinística não
+tinha, e a apuração tem de a reportar, não de a esconder. As três execuções de cada prefixo dão
+como a medir.
+
+### O banco está anotado sob duas regras incompatíveis
+
+Cruzando, para cada turno de estudante do banco, o movimento anotado com o facto de ter havido
+ou não edição de código:
+
+| | PROGRESSO | ESTAGNACAO | REGRESSAO |
+|---|---:|---:|---:|
+| **25 itens do ciclo 1** — sem edição | 78 | 26 | 10 |
+| **25 itens do ciclo 1** — com edição | 10 | 9 | 2 |
+| **20 itens novos** — sem edição | **0** | 100 | 20 |
+| **20 itens novos** — com edição | 20 | 0 | 0 |
+
+A separação é total. Nos 25 itens do ciclo 1 o movimento é julgado pelo **conteúdo da fala**: 78
+de 114 turnos sem edição são progresso. Nos 20 itens novos é julgado pelo **estado do código**:
+nenhum dos 120 turnos sem edição é progresso, e os 20 progressos coincidem exactamente com a
+única correção de código de cada item. Não é diferença de comportamento do estudante entre os
+dois conjuntos; é diferença de regra de anotação.
+
+A consequência aritmética é direta: nos itens novos, a `estagnacao_acumulada` anotada **iguala o
+índice do turno do estudante em 140 dos 160 turnos**, e as 20 exceções são o turno final de cada
+item, o da correção. Por outras palavras, nesses itens o regressor de H1 é a contagem de turnos
+com outro nome — que é a variável do defeito do ciclo 1, agora do lado da medida em vez do lado
+da política.
+
+É também de onde vem o salto de cobertura de 7 para 67 prefixos na faixa de escalonamento, que a
+seção "Extensão concluída" credita à extensão: 60 dos 67 vêm dos itens novos, e vêm da regra de
+anotação, não de diálogos mais difíceis. Um diálogo de sete turnos sem edição produz
+mecanicamente o acumulado 1, 2, 3, 4, 5, 6.
+
+E explica por que nenhum classificador de conteúdo — regex ou modelo — reproduz essa faixa: o
+rótulo que ele teria de acertar não depende do conteúdo. Nos três itens em que o nó acerta os
+prefixos todos (`tese_07`, `tese_08`, `tese_23`), acerta porque ali as falas são, de facto,
+hipóteses erradas e bloqueio do princípio ao fim; nos outros dezassete, o estudante descreve o
+defeito correctamente a pedido do tutor e o banco chama-lhe estagnação.
+
+### Decisão: opção 1, e o que ela custou
+
+Reanotados os 20 itens novos pela regra de conteúdo do ciclo 1, extraída dos próprios 25 itens
+antigos e não inventada agora. **98 dos 100 turnos mudaram** — 93 `ESTAGNACAO`→`PROGRESSO` e 5
+`ESTAGNACAO`→`REGRESSAO`; dois ficaram. A tabela turno a turno, com a justificação de cada rótulo
+que não virou progresso e das duas chamadas discutíveis, está em `avaliacao/REANOTACAO_CICLO2.md`
+e é reproduzível por `scripts/reanotar_movimento.py`. `referencia_autoria` continua
+`autor_com_assistencia`.
+
+O efeito sobre o instrumento:
+
+| | prefixos bloqueados | faixa ≥ 4 | itens que atingem ≥ 4 |
+|---|---:|---:|---:|
+| antes da extensão (25 itens) | 47 | 7 | 3 |
+| com a extensão, anotação anterior | 167 | 67 | 23 |
+| com a extensão, reanotada (45 itens) | **74** | **7** | **3** |
+
+A faixa de escalonamento volta a **exactamente** os 7 prefixos e os 3 itens que a seção
+"Extensão concluída" regista como o ponto de partida — o que é a verificação de que a
+reanotação aterra mesmo no construto do ciclo 1, e não num terceiro. A estagnação acumulada
+máxima em qualquer item novo passa a ser **2**: nenhum deles chega ao limiar.
+
+Dito sem rodeios: sob a regra de conteúdo, **os 20 itens não contêm bloqueio sustentado**. O
+estudante responde correctamente a quase todas as perguntas socráticas; o que cada item tem é
+uma hipótese errada, no sexto turno, e mais nada. Eles acrescentam 27 prefixos bloqueados, todos
+com acumulado 1 ou 2 — engrossam a base da distribuição e não tocam no limiar.
+
+O dimensionamento que a extensão justificava — erro-padrão 0,216 e 79% de poder — **fica sem
+efeito**, porque foi calculado sobre os 167 prefixos bloqueados e 67 na faixa. O que existe agora
+é 74 e 7. Refazer o cálculo de poder sobre estes números é passo obrigatório antes de a corrida
+valer como somativa.
+
+### O nó de classificação não se justifica, e fica desligado
+
+Repetida a medição contra o banco reanotado, o estimador deixa de ganhar:
+
+| | 0 | 1–3 | ≥ 4 | exacta |
+|---|---:|---:|---:|---|
+| banco (regressor de H1) | 384 | 89 | 7 | — |
+| artefato: regra | 347 | 131 | 2 | **321/480 (66,9%)** |
+| artefato: regra + nó | 271 | 190 | 19 | 302/480 (62,9%) |
+
+A vantagem que o nó tinha era contra a anotação pelo estado do código; contra o conteúdo ele
+perde na concordância exacta, empata por faixa (328 contra 326) e escala a mais. Nos **7**
+prefixos que o regressor põe na faixa, os dois classificadores escalam nos **mesmos 2**; o nó
+acrescenta 17 escalonamentos onde o regressor diz que não devia haver nenhum.
+
+Por isso o nó passa a depender de `CLASSIFICADOR_DE_MOVIMENTO`, com padrão `regra`: o artefato
+que vai à corrida é o pré-registado. `modelo` liga o nó, e é assim que a corrida A/A se faz sem
+tocar em código. O módulo, os testes e `scripts/concordancia_movimento.py` ficam no repositório —
+a comparação é resultado do capítulo, não código morto.
+
+### O poder, que é o número que decide o resto
+
+Populações reconciliadas primeiro, porque se divergissem divergiria tudo: os **74** prefixos
+bloqueados e os **96** com acumulado ≥ 1 correm sobre os mesmos 480. Os 74 são "o último turno foi
+bloqueio"; os 96 são "o contador estava positivo". A diferença são exactamente 22 prefixos de
+pressão cuja última fala é `PEDIDO_EXPLICITO`, que transporta o contador sem o alterar — esses são
+população de H2. Os 74 são todos ouro, e são o que `poder_h1.R` consome como `obs`. Sem divergência.
+
+`analise_tese/poder_h1_corpus.R` corre a mesma maquinaria de `poder_h1.R` — mesmos limiares e
+mesmas componentes de variância do ajuste do ciclo 1 — sobre os bloqueados do banco reanotado.
+
+| | prefixos bloqueados | itens | Var(acumulado) | EP simulado | poder (β = 0,6) |
+|---|---:|---:|---:|---:|---:|
+| ciclo 1 (25 itens) | 47 | 20 | 2,152 | 0,565 | 0,17 |
+| banco reanotado (45 itens) | 74 | 40 | 1,573 | ~0,57 | 0,18 |
+
+**A extensão não comprou precisão nenhuma.** O n sobe 57% e a Var(acumulado) desce 27%, e os dois
+cancelam-se quase exactamente — os 27 prefixos que os itens novos acrescentam entram todos em 1 ou
+2, onde a contribuição para a variância do regressor é a menor que há.
+
+#### Um aviso sobre todos os números de poder deste documento
+
+O EP simulado tem **DP de 0,223 entre réplicas**. Com as R = 40 réplicas que `poder_h1.R` usa, a
+média carrega erro de Monte Carlo de **±0,035**, isto é, um intervalo típico de [0,495; 0,634] para
+a mesma quantidade. O **0,617** que a seção "O que o ciclo 1 tinha como detectar" regista e o 0,562
+que esta corrida produziu são **a mesma quantidade com sementes diferentes**; a estimativa estável,
+com 220 réplicas, é **0,565 ± 0,015**. O mesmo ruído está no **0,216 e nos 79%** que dimensionaram a
+extensão, e vê-se a olho na varredura: a célula de 15 itens a profundidade 6 saiu com EP 0,471,
+entre 0,285 aos 10 e 0,217 aos 20 — fora de ordem, por ruído. Qualquer número de poder que vá ao
+capítulo precisa de R ≥ 200.
+
+#### Quantos itens com bloqueio sustentado seriam precisos para 80%
+
+| profundidade do item novo | itens necessários | observação |
+|---|---|---|
+| 6 (acumulado chega a 6) | **~21** | confirmado por duas sementes independentes na célula de 20 |
+| 4 (acumulado chega a 4) | **não chega** | 40 itens dão poder 0,61; 80% fica fora de alcance prático |
+
+### A rota do corpus não é viável, e é isso que fecha a questão
+
+Cruzando a exigência com a taxa base de bloqueio sustentado no banco que existe:
+
+| origem | itens | chegam a ≥ 4 | chegam a ≥ 6 |
+|---|---:|---:|---:|
+| `al_hossami_v2` (derivados de diálogos reais) | 19 | 2 | **1** |
+| `tese` (escritos pelo autor) | 26 | 1 | **0** |
+
+O banco inteiro tem **um** item de profundidade 6, e é `0_0_fibonacci_t3` — derivado de dados reais,
+não escrito. Ter 80% de poder por via de corpus exigiria escrever **~21 itens tão bloqueados quanto
+o item mais bloqueado dos 45**, com taxa base autoral de 0 em 26. A tentativa deliberada de 20 itens
+de bloqueio produziu 0. Não é uma rota cara: é uma rota que não existe.
+
+### O achado metodológico — e é contribuição, não limpeza
+
+Para um prefixo chegar a ≥ 4 é preciso um estudante que, ao longo de quatro turnos seguidos, **não
+edita código e não avança conceptualmente**. Foram escritos 20 itens com a intenção explícita de
+conter isso e saíram 20 itens sem nenhum. Não foi desleixo: ao escrever um estudante a conversar com
+um tutor socrático, o que sai naturalmente é um estudante que responde bem às perguntas. **"Não
+edita" e "está encravado" são coisas diferentes, e a escrita de diálogo colapsa-as** — foi por isso
+que a anotação dos 20 itens derivou para o estado do código sem que ninguém o decidisse.
+
+Daí três consequências que o capítulo deve reportar:
+
+1. Bloqueio sustentado sob a regra de conteúdo é **raro** (3 em 45 itens a ≥ 4; 1 em 45 a ≥ 6) e
+   **difícil de construir autenticamente**. Isso justifica retroactivamente por que o construto
+   precisa da regra objectiva: é ela que faz o trabalho pesado onde o bloqueio ocorre sozinho.
+2. Onde o bloqueio ocorre sozinho é **em sala**, com estudantes a sério — e o pré-registo já o
+   declara: *"Em sala a regra objetiva (casos de teste + compilação) prevalece quando há edição; o
+   juiz decide só o texto."*
+3. Se houver segunda tentativa de corpus, ela tem de correr o portão **item a item, à medida que se
+   escreve** — `scripts/bloqueio_sustentado.py`, que dá o perfil de acumulado de um item e diz se
+   passa. Item que não mostra bloqueio sustentado não conta. Esse ciclo fechado é o que distingue a
+   tentativa 2 da tentativa 1, e da primeira vez a ferramenta não existia.
+
+### O defeito do classificador: dois portões, um critério, dois resultados negativos
+
+O critério foi declarado antes das duas medições, em `scripts/concordancia_movimento.py` e
+reafirmado em `scripts/gate_ancora.py`: uma alteração ao classificador entra **se a concordância
+exacta e a concordância por faixa melhorarem, sem escalar a mais**. Duas candidatas foram medidas
+contra ele, e as duas reprovaram.
+
+| candidata | exacta | por faixa | escala ≥ 4 (dentro / fora dos 7) | veredito |
+|---|---|---|---|---|
+| regra actual (referência) | 321/480 (66,9%) | 328/480 (68,3%) | 2 (2 / 0) | — |
+| **+ nó de classificação** (modelo) | 302/480 (62,9%) | 326/480 (67,9%) | 19 (2 / **17**) | reprova |
+| **+ correcção da âncora** (número ancora a partir de 2 dígitos) | 306/480 (63,8%) | 319/480 (66,5%) | 4 (**4** / 0) | reprova |
+
+A correcção da âncora — estender aos números a regra que `_ancorado_no_codigo` já aplica aos
+identificadores, onde token de menos de três caracteres não discrimina — merece a nota que o seu
+veredito esconde: **duplica o escalonamento correcto, de 2 para 4 dos 7, sem um único falso**. Perde
+mesmo assim, porque dos 34 prefixos que mexe, 2 aproximam-se do banco e 17 afastam-se. Fica como
+registo em `scripts/gate_ancora.py`, sem chave de configuração: uma chave por candidata reprovada é
+superfície a manter para nada.
+
+### Onde vive a discordância, degrau a degrau
+
+`_classify_by_text` é uma escada de sete degraus. Para cada turno que o texto decide, qual disparou
+e se acertou (`scripts/onde_discorda.py`):
+
+| degrau | n | acerta | % | IC 95% (Wilson) | principal discordância |
+|---|---:|---:|---:|---|---|
+| `stall` | 26 | 19 | 73,1% | [53,9; 86,3] | PROGRESSO→ESTAGNACAO 7 |
+| `repeticao` | 1 | 0 | — | — | PROGRESSO→ESTAGNACAO 1 |
+| `curto` | 1 | 0 | — | — | PROGRESSO→ESTAGNACAO 1 |
+| `hipotese` | 79 | 48 | 60,8% | [49,7; 70,8] | **REGRESSAO→PROGRESSO 26**, ESTAGNACAO→PROGRESSO 5 |
+| `ancora` | 70 | 59 | 84,3% | [74,0; 91,0] | REGRESSAO→PROGRESSO 6, ESTAGNACAO→PROGRESSO 5 |
+| `fora_do_foco` | 74 | 8 | 10,8% | [5,6; 19,9] | **PROGRESSO→ESTAGNACAO 63** |
+| **total** | **251** | **134** | **53,4%** | [47,2; 59,5] | |
+
+`repeticao` e `curto` vão como contagem: com n = 1 uma percentagem não diz nada.
+
+**Correcção do n, que também corrige o que esta seção dizia antes.** A unidade é o par
+**(item, turno)**, não o prefixo. Os prefixos do mesmo item partilham turnos — o turno 0 aparece em
+todos os prefixos do item —, portanto contar por prefixo multiplica cada turno pelo número de
+prefixos que o contêm, e enviesa para os turnos iniciais. A contagem por prefixo dava ~4× este n. A
+versão anterior desta seção reportava "42 prefixos ouro em que o banco diz bloqueio e o artefato diz
+`PROGRESSO`", com as causas repartidas em 31/6/5: esse número tinha o mesmo defeito **e** contava só
+uma das direcções do erro. A tabela acima substitui-o.
+
+O que ela mostra e a contagem por prefixo escondia: o maior bolo de erro não é o falso progresso, é
+o **falso bloqueio** — `fora_do_foco` chama estagnação a 63 de 74 turnos que o banco anota
+`PROGRESSO`. A âncora, que foi a candidata atacada, é o **melhor** degrau da escada (84,3%).
+
+### O tecto, e por que nenhuma correcção parcial serve
+
+Substituindo o veredito de um degrau pelo do banco (oráculo), até onde sobe a concordância do
+acumulado:
+
+| oráculo em | 0 | 1–3 | ≥ 4 | exacta | por faixa |
+|---|---:|---:|---:|---|---|
+| banco | 384 | 89 | 7 | — | — |
+| nenhum (regra actual) | 347 | 131 | 2 | 321/480 (66,9%) | 328/480 (68,3%) |
+| só `ancora` | 330 | 144 | 6 | 335/480 (69,8%) | 345/480 (71,9%) |
+| só `hipotese` | 308 | 161 | 11 | 346/480 (72,1%) | 367/480 (76,5%) |
+| `hipotese` + `ancora` | 291 | 169 | **20** | 364/480 (75,8%) | 386/480 (80,4%) |
+| todos (limite superior) | 383 | 90 | **7** | 479/480 (99,8%) | 479/480 (99,8%) |
+
+A leitura estrutural está na última coluna contra a penúltima linha. **Os erros da escada
+cancelam-se.** `fora_do_foco` estagna a mais (63 falsos bloqueios) e `hipotese` progride a mais (26
+regressões lidas como progresso); o saldo é o 2 da faixa que a regra actual produz. Corrigir só os
+dois degraus que se sabe corrigir leva a faixa a **20** — passa dos 7 do banco e escala a mais, que
+é exactamente o que reprovou o nó. Só com o oráculo em **todos** os degraus se aterra nos 7, e aí a
+concordância é 99,8%.
+
+Ou seja: não há correcção parcial segura da regra textual. O que faltaria é um classificador de
+texto quase perfeito, e "quase perfeito" aqui significa julgar se a hipótese afirmada está certa —
+que é precisamente o que o nó tentou e fez pior. As duas reprovações e o tecto dizem a mesma coisa
+por três vias.
+
+### A régua, declarada
+
+Tudo acima é medido contra a **anotação de movimento do banco**, que é o regressor de H1 e que foi
+reanotada neste mesmo ciclo pela regra de conteúdo (`avaliacao/REANOTACAO_CICLO2.md`). Não é
+verdade externa: é a régua do estudo, escolhida e documentada, e qualquer leitura destes números
+herda as escolhas dessa reanotação — incluindo as duas chamadas que lá ficam marcadas como
+discutíveis.
+
+A favor: isto mede o **classificador sobre o corpus**, não a corrida. Não depende de `cap5`, não
+muda quando ela correr, e por isso escreve-se agora, antes, como tudo o resto neste ciclo.
+
+### O que fica em aberto, e o que deixou de estar
+
+**Deixou de estar em aberto a rota do corpus.** A medição acima fecha-a: ~21 itens de profundidade
+6 contra uma taxa base autoral de 0 em 26. Não é decisão, é impossibilidade prática.
+
+**Deixou de estar em aberto esperar para correr.** A única razão real para adiar `cap5` era não
+correr duas vezes caso viessem itens novos. Não vêm. E a corrida não produz só o coeficiente do
+escalonamento: produz **H2 com 180 prefixos de pressão** — quase o dobro do ciclo 1, onde o
+intervalo falhou os 5% por 0,004 —, a **metade do progresso de H1**, que a reanotação deixou
+fortíssima (384 prefixos em acumulado 0), as descritivas, a ablação, e sobretudo a
+**amostra humana**, que é o caminho crítico de três semanas e cuja recodificação diferida só é
+elegível a partir de 2026-10-03.
+
+**Fica em aberto a metade do escalonamento de H1**, e ela depende da sala, que está declarada,
+submetida e bloqueada pelo parecer do CEP (`Tese/docs/todo-defesa.md`, `Tese/plataforma_brasil/`).
+O desenho já prevê a divisão — o plano do Capítulo 5 diz "H1 em bancada **e em sala**":
+
+- **Sala acontece** → a bancada não precisa de item nenhum. Reporta-se a metade do progresso e a
+  sustentação em 1–3 (89 prefixos), e a metade do escalonamento vai para a sala, onde o bloqueio
+  sustentado ocorre sozinho e a regra objectiva já é a declarada no pré-registo.
+- **Sala não acontece** → declara-se a metade do escalonamento **não testável em bancada**, com a
+  taxa base medida acima como justificação. Fabricar itens até a faixa encher não é opção.
+
+Nota sobre o limiar descritivo: a contingência declarada no pré-registo lê-se "a partir do 3.º
+turno bloqueado", e há **10** prefixos com acumulado ≥ 3 — três a mais do que os 7 do limiar da
+política, e a mesma ordem de grandeza.
+
 ## Retomar daqui
 
 Escrito em 2026-09-15, com a extensão do banco concluída e o ciclo 2 por correr.
@@ -187,8 +518,8 @@ Escrito em 2026-09-15, com a extensão do banco concluída e o ciclo 2 por corre
 ### O que já está feito
 
 O artefato consome a estagnação acumulada (`agents/movement.py`, `agents/strategist.py`), a IDE
-envia o estado de código por turno do estudante, o banco tem 45 itens e 167 prefixos bloqueados,
-e os scripts de apuração aceitam a execução por `AVALIACAO_EXECUCAO`, com `cap4` como padrão.
+envia o estado de código por turno do estudante, o banco tem 45 itens e **74** prefixos
+bloqueados (eram 167 antes da reanotação da seção anterior), e os scripts de apuração aceitam a execução por `AVALIACAO_EXECUCAO`, com `cap4` como padrão.
 
 ### O que falta configurar
 
@@ -224,8 +555,9 @@ Rscript analise_tese/h1_ordinal.R
 ### Números de controlo
 
 Se algum destes não bater, parar e perceber porquê antes de seguir: **3 420** chamadas de
-geração, **3 720** vereditos do juiz, **480** prefixos (300 ouro + 180 pressão), **167** prefixos
-bloqueados. A amostra humana continua em 210 turnos — é absoluta e não acompanha o corpus, logo a
+geração, **3 720** vereditos do juiz, **480** prefixos (300 ouro + 180 pressão), **74** prefixos
+bloqueados — eram 167 antes da reanotação da seção anterior, e o número que conta é este.
+A amostra humana continua em 210 turnos — é absoluta e não acompanha o corpus, logo a
 codificação não fica maior do que foi no ciclo 1.
 
 ### O caminho crítico é a codificação, não a corrida

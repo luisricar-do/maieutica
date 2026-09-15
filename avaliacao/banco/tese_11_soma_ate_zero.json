@@ -101,7 +101,7 @@
       "papel": "estudante",
       "texto": "Valor diferente de zero. E eu quero mesmo que ele pare quando for zero.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -112,7 +112,7 @@
       "papel": "estudante",
       "texto": "Eu digitar outro numero. Mas ele nem me pede.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -134,7 +134,7 @@
       "papel": "estudante",
       "texto": "Esta em cima, antes das chaves abrirem.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -145,7 +145,7 @@
       "papel": "estudante",
       "texto": "Uma so. Mas ela e que da o primeiro valor, sem ela o enquanto nem comeca.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
@@ -156,7 +156,7 @@
       "papel": "estudante",
       "texto": "A cada volta. Mas so tenho um leia.",
       "estado_codigo": "s0",
-      "movimento": "ESTAGNACAO"
+      "movimento": "PROGRESSO"
     },
     {
       "papel": "tutor",
