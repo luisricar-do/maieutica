@@ -113,10 +113,34 @@ python -m avaliacao julgar                       # ensaio barato (gpt-4o)
 python -m avaliacao julgar --juiz-protocolo      # corrida reportável (gemini-3.1-pro-preview)
 python -m avaliacao analisar
 python -m avaliacao amostra-humana --tamanho 150
-# … o codificador preenche codificacao.csv e, ≥3 semanas depois, recodificacao.csv …
+python -m avaliacao.codificador                          # preenche codificacao.csv
+python -m avaliacao.codificador --rodada recodificacao   # ≥3 semanas depois
 python -m avaliacao kappa
 python -m avaliacao congelar
 ```
+
+### Codificação da validação humana
+
+`avaliacao/codificador.py` é a ferramenta de preenchimento das duas planilhas: sobe um servidor
+local, mostra **um** turno de cada vez na ordem sorteada em `procedimento.json` e grava ao fim de
+cada registro. Existe porque abrir essas planilhas numa folha de cálculo reescreve quebras de
+linha, aspas e encoding — os campos de contexto trazem código e conversas inteiras com `\n` dentro
+de campos citados, 8.464 linhas físicas para 210 registros — e um registro partido é
+confiabilidade perdida. O arquivo é reescrito inteiro com `csv.writer` no dialeto que o gerou e
+trocado por `os.replace` depois de `fsync`; abrir e gravar sem editar devolve a planilha byte a
+byte igual, e `tests/test_validacao_codificador.py` prova-o. Retoma sozinha no primeiro registro
+por codificar, e grava `iniciada_em`/`concluida_em` de cada rodada em `procedimento.json` — a data
+que o pré-registro promete publicar.
+
+Os domínios validam no cliente e no servidor contra a mesma tabela (`DOMINIOS`). `ancorado` não é
+booleano: vale `sim`, `nao` ou `alvo_errado`, porque é assim que o juiz responde
+(`ANCORAGENS`, em `juiz.py`) e é como string que `validacao_humana._valor` compara as duas
+codificações — gravar `0`/`1` ali zeraria o κ humano×juiz da variável por construção.
+
+**Cegueira.** A ferramenta lê só as planilhas, `procedimento.json` e as *chaves* de
+`mapa_recodificacao.json`; nunca `juizos.jsonl`, `turnos.jsonl`, `banco/` ou `mapa_amostra.json` —
+este cifra a condição no próprio valor. Ao navegador só vão as colunas de contexto, por lista
+branca. Nenhum caminho que de-cegue aparece no módulo, e um teste falha se algum aparecer.
 
 Toda etapa é **retomável**: o que já está registrado não é refeito, e um juízo que falhou é
 reexecutado na passagem seguinte. Cada corrida vive em `execucoes/<id>/`:
