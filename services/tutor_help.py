@@ -30,6 +30,7 @@ def build_tutor_meta_from_actions(
     stagnation_source: str = "",
     movement_baseline: str = "",
     stagnation_streak_baseline: int = 0,
+    hint_level: int = 0,
     model: str = "",
     usage: dict[str, int] | None = None,
     finish_reason: str = "",
@@ -64,6 +65,12 @@ def build_tutor_meta_from_actions(
     if movement_baseline:
         meta["movementBaseline"] = movement_baseline
         meta["stagnationStreakBaseline"] = max(0, int(stagnation_streak_baseline))
+    # O nível de dica em vigor no turno. Modula o ritmo da escada de concretude e não o teto
+    # (o nível 3 é proibido em qualquer valor), de modo que ler a diretividade de um turno sem
+    # saber que ritmo estava em vigor é ler metade do dado. Na bancada ficou fixo em 1 e a
+    # análise teve de ir buscá-lo à configuração; registrado aqui, sai do próprio turno.
+    if hint_level:
+        meta["hintLevel"] = max(1, min(3, int(hint_level)))
     meta["model"] = model or chat_model_name()
     if usage is not None:
         # Soma das chamadas do grafo no turno — roteador, analista, estrategista, comunicador.
@@ -404,6 +411,7 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
             stagnation_source=final_state["stagnation_source"],
             movement_baseline=initial_state["student_movement"],
             stagnation_streak_baseline=initial_state["stagnation_streak"],
+            hint_level=final_state["hint_level"],
             usage=usage.as_dict(),
             finish_reason=usage.finish_reason,
         ),

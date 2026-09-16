@@ -75,6 +75,7 @@ def _stream_tutor_meta(
         stagnation_source=state["stagnation_source"],
         movement_baseline=referencia["student_movement"],
         stagnation_streak_baseline=referencia["stagnation_streak"],
+        hint_level=state["hint_level"],
     )
 
 

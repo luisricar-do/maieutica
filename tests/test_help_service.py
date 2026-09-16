@@ -138,3 +138,24 @@ async def test_tutor_meta_soma_os_tokens_das_chamadas_do_grafo() -> None:
     }
     # Sem medição não se inventa zero: o campo simplesmente não vem (caso do SSE).
     assert "usage" not in build_tutor_meta_from_actions([], intent="DEBUG")
+
+
+def test_tutor_meta_registra_o_nivel_de_dica_em_vigor() -> None:
+    """O nível de dica sai no turno, e não só na configuração de quem correu a bancada.
+
+    Ele modula o ritmo da escada de concretude e não o teto — o nível 3 é proibido em
+    qualquer valor —, de modo que ler a diretividade de um turno sem saber que ritmo
+    estava em vigor é ler metade do dado. Na corrida `cap4` o valor teve de ser ido buscar
+    à configuração, porque o campo não existia.
+    """
+    from services.tutor_help import build_tutor_meta_from_actions
+
+    meta = build_tutor_meta_from_actions([], intent="DEBUG", hint_level=2)
+    assert meta["hintLevel"] == 2
+
+    # Fora da faixa, satura: o contrato da rota já o faz, e o meta não contradiz o contrato.
+    assert build_tutor_meta_from_actions([], hint_level=9)["hintLevel"] == 3
+    assert build_tutor_meta_from_actions([], hint_level=-1)["hintLevel"] == 1
+
+    # Sem valor, o campo não vem: zero não é "nível zero", é ausência de medição.
+    assert "hintLevel" not in build_tutor_meta_from_actions([], intent="DEBUG")
