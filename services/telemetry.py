@@ -14,6 +14,7 @@ import re
 from datetime import UTC, datetime
 from typing import Any, TypedDict
 
+from agents.config import classificador_de_movimento
 from services import telemetry_store
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,10 @@ def serialize_batch_ndjson(batch: TelemetryBatch, *, server_ts: str) -> str:
         "condition": batch["condition"],
         "buildSha": batch["build_sha"],
         "promptHash": batch["prompt_hash"],
+        # Estado do serviço, carimbado aqui e não recebido do cliente: a IDE não sabe qual
+        # classificador corre do outro lado, e um campo de política vindo do navegador seria
+        # dado do navegador, não do artefato.
+        "classificadorDeMovimento": classificador_de_movimento(),
     }
     lines = []
     for event in batch["events"]:

@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from agents.config import classificador_de_movimento
 from services import telemetry_store
 
 logger = logging.getLogger(__name__)
@@ -106,6 +107,10 @@ def build_record(
         "movementSource": movement_source,
         "stagnationStreak": max(0, int(stagnation_streak)),
         "stagnationSource": stagnation_source,
+        # Quem classificou o movimento nesta corrida. Vai em cada linha, e não num cabeçalho de
+        # sessão, porque o registro é uma linha por turno e os turnos de uma sessão podem
+        # atravessar um redeploy do serviço.
+        "classificadorDeMovimento": classificador_de_movimento(),
         "model": model,
     }
     if prompt_variant:

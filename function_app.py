@@ -13,6 +13,7 @@ from azurefunctions.extensions.http.fastapi import (  # noqa: E402
     StreamingResponse,
 )
 
+from agents.config import verificar_configuracao
 from agents.rag.graph import get_compiled_rag_graph
 from services.ping import ping_response
 from services.telemetry import process_telemetry_request
@@ -24,6 +25,11 @@ from services.tutor_help_single import (
 from services.tutor_help_stream import format_sse, iter_help_sse
 
 logger = logging.getLogger(__name__)
+
+# As chaves de política são lidas aqui, no carregamento do worker: uma App Setting inválida
+# derruba o arranque em vez de degradar em silêncio para o padrão e produzir uma coleta que
+# contradiz o que §4.3 declara.
+verificar_configuracao()
 
 app = func.FunctionApp()
 

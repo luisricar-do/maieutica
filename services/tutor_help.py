@@ -7,6 +7,7 @@ import re
 import time
 from typing import Any, TypedDict, cast
 
+from agents.config import classificador_de_movimento
 from agents.graph import tutor_graph
 from agents.llm import chat_model_name
 from agents.movement import classify_movement, stagnation_streak
@@ -71,6 +72,11 @@ def build_tutor_meta_from_actions(
     # análise teve de ir buscá-lo à configuração; registrado aqui, sai do próprio turno.
     if hint_level:
         meta["hintLevel"] = max(1, min(3, int(hint_level)))
+    # O classificador em vigor no turno. É configuração do serviço, não do pedido: a IDE não o
+    # escolhe e o estudante não o vê, mas é ele que decide qual movimento alimentou a política.
+    # Depois da sessão o ambiente do serviço já não existe, e sem esta chave a única prova do que
+    # correu seria a memória de quem subiu o serviço.
+    meta["classificadorDeMovimento"] = classificador_de_movimento()
     meta["model"] = model or chat_model_name()
     if usage is not None:
         # Soma das chamadas do grafo no turno — roteador, analista, estrategista, comunicador.

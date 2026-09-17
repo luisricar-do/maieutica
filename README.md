@@ -133,6 +133,7 @@ Defina as variáveis em **`local.settings.json`** → `Values` (copie a partir d
 | `LITELLM_BASE_URL` | **Obrigatória.** URL do proxy (ex.: `http://localhost:4000`). Se não terminar em `/v1`, o código acrescenta automaticamente. |
 | `LITELLM_API_KEY` | Chave Bearer esperada pelo proxy (master key / virtual key). Se vazio, tenta `OPENAI_API_KEY`; senão usa o placeholder `litellm` (só para dev sem auth). |
 | `LITELLM_MODEL` | Nome do modelo no LiteLLM, conforme o teu `config.yaml`. Padrão: `gpt-4o-mini` — o modelo de produção fixado para a avaliação da dissertação. O modelo efetivamente usado volta em `tutorMeta.model` e no registro de interações. |
+| `CLASSIFICADOR_DE_MOVIMENTO` | `regra` (padrão) ou `modelo`: quem classifica o movimento do estudante no degrau em que o texto decide. Qualquer outro valor **derruba o arranque** em vez de cair em `regra` em silêncio — é a chave que a dissertação declara fixa em `regra` na coleta. O valor em vigor volta em `tutorMeta.classificadorDeMovimento`, no registro por turno e no envelope de cada lote de telemetria. |
 | `EVALUATION_MODE` | `1`/`true` congela o artefato na configuração avaliada: **sem RAG em qualquer intenção** e sem a ferramenta `suggest_documentation`. Use em bancada e nas sessões em sala. |
 | `INTERACTION_LOG_DIR` | Diretório para o registro estruturado por turno (NDJSON, um ficheiro por dia). Vazio desliga a escrita local. |
 | `INTERACTION_LOG_TO_BLOB` | `1`/`0` força ou desliga o envio do registro por turno para o Blob Storage. Omitido: segue `TELEMETRY_BLOB_CONNECTION_STRING`. |
@@ -263,6 +264,7 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
     "endReason": "none",
     "intent": "DEBUG",
     "studentMovement": "ESTAGNACAO",
+    "classificadorDeMovimento": "regra",
     "model": "gpt-4o-mini",
     "usage": {
       "promptTokens": 750,
@@ -275,7 +277,7 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
 ```
 
 - **`actions`**: lista de ações de editor (mesmo formato que no SSE `event: action`), por exemplo destaques ou `mark_bug_resolved` quando o problema foi dado como resolvido.
-- **`tutorMeta`**: metadados para a UI e para a avaliação. Quando o estrategista emite `mark_bug_resolved`, vem `suggestedConversationEnd: true` e `endReason: "bug_resolved"` — a IDE pode encerrar a conversa atual e abrir uma nova. `intent` é o rótulo do roteador (`DEBUG`, `THEORY`, `CASUAL`, `OUT_OF_SCOPE`), `studentMovement` é o movimento classificado no turno anterior do estudante (`PROGRESSO`, `ESTAGNACAO`, `REGRESSAO`, `PEDIDO_EXPLICITO` ou `NENHUM`; o turno de abertura, que não tem turno anterior, é sempre `NENHUM`) e `model` é o modelo que gerou o turno.
+- **`tutorMeta`**: metadados para a UI e para a avaliação. Quando o estrategista emite `mark_bug_resolved`, vem `suggestedConversationEnd: true` e `endReason: "bug_resolved"` — a IDE pode encerrar a conversa atual e abrir uma nova. `intent` é o rótulo do roteador (`DEBUG`, `THEORY`, `CASUAL`, `OUT_OF_SCOPE`), `studentMovement` é o movimento classificado no turno anterior do estudante (`PROGRESSO`, `ESTAGNACAO`, `REGRESSAO`, `PEDIDO_EXPLICITO` ou `NENHUM`; o turno de abertura, que não tem turno anterior, é sempre `NENHUM`) `classificadorDeMovimento` é quem classificou esse movimento (`regra` ou `modelo`, ver a tabela de variáveis) e `model` é o modelo que gerou o turno.
 - **`usage`** (só em `/api/help`): soma dos tokens de **todas** as chamadas ao modelo no turno — roteador, analista, estrategista e comunicador —, com `calls` a dizer quantas foram observadas. É esse o custo comparável com a chamada única de `/api/help/single`. O SSE não traz o campo: lá o uso não é recolhido, e zeros permanentes seriam informação falsa.
 
 **Evento SSE `done`** (`/api/help/stream`) — exemplo:

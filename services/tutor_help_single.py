@@ -30,7 +30,7 @@ from agents.problem_context import (
 )
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from agents.config import classificador_por_modelo, evaluation_mode
+from agents.config import classificador_de_movimento, evaluation_mode
 from agents.llm import chat_model_name
 
 # Cliente de chat do comunicador: a fala do tutor comparada na condição A sai daqui, com estes
@@ -302,7 +302,7 @@ def prompts_response() -> dict[str, Any]:
         "problem": {"text": PROBLEM_TEMPLATE, "sha256": PROBLEM_SHA256},
         "config": {
             "evaluationMode": evaluation_mode(),
-            "classificadorDeMovimento": "modelo" if classificador_por_modelo() else "regra",
+            "classificadorDeMovimento": classificador_de_movimento(),
             "model": chat_model_name(),
         },
     }
