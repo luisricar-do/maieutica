@@ -194,15 +194,38 @@ poetry export -f requirements.txt --output requirements.txt --without-hashes
 
 Em alternativa, mantenha o `requirements.txt` alinhado manualmente com as dependências de produção (como no repositório). O ficheiro na raiz da Function é usado pelo runtime Python na Azure.
 
-## Deploy na Azure (resumo)
+## Deploy na Azure (Container Apps)
 
-1. Crie um **Function App** com runtime **Python 3.11** no portal Azure (ou CLI).
-2. Configure **Application settings**: `AzureWebJobsStorage`, `LITELLM_BASE_URL`, `LITELLM_API_KEY` (ou `OPENAI_API_KEY`) e, se necessário, `LITELLM_MODEL`.
-3. Configure **CORS** no portal (Function App → **API** → **CORS**) com a origem do frontend (por exemplo `https://portugol.dev`), para o browser conseguir chamar a API em domínio diferente.
-4. Faça o deploy a partir da **raiz do repositório** (onde estão `function_app.py` e `host.json`), por exemplo: `func azure functionapp publish <NOME_DO_APP>` com Core Tools autenticado.
-5. Garanta que `host.json`, `function_app.py`, `requirements.txt` e os pacotes `agents/` e `services/` entram no pacote publicado.
+O serviço corre num **Azure Container App** com a imagem do [`Dockerfile`](Dockerfile): o mesmo
+host do Azure Functions do `make start`, com as mesmas rotas. A imagem fica no GHCR
+(`ghcr.io/luisricar-do/maieutica`); o [`.dockerignore`](.dockerignore) mantém fora dela o
+`local.settings.json` e o `registro_interacoes/`.
 
-Consulte a documentação oficial: [Publicar código Python em Azure Functions](https://learn.microsoft.com/azure/azure-functions/functions-reference-python).
+**Uma vez — infraestrutura** ([`scripts/azure_setup.sh`](scripts/azure_setup.sh), idempotente):
+
+```bash
+az login && gh auth login
+LITELLM_BASE_URL=https://... LITELLM_API_KEY=sk-... \
+CORS_ORIGINS="https://portugol.dev" MIN_REPLICAS=1 \
+./scripts/azure_setup.sh
+```
+
+Dentro do `dev-maieutica-rg` já existente, cria Log Analytics, Storage com o contentor
+`telemetria` (soft delete de 30 dias), Container Apps Environment, o Container App com segredos,
+variáveis e CORS, e uma identidade gerida com credencial federada para o GitHub Actions; grava as
+variables `AZURE_*` no repositório. O app fica com `EVALUATION_MODE=1`,
+`CLASSIFICADOR_DE_MOVIMENTO=regra` e o registro por turno no Blob. `MIN_REPLICAS=0` escala a zero
+(arranque a frio de ~10 s ou mais); durante as aulas, `1`.
+
+**A cada push na `main` — esteira** ([`.github/workflows/deploy-containerapp.yml`](.github/workflows/deploy-containerapp.yml)):
+`pytest` → build e push para o GHCR (`sha-<commit>` e `latest`) → `az containerapp update` por
+OIDC → smoke test em `/api/ping`. Também corre à mão (`gh workflow run deploy-containerapp.yml`).
+
+No primeiro push o pacote nasce privado no GHCR: torne-o público em *Package settings* ou corra o
+script com `GHCR_PAT=<PAT com read:packages>` para o Container App o puxar com credencial.
+
+O CORS do `local.settings.json` só vale no `func start`; no Container App quem responde ao
+preflight é o ingress (`CORS_ORIGINS` no script).
 
 ## API — exemplo de request / response
 

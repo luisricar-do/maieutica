@@ -1,0 +1,130 @@
+# Testa, constrói a imagem, publica no GHCR e põe a revisão nova no Azure Container App.
+#
+# A infraestrutura e as variables do repositório (AZURE_*) vêm de `scripts/azure_setup.sh`,
+# corrido uma vez. A Azure é acedida por OIDC (identidade federada): não há segredo no GitHub.
+name: Deploy (Container Apps)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "README.md"
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - ".cursor/**"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-containerapp
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/luisricar-do/maieutica
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar Poetry
+        run: pipx install poetry
+
+      - name: Instalar dependências
+        run: poetry install --no-interaction
+
+      - name: Testes (LLM mockado)
+        run: poetry run pytest
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ env.IMAGE }}:sha-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    # Antes de `scripts/azure_setup.sh` não há onde publicar: a esteira só testa e constrói.
+    if: vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Atualizar a imagem do Container App
+        env:
+          RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+          APP: ${{ vars.AZURE_CONTAINERAPP_NAME }}
+          IMAGE_REF: ${{ needs.build.outputs.image }}
+        run: |
+          az extension add --name containerapp --upgrade --yes --only-show-errors
+          az containerapp update -g "$RG" -n "$APP" \
+            --image "$IMAGE_REF" \
+            --only-show-errors -o none
+
+      - name: Smoke test (/api/ping)
+        env:
+          RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+          APP: ${{ vars.AZURE_CONTAINERAPP_NAME }}
+        run: |
+          # Só pinga depois de a revisão nova estar pronta; antes disso responde a antiga.
+          for _ in $(seq 1 40); do
+            read -r latest ready < <(az containerapp show -g "$RG" -n "$APP" \
+              --query "[properties.latestRevisionName, properties.latestReadyRevisionName]" -o tsv | tr '\n' ' ')
+            [ "$latest" = "$ready" ] && break
+            sleep 6
+          done
+          if [ "$latest" != "$ready" ]; then
+            echo "::error::Revisão $latest não ficou pronta (última pronta: $ready)."
+            az containerapp logs show -g "$RG" -n "$APP" --type system --tail 50 || true
+            exit 1
+          fi
+          fqdn=$(az containerapp show -g "$RG" -n "$APP" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          # O host do Functions demora a subir a frio (import do LangGraph incluído).
+          curl --fail --silent --show-error \
+            --retry 20 --retry-delay 6 --retry-all-errors --max-time 15 \
+            "https://${fqdn}/api/ping"
+          echo
+          echo "### Publicado em https://${fqdn}/api" >> "$GITHUB_STEP_SUMMARY"

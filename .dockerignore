@@ -1,0 +1,22 @@
+# A imagem vai para o GHCR. O que tiver chave ou fala de estudante não entra nela.
+local.settings.json
+.env
+registro_interacoes/
+
+.git/
+.github/
+.cursor/
+.build/
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+**/.DS_Store
+
+tests/
+scripts/
+Dockerfile
+.dockerignore
