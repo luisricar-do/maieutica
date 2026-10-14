@@ -133,13 +133,14 @@ else
 fi
 
 # O CORS do `local.settings.json` só vale no `func start`; no container quem responde ao
-# preflight é o ingress do Container Apps.
+# preflight é o ingress do Container Apps. Headers listados um a um: com `*` o ingress devolve
+# 403 ao preflight que pede `content-type`, e a IDE pede-o em toda chamada.
 log "CORS ($CORS_ORIGINS)"
 read -r -a ORIGINS <<< "$CORS_ORIGINS"
 az containerapp ingress cors enable -g "$RG" -n "$APP_NAME" \
   --allowed-origins "${ORIGINS[@]}" \
   --allowed-methods GET POST OPTIONS \
-  --allowed-headers "*" -o none
+  --allowed-headers content-type accept -o none
 
 if [[ -n "${GHCR_PAT:-}" ]]; then
   log "Credencial do GHCR (pacote privado)"
