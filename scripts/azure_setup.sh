@@ -48,6 +48,11 @@ PLACEHOLDER_IMAGE="mcr.microsoft.com/k8se/quickstart:latest"
 
 log() { printf '\n==> %s\n' "$*"; }
 
+# SHA-1 em hex: `sha1sum` no Linux/Cloud Shell, `shasum` no macOS — mesmo resultado nos dois.
+sha1_hex() {
+  if command -v sha1sum >/dev/null 2>&1; then sha1sum; else shasum; fi | cut -d' ' -f1
+}
+
 log "Assinatura e resource group"
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 TENANT_ID=$(az account show --query tenantId -o tsv)
@@ -57,7 +62,7 @@ LOCATION=$(az group show -n "$RG" --query location -o tsv) \
 echo "RG $RG em $LOCATION"
 
 # Nome de storage é global, 3–24 minúsculas/dígitos: sufixo estável derivado da assinatura.
-STORAGE_NAME="${STORAGE_NAME:-devmaieutica$(printf '%s' "$SUBSCRIPTION_ID" | shasum | cut -c1-8)}"
+STORAGE_NAME="${STORAGE_NAME:-devmaieutica$(printf '%s' "$SUBSCRIPTION_ID" | sha1_hex | cut -c1-8)}"
 
 log "Extensão containerapp e resource providers"
 az extension add --name containerapp --upgrade --yes --only-show-errors
