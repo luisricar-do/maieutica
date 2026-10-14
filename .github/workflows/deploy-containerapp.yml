@@ -110,8 +110,9 @@ jobs:
         run: |
           # Só pinga depois de a revisão nova estar pronta; antes disso responde a antiga.
           for _ in $(seq 1 40); do
-            read -r latest ready < <(az containerapp show -g "$RG" -n "$APP" \
-              --query "[properties.latestRevisionName, properties.latestReadyRevisionName]" -o tsv | tr '\n' ' ')
+            # Here-string, não `< <(...)`: sem o \n final o `read` devolve 1 e o `bash -e` sai.
+            read -r latest ready <<< "$(az containerapp show -g "$RG" -n "$APP" \
+              --query "[properties.latestRevisionName, properties.latestReadyRevisionName]" -o tsv | tr '\n' ' ')"
             [ "$latest" = "$ready" ] && break
             sleep 6
           done
