@@ -4,17 +4,45 @@
 
 Backend **multiagente (MAS)** com **tutor socrático** para integração com um fork do **Portugol Webstudio** (portugol.dev), desenvolvido como artefato de dissertação de Mestrado em Informática na Educação (UNIFEI).
 
-O serviço expõe uma **Azure Function** em Python que orquestra dois agentes via **LangGraph**:
+O serviço expõe uma API HTTP em Python (Azure Functions v2, hoje servida num **Azure Container App**) que orquestra os agentes via **LangGraph**. No caminho de depuração (`DEBUG`):
 
-1. **Agente Analista** — recebe código Portugol e mensagens de erro do compilador e produz um **diagnóstico estruturado** (JSON).
-2. **Agente Tutor Socrático (ADA)** — recebe o diagnóstico e o histórico da conversa e devolve **apenas orientação por perguntas**, sem entregar a solução pronta.
+1. **Roteador** — classifica a intenção do pedido (`DEBUG`, `THEORY`, `CASUAL`, `OUT_OF_SCOPE`) antes do grafo principal.
+2. **Agente Analista** — recebe código Portugol e mensagens de erro do compilador e produz um **diagnóstico estruturado** (JSON).
+3. **Classificador de movimento** — estima o movimento do estudante (progresso, estagnação, regressão, pedido explícito), entrada da política de contingência.
+4. **Estrategista pedagógico** — decide o plano do turno e as ações de IDE, sem falar com o aluno.
+5. **Comunicador / Tutor Socrático (ADA)** — traduz o plano em **apenas orientação por perguntas**, sem entregar a solução pronta.
+
+## Contexto acadêmico
+
+Este repositório é o **artefato medido** da dissertação de mestrado de Luis Ricardo Albano Santos
+(UNIFEI). Ele faz parte de um conjunto de três repositórios:
+
+| Repositório | Papel |
+|-------------|-------|
+| **maieutica** (este) | O serviço: tutor socrático, grafo LangGraph, registro por turno e telemetria. |
+| [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) | A IDE (fork do Portugol Webstudio) que consome `/api/help/stream` e envia a telemetria. |
+| [maieutica-avaliacoes](https://github.com/luisricar-do/maieutica-avaliacoes) | A bancada de avaliação dos Capítulos 4 e 5. **Privada até a defesa** (contém dados de pesquisa não publicados). |
+
+**Versões medidas.** A bancada reconstrói cada corrida por `git archive` do commit que a gerou:
+
+- `f173f6d` — corrida formativa (`cap4`), Capítulo 4.
+- `1e7e5cd` — corrida somativa (`cap5`), Capítulo 5, e base da versão usada na coleta com
+  alunos. `12676d4` vem depois dele e só acrescenta `hintLevel` ao `tutorMeta`, sem tocar nos
+  prompts.
+
+**Por isso o histórico da `main` não deve ser reescrito** (rebase, squash, `push --force`): esses
+commits precisam continuar alcançáveis. Os prompts também estão congelados e têm SHA-256
+registrado: o dos prompts da chamada única sai em `GET /api/help/single/prompts`, e o do pacote
+de prompts do grafo em [`scripts/hash_prompts.sh`](scripts/hash_prompts.sh). Alterá-los torna a
+corrida anterior incomparável — se for deliberado, é execução nova, não correção. As invariantes
+completas estão em [`CLAUDE.md`](CLAUDE.md).
 
 ## Arquitetura (visão geral)
 
 ```
 ┌─────────────────────┐     POST /api/help      ┌──────────────────────┐
-│  Portugol Webstudio │ ───────────────────────► │   Azure Function     │
-│  (frontend / IDE)   │ ◄─────────────────────── │   (function_app.py)  │
+│  Portugol Webstudio │ ───────────────────────► │  Azure Functions v2  │
+│  (frontend / IDE)   │ ◄─────────────────────── │ (Container App)      │
 └─────────────────────┘     JSON (CORS no host) └──────────┬───────────┘
                                                              │
                                                              ▼
@@ -44,7 +72,9 @@ O serviço expõe uma **Azure Function** em Python que orquestra dois agentes vi
 | Componente        | Tecnologia                          |
 |-------------------|-------------------------------------|
 | Runtime           | Python 3.11                         |
-| Serverless        | Azure Functions v2 (modelo por decoradores) |
+| Programação       | Azure Functions v2 (modelo por decoradores, `function_app.py`) + FastAPI extension (SSE) |
+| Execução          | Imagem Docker (`Dockerfile`, base `mcr.microsoft.com/azure-functions/python:4-python3.11`) em **Azure Container Apps**; imagem em `ghcr.io/luisricar-do/maieutica` |
+| CI/CD             | GitHub Actions (`.github/workflows/deploy-containerapp.yml`): pytest → build → GHCR → `az containerapp update` |
 | Orquestração      | LangGraph                           |
 | LLM               | Modelo configurado no [LiteLLM](https://docs.litellm.ai/) (ou proxy compatível) via `langchain-openai` + `LITELLM_BASE_URL` |
 | Dependências (dev)| Poetry, Ruff, pytest, pytest-asyncio, Makefile (`make test` / `make start`) |
@@ -57,38 +87,52 @@ A API Python vive na **raiz deste repositório** (`maieutica/`):
 maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 ├── agents/
 │   ├── __init__.py
-│   ├── analyst.py      # Diagnóstico estruturado (JSON)
-│   ├── tutor.py        # Tutor socrático ADA
-│   ├── llm.py          # Cliente OpenAI-compatível (LiteLLM / proxy)
-│   └── graph.py        # Grafo LangGraph (analyst → tutor)
+│   ├── analyst.py          # Diagnóstico estruturado (JSON)
+│   ├── classifier.py       # Nó que estima o movimento do estudante (entre analista e estrategista)
+│   ├── config.py           # Configuração de execução (EVALUATION_MODE, CLASSIFICADOR_DE_MOVIMENTO)
+│   ├── graph.py            # Grafo LangGraph (router → analyst → classifier → RAG → strategist → tutor)
+│   ├── llm.py              # Cliente OpenAI-compatível (LiteLLM / proxy)
+│   ├── movement.py         # Movimento do estudante por regra determinística (contingência)
+│   ├── problem_context.py  # Enunciado do exercício como contexto do pedido, não como fala
+│   ├── router.py           # Roteamento de intenção antes do grafo principal
+│   ├── strategist.py       # Estrategista pedagógico: plano e ferramentas da IDE
+│   ├── tutor.py            # Comunicador ADA: traduz o plano em texto
+│   ├── usage.py            # Contagem de tokens e motivo de parada somados no turno
+│   └── rag/
+│       ├── __init__.py
+│       ├── graph.py        # Grafo de recuperação + geração
+│       ├── indexer.py      # Indexa docs/portugol_referencia.md em memória
+│       └── query.py        # Consulta ao índice a partir do estado do tutor
 ├── services/
 │   ├── __init__.py
-│   ├── tutor_help.py         # Caso de uso: /api/help (validação + grafo)
-│   ├── tutor_help_stream.py  # SSE: /api/help/stream (diagnóstico + tokens)
+│   ├── interaction_log.py    # Registro NDJSON por turno (trajetórias de uso real e bancada)
+│   ├── ping.py               # Health: resposta JSON para /api/ping
 │   ├── telemetry.py          # Caso de uso: /api/telemetry (validação + NDJSON)
 │   ├── telemetry_store.py    # Persistência dos lotes no Azure Blob Storage
-│   └── ping.py               # Health: resposta JSON para /api/ping
-├── tests/
-│   ├── test_analyst.py
-│   ├── test_tutor.py
-│   ├── test_graph.py
-│   ├── test_help_service.py
-│   ├── test_help_stream.py
-│   ├── test_ping.py
-│   ├── test_llm.py
-│   ├── test_telemetry.py
-│   ├── test_telemetry_store.py
-│   └── conftest.py
+│   ├── tutor_help.py         # Caso de uso: /api/help (validação + grafo)
+│   ├── tutor_help_single.py  # Chamada única sem grafo: /api/help/single e prompts congelados
+│   └── tutor_help_stream.py  # SSE: /api/help/stream (diagnóstico + tokens)
 ├── scripts/
-│   └── fetch_telemetry.py   # Baixa e consolida a telemetria (NDJSON + CSV)
-├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/telemetry
+│   ├── azure_setup.sh      # Provisiona o Container App e liga a esteira do GitHub (idempotente)
+│   ├── fetch_telemetry.py  # Baixa e consolida a telemetria (NDJSON + CSV)
+│   └── hash_prompts.sh     # SHA-256 do pacote de prompts do grafo (árvore ou commit)
+├── tests/                  # pytest, LLM mockado (um test_*.py por módulo; conftest.py com os mocks)
+├── docs/
+│   └── portugol_referencia.md  # Base do RAG (referência da linguagem)
+├── .github/
+│   └── workflows/
+│       └── deploy-containerapp.yml  # Esteira: pytest → imagem no GHCR → Container Apps
+├── .cursor/                # Contexto e rules para agentes (ver AGENTS.md)
+├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/help/single, /api/telemetry
+├── Dockerfile          # Imagem do serviço (host do Azure Functions) para Container Apps
+├── .dockerignore       # Mantém segredos e registro de interações fora da imagem
 ├── Makefile            # atalhos: make test / make dev / make start / make watch
 ├── pyproject.toml      # Fonte da verdade (Poetry)
-├── requirements.txt    # Export para deploy na Azure
+├── poetry.lock / poetry.toml
+├── requirements.txt    # Export usado na imagem (e no deploy)
 ├── host.json
 ├── local.settings.example.json  # Modelo: copiar para local.settings.json
-├── local.settings.json # Local (não versionado — ver .gitignore)
-├── .gitignore
+├── CLAUDE.md / AGENTS.md        # Instruções para agentes (CLAUDE.md é a fonte única)
 └── README.md
 ```
 
@@ -140,7 +184,7 @@ Defina as variáveis em **`local.settings.json`** → `Values` (copie a partir d
 
 As chaves dos provedores (Anthropic, OpenAI, etc.) ficam **no LiteLLM**, não nesta API.
 
-**CORS (browser):** em desenvolvimento local, configure no `local.settings.json` a secção `Host` (ver [`local.settings.example.json`](local.settings.example.json)): `CORS` (por exemplo `*` ou origens separadas por vírgula) e, se precisares de cookies/credenciais, `CORSCredentials`. O runtime do Azure Functions trata os pedidos `OPTIONS` (preflight) com base nisto — **não** é necessário expor `OPTIONS` na função Python. O ficheiro [`host.json`](host.json) **não** define CORS na Azure Functions; em produção, configura CORS no **portal Azure** (Function App → **API** → **CORS**) ou nas **Application settings** do serviço.
+**CORS (browser):** em desenvolvimento local, configure no `local.settings.json` a secção `Host` (ver [`local.settings.example.json`](local.settings.example.json)): `CORS` (por exemplo `*` ou origens separadas por vírgula) e, se precisares de cookies/credenciais, `CORSCredentials`. O runtime do Azure Functions trata os pedidos `OPTIONS` (preflight) com base nisto — **não** é necessário expor `OPTIONS` na função Python. O ficheiro [`host.json`](host.json) **não** define CORS na Azure Functions; em produção quem responde ao preflight é o ingress do Container App (`CORS_ORIGINS` em `scripts/azure_setup.sh`; ver *Deploy na Azure*).
 
 Inicie o host local (é necessário ter **Azure Functions Core Tools** (`func`) no `PATH`):
 
@@ -192,7 +236,7 @@ poetry export -f requirements.txt --output requirements.txt --without-hashes
 > **Poetry 2.x:** se o comando `export` não existir, instale o plugin:  
 > `poetry self add poetry-plugin-export`
 
-Em alternativa, mantenha o `requirements.txt` alinhado manualmente com as dependências de produção (como no repositório). O ficheiro na raiz da Function é usado pelo runtime Python na Azure.
+Em alternativa, mantenha o `requirements.txt` alinhado manualmente com as dependências de produção (como no repositório). O `Dockerfile` instala este arquivo na imagem.
 
 ## Deploy na Azure (Container Apps)
 
@@ -329,7 +373,7 @@ interrompe a resposta ao estudante.
 **Erros comuns**
 
 - `400` — `code` vazio ou JSON inválido.
-- `500` — falha interna (detalhes no log da Function).
+- `500` — falha interna (detalhes no log do Container App).
 
 ## Chamada única para a bancada (`POST /api/help/single`)
 
@@ -496,9 +540,9 @@ Gera `dados/events.ndjson` e `dados/events.csv` (uma linha por evento), remove
 duplicados de retentativa e avisa sobre lacunas de `seq` — sinal de perda de
 telemetria, relevante para a análise de sensibilidade prevista no protocolo.
 
-## Licença e contexto académico
+## Licença
 
-Projeto de investigação em **Ciência da Computação na Educação**, alinhado a práticas de **Design Science Research** e integração com ecossistema Portugol. Ajuste autores e metadados em `pyproject.toml` conforme a sua dissertação.
+MIT — o arquivo `LICENSE` será adicionado ao fim da coleta.
 
 ## Bancada de avaliação (repositório à parte)
 

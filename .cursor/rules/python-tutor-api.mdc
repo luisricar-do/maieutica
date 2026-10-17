@@ -6,6 +6,8 @@ alwaysApply: false
 
 # Python — tutor API
 
+Convenções completas e invariantes: `CLAUDE.md`. Atenção: `agents/movement.py` e os prompts em `agents/` e `services/tutor_help_single.py` são medidos pela bancada — ver `maieutica-core.mdc`.
+
 - Manter **async** onde o código já é assíncrono; respeitar padrões existentes em `agents/` e `services/`.
 - Novos endpoints ou alterações de contrato: alinhar com o consumo em **portugol-ai-tutor** (`packages/agent`, chat SSE).
 - **Grafo LangGraph:** alterações em `agents/graph.py` devem manter o fluxo analista → tutor e tipos de diagnóstico esperados pelo frontend.

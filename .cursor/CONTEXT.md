@@ -1,41 +1,27 @@
 # Contexto Cursor — maieutica
 
-## Repositório atual
+**maieutica** (pacote Poetry `portugol-tutor-api`) é a **API do tutor socrático** em Python: Azure Functions v2 + FastAPI extension + **LangGraph**, servida em **Azure Container Apps** (imagem em `ghcr.io/luisricar-do/maieutica`). É o artefato medido de uma dissertação de mestrado (UNIFEI). A IDE é o fork [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor), que consome principalmente `POST /api/help/stream` (SSE).
 
-**maieutica** (nome do pacote Poetry: `portugol-tutor-api`) é a **API do tutor socrático** em Python: Azure Functions + FastAPI extension + **LangGraph** (agente analista → tutor ADA). Integra com o fork da IDE em [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) via `POST /api/help` e `POST /api/help/stream` (SSE).
+**Fonte única: [`CLAUDE.md`](../CLAUDE.md)** (stack, estrutura, comandos, convenções, testes, segurança). Este arquivo não a duplica; em divergência, vale o `CLAUDE.md`. Arquitetura, variáveis e endpoints: `README.md`.
 
-- **Raiz da API:** `function_app.py`, `host.json`, `agents/`, `services/`, `tests/`
-- **Comandos:** `make test`, `make start` / `make dev`, `make watch` (ver `Makefile`)
-- **Dependências:** Poetry (`pyproject.toml`); deploy Azure usa `requirements.txt` exportado
-- **Config local:** `local.settings.json` (não versionado); modelo em `local.settings.example.json`
-- **LLM:** proxy OpenAI-compatível (`LITELLM_BASE_URL`, etc.) — ver `README.md`
+## Invariantes críticas
 
-## Projeto companheiro (IDE)
+- **Rotas da bancada:** `POST /api/help`, `POST /api/help/single` e `GET /api/help/single/prompts`. Mudança de contrato invalida as corridas já feitas — alinhar antes.
+- **Prompts congelados** (SHA-256 em cada execução; `scripts/hash_prompts.sh`): editar é execução nova, não correção.
+- **`agents/movement.py`:** depois de mexer no padrão, correr `maieutica-avaliacoes/tests/test_frases_de_pressao.py`.
+- **Histórico da `main` não se reescreve:** a bancada usa `git archive` de `f173f6d` e `1e7e5cd`.
+- **Deploy em Container Apps a cada push em `main`**, exceto se só mudarem `README.md`, `CLAUDE.md`, `AGENTS.md` ou `.cursor/**`.
 
-| Repositório        | Caminho típico no disco (ajuste ao teu setup) |
-|--------------------|-----------------------------------------------|
-| portugol-ai-tutor  | …/mestrado/portugol-ai-tutor                  |
+## Repositórios irmãos
 
-A IDE consome principalmente **`/api/help/stream`** para o chat do tutor.
+| Repositório | Caminho típico no disco (ajuste ao teu setup) |
+|-------------|-----------------------------------------------|
+| portugol-ai-tutor (IDE) | …/mestrado/portugol-ai-tutor |
+| maieutica-avaliacoes (bancada, privada) | …/mestrado/maieutica-avaliacoes |
 
 ## Regras neste repo
 
 Ficheiros em `.cursor/rules/*.mdc`:
 
-- **`maieutica-core.mdc`** — contexto do projeto (sempre útil neste workspace)
+- **`maieutica-core.mdc`** — contexto e invariantes (sempre ativa)
 - **`python-tutor-api.mdc`** — convenções ao editar `*.py`
-
-## Skills Cursor úteis (referência)
-
-Skills globais do utilizador (caminhos em `~/.cursor/skills-cursor/` e plugins):
-
-| Skill / área | Quando usar |
-|--------------|-------------|
-| `create-rule` | Novas regras `.mdc` ou estrutura `.cursor/rules` |
-| `create-skill` | Criar skills personalizadas |
-| `update-cursor-settings` | Preferências do editor (`settings.json`) |
-| Cursor Team Kit (`check-compiler-errors`, `fix-ci`, `deslop`, etc.) | CI, lint, limpeza de código |
-| Prisma skills | **N/A** neste repo (sem Prisma) |
-| Figma skills | Só se houver trabalho Figma |
-
-Para usar uma skill: pedir explicitamente à IA ou ela carrega o ficheiro `SKILL.md` quando a tarefa corresponde à descrição da skill.
