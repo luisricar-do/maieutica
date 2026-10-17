@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from agents.problem_context import build_problem_content
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
+from agents.escalada import bloco_comunicador
 from agents.llm import create_chat_client
 
 logger = logging.getLogger(__name__)
@@ -138,6 +139,7 @@ def _build_system_content(
     ast_summary: str = "",
     data_flow_context: str = "",
     suggested_doc_topics: list[str] | None = None,
+    nivel_alvo: int | None = None,
 ) -> str:
     if intent == "CASUAL":
         return COMMUNICATOR_CASUAL_TEMPLATE.format(strategist_plan=strategist_plan)
@@ -175,7 +177,7 @@ def _build_system_content(
         ast_summary=ast,
         data_flow_context=dfc,
         documentation_hint=_documentation_hint(suggested_doc_topics),
-    )
+    ) + (bloco_comunicador(nivel_alvo) if nivel_alvo is not None else "")
 
 
 def _communicator_lc_messages(
@@ -192,6 +194,7 @@ def _communicator_lc_messages(
     data_flow_context: str = "",
     suggested_doc_topics: list[str] | None = None,
     problem_statement: str = "",
+    nivel_alvo: int | None = None,
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     docs = documentation_context if documentation_context is not None else []
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
@@ -207,6 +210,7 @@ def _communicator_lc_messages(
                 ast_summary=ast_summary,
                 data_flow_context=data_flow_context,
                 suggested_doc_topics=suggested_doc_topics,
+                nivel_alvo=nivel_alvo,
             ),
         ),
     ]
@@ -243,6 +247,7 @@ async def run_communicator(
     data_flow_context: str = "",
     suggested_doc_topics: list[str] | None = None,
     problem_statement: str = "",
+    nivel_alvo: int | None = None,
 ) -> str:
     """Gera a mensagem final da ADA a partir do plano interno do estrategista."""
     if intent == "OUT_OF_SCOPE":
@@ -262,6 +267,7 @@ async def run_communicator(
         data_flow_context=data_flow_context,
         suggested_doc_topics=suggested_doc_topics,
         problem_statement=problem_statement,
+        nivel_alvo=nivel_alvo,
     )
     response = await llm.ainvoke(lc_messages)
     return _chunk_content_to_text(response.content).strip()
@@ -281,6 +287,7 @@ async def run_communicator_stream(
     data_flow_context: str = "",
     suggested_doc_topics: list[str] | None = None,
     problem_statement: str = "",
+    nivel_alvo: int | None = None,
 ) -> AsyncIterator[str]:
     """Stream de tokens do comunicador (apenas texto, sem ferramentas)."""
     if intent == "OUT_OF_SCOPE":
@@ -301,6 +308,7 @@ async def run_communicator_stream(
         data_flow_context=data_flow_context,
         suggested_doc_topics=suggested_doc_topics,
         problem_statement=problem_statement,
+        nivel_alvo=nivel_alvo,
     )
     async for chunk in llm.astream(lc_messages):
         text = _chunk_content_to_text(chunk.content)

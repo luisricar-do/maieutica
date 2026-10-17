@@ -12,6 +12,7 @@ from agents.rag.query import (
     retrieve_doc_chunks,
 )
 from agents.router import run_router
+from agents.escalada import nivel_do_turno
 from agents.strategist import run_strategist, suggested_doc_topics
 from agents.tutor import run_communicator
 
@@ -98,6 +99,15 @@ async def rag_retrieve_node(state: TutorState) -> dict:
     return {"documentation_context": []}
 
 
+def _nivel_do_estado(state: TutorState) -> int | None:
+    """Nível-alvo do turno (``agents.escalada``), lido do mesmo estado que a política consome."""
+    return nivel_do_turno(
+        str(state.get("intent") or "DEBUG"),
+        int(state.get("stagnation_streak") or 0),
+        int(state.get("hint_level") or 1),
+    )
+
+
 async def strategist_node(state: TutorState) -> dict:
     diagnosis = cast(Diagnosis, state["diagnosis"])
     doc_ctx = state.get("documentation_context") or []
@@ -115,6 +125,7 @@ async def strategist_node(state: TutorState) -> dict:
         student_movement=str(state.get("student_movement") or "NENHUM"),
         stagnation_streak=int(state.get("stagnation_streak") or 0),
         problem_statement=str(state.get("problem_statement") or ""),
+        nivel_alvo=_nivel_do_estado(state),
     )
     return {"actions": actions, "strategist_plan": strategist_plan}
 
@@ -133,6 +144,7 @@ async def tutor_node(state: TutorState) -> dict:
         data_flow_context=str(state.get("data_flow_context") or ""),
         suggested_doc_topics=suggested_doc_topics(state.get("actions") or []),
         problem_statement=str(state.get("problem_statement") or ""),
+        nivel_alvo=_nivel_do_estado(state),
     )
     return {"tutor_response": tutor_response}
 

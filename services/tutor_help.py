@@ -7,7 +7,8 @@ import re
 import time
 from typing import Any, TypedDict, cast
 
-from agents.config import classificador_de_movimento
+from agents.config import classificador_de_movimento, politica_de_escalada
+from agents.escalada import nivel_do_turno
 from agents.graph import tutor_graph
 from agents.llm import chat_model_name
 from agents.movement import classify_movement, stagnation_streak
@@ -77,6 +78,13 @@ def build_tutor_meta_from_actions(
     # Depois da sessão o ambiente do serviço já não existe, e sem esta chave a única prova do que
     # correu seria a memória de quem subiu o serviço.
     meta["classificadorDeMovimento"] = classificador_de_movimento()
+    # Quem decidiu o nível de concretude do turno, e qual foi. Com ``prompt`` o nível fica a
+    # cargo do modelo (como em ``1e7e5cd``) e não há alvo a registrar; com ``programatica`` o
+    # alvo vai no turno, para que a diretividade observada se compare com a prescrita.
+    meta["politicaDeEscalada"] = politica_de_escalada()
+    nivel = nivel_do_turno(meta["intent"], stagnation_streak, hint_level or 1)
+    if nivel is not None:
+        meta["nivelAlvo"] = nivel
     meta["model"] = model or chat_model_name()
     if usage is not None:
         # Soma das chamadas do grafo no turno — roteador, analista, estrategista, comunicador.

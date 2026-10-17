@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
 from agents.analyst import Diagnosis
+from agents.escalada import bloco_estrategista
 from agents.problem_context import build_problem_content
 from agents.config import evaluation_mode
 from agents.llm import create_chat_client
@@ -413,6 +414,7 @@ def _build_strategist_system_content(
     debug_user_turns: int = 0,
     student_movement: str = "NENHUM",
     stagnation_streak: int = 0,
+    nivel_alvo: int | None = None,
 ) -> str:
     vars_map = _diagnosis_to_template_vars(diagnosis, active_tutor_decorations)
     vars_map["numbered_code"] = _numbered_code(code)
@@ -428,6 +430,8 @@ def _build_strategist_system_content(
     dfc = data_flow_context.strip() if data_flow_context.strip() else "(none)"
     vars_map["data_flow_context"] = dfc
     system_content = STRATEGIST_SYSTEM_TEMPLATE.format(**vars_map)
+    if nivel_alvo is not None:
+        system_content += bloco_estrategista(nivel_alvo)
     return system_content + _documentation_context_block(documentation_context or [])
 
 
@@ -460,6 +464,7 @@ def _strategist_lc_messages(
     student_movement: str = "NENHUM",
     stagnation_streak: int = 0,
     problem_statement: str = "",
+    nivel_alvo: int | None = None,
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
         SystemMessage(
@@ -476,6 +481,7 @@ def _strategist_lc_messages(
                 debug_user_turns=_count_user_turns(history),
                 stagnation_streak=stagnation_streak,
                 student_movement=student_movement,
+                nivel_alvo=nivel_alvo,
             )
         ),
     ]
@@ -540,6 +546,7 @@ async def run_strategist(
     student_movement: str = "NENHUM",
     stagnation_streak: int = 0,
     problem_statement: str = "",
+    nivel_alvo: int | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
     """
     Executa o estrategista: devolve (ações IDE formatadas, plano interno para o comunicador).
@@ -559,6 +566,7 @@ async def run_strategist(
         student_movement=student_movement,
         stagnation_streak=stagnation_streak,
         problem_statement=problem_statement,
+        nivel_alvo=nivel_alvo,
     )
     response = await llm.ainvoke(lc_messages)
     tool_calls = getattr(response, "tool_calls", None) or []

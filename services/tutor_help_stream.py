@@ -14,6 +14,7 @@ from agents.graph import (
     rag_retrieve_node,
     strategist_node,
 )
+from agents.escalada import nivel_do_turno
 from agents.router import run_router
 from agents.strategist import suggested_doc_topics
 from agents.tutor import run_communicator_stream
@@ -43,6 +44,9 @@ def _communicator_stream_kwargs(
         "cursor_column": state.get("cursor_column"),
         "ast_summary": str(state.get("ast_summary") or ""),
         "data_flow_context": str(state.get("data_flow_context") or ""),
+        "nivel_alvo": nivel_do_turno(
+            intent, int(state.get("stagnation_streak") or 0), int(state.get("hint_level") or 1)
+        ),
     }
 
 

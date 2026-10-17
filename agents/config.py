@@ -65,6 +65,29 @@ def classificador_por_modelo() -> bool:
     return classificador_de_movimento() == "modelo"
 
 
+#: Quem decide o nível de concretude do turno de depuração. ``programatica`` (padrão): o código
+#: calcula o nível-alvo a partir do movimento, do acumulado de bloqueio e do nível de dica
+#: (``agents.escalada``) e o entrega ao estrategista e ao comunicador. ``prompt``: o modelo aplica
+#: a regra de contingência escrita no prompt do estrategista, como em ``1e7e5cd`` (avaliação de
+#: bancada ``cap5``).
+POLITICA_ESCALADA_ENV = "POLITICA_DE_ESCALADA"
+POLITICAS_DE_ESCALADA = ("programatica", "prompt")
+
+
+def politica_de_escalada() -> str:
+    """A política de escalada em vigor; valor fora do domínio levanta ``ConfiguracaoInvalida``."""
+    bruto = (os.getenv(POLITICA_ESCALADA_ENV) or "").strip()
+    if not bruto:
+        return POLITICAS_DE_ESCALADA[0]
+    valor = bruto.casefold()
+    if valor not in POLITICAS_DE_ESCALADA:
+        raise ConfiguracaoInvalida(
+            f"{POLITICA_ESCALADA_ENV}={bruto!r} não é um valor válido; "
+            f"use um de {', '.join(POLITICAS_DE_ESCALADA)}."
+        )
+    return valor
+
+
 def verificar_configuracao() -> None:
     """Lê as chaves de política no arranque, para que um valor inválido falhe já.
 
@@ -72,3 +95,4 @@ def verificar_configuracao() -> None:
     não sobe, em vez de servir uma sessão inteira com a política que ninguém escolheu.
     """
     classificador_de_movimento()
+    politica_de_escalada()
