@@ -227,16 +227,16 @@ Os testes unitários **mockam** `agents.llm.ChatOpenAI`; não há chamadas reais
 
 ## Atualizar `requirements.txt` (deploy Azure)
 
-Sempre que alterar dependências de produção no `pyproject.toml`:
+Sempre que alterar dependências de produção no `pyproject.toml`, rode `make sync` (atualiza o `poetry.lock`) e regenere o `requirements.txt` a partir do lock, com as transitivas fixadas:
 
 ```bash
-poetry export -f requirements.txt --output requirements.txt --without-hashes
+poetry export -f requirements.txt --without-hashes --only main -o requirements.txt
 ```
 
 > **Poetry 2.x:** se o comando `export` não existir, instale o plugin:  
 > `poetry self add poetry-plugin-export`
 
-Em alternativa, mantenha o `requirements.txt` alinhado manualmente com as dependências de produção (como no repositório). O `Dockerfile` instala este arquivo na imagem.
+O `requirements.txt` atual foi gerado do `poetry.lock` (pacotes do grupo `main`, `nome==versão`, com os markers) por um script `tomllib`, equivalente ao comando acima. O `Dockerfile` instala este arquivo na imagem.
 
 ## Deploy na Azure (Container Apps)
 

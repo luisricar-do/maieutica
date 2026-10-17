@@ -1,10 +1,63 @@
-# Gerado a partir do ambiente Poetry; alinhar com `poetry.lock` após alterar dependências.
+# Gerado a partir de poetry.lock (grupo main, sem hashes). Nao editar a mao.
+# Forma oficial: poetry export -f requirements.txt --without-hashes --only main -o requirements.txt
+# (exige o plugin poetry-plugin-export). Sem o plugin, regenere com um script que leia o
+# poetry.lock (tomllib) e emita nome==versao, com os markers, dos pacotes cujo `groups` contem "main".
+annotated-doc==0.0.4
+annotated-types==0.7.0
+anyio==4.13.0
+azure-core==1.41.0
 azure-functions==1.24.0
 azure-storage-blob==12.30.0
+azurefunctions-extensions-base==1.1.0
 azurefunctions-extensions-http-fastapi==1.0.1
-langgraph==1.1.3
+certifi==2026.2.25
+cffi==2.1.1 ; platform_python_implementation != "PyPy"
+charset-normalizer==3.4.6
+click==8.3.1
+colorama==0.4.6 ; platform_system == "Windows"
+cryptography==50.0.0
+distro==1.9.0
+fastapi==0.135.2
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.11
+isodate==0.7.2
+jiter==0.13.0
+jsonpatch==1.33
+jsonpointer==3.1.1
 langchain-core==1.2.22
 langchain-openai==1.1.12
 langchain-text-splitters==1.1.1
-numpy>=2.4.0
-python-dotenv
+langgraph==1.1.3
+langgraph-checkpoint==4.0.1
+langgraph-prebuilt==1.0.8
+langgraph-sdk==0.3.12
+langsmith==0.7.22
+markupsafe==3.0.3
+numpy==2.4.5
+openai==2.30.0
+orjson==3.11.7
+ormsgpack==1.12.2
+packaging==26.0
+pycparser==3.0 ; platform_python_implementation != "PyPy" and implementation_name != "PyPy"
+pydantic==2.12.5
+pydantic-core==2.41.5
+python-dotenv==1.2.2
+pyyaml==6.0.3
+regex==2026.2.28
+requests==2.33.0
+requests-toolbelt==1.0.0
+sniffio==1.3.1
+starlette==1.0.0
+tenacity==9.1.4
+tiktoken==0.12.0
+tqdm==4.67.3
+typing-extensions==4.15.0
+typing-inspection==0.4.2
+urllib3==2.6.3
+uuid-utils==0.14.1
+uvicorn==0.42.0
+werkzeug==3.1.7
+xxhash==3.6.0
+zstandard==0.25.0
