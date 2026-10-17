@@ -66,10 +66,24 @@ def bloco_estrategista(nivel: int) -> str:
     )
 
 
+#: Forma da mensagem por nível. No conceitual, a pergunta sozinha puxa o turno de volta ao focado
+#: (``v12dev``: o comunicador reescrevia o conceito do plano como pergunta de passo pequeno); a
+#: frase afirmativa que nomeia o conceito vem antes da pergunta.
+FORMA = {
+    NIVEL_FOCADO: "Write only a question.",
+    NIVEL_CONCEITUAL: (
+        "Write exactly two sentences: first ONE short declarative sentence (not a question) that "
+        "names the concept or the nature of the error taken from the plan, e.g. 'Aqui o ponto é o "
+        "resto da divisão por 2.'; then ONE question about how it applies to the learner's code. "
+        "This overrides 'ask questions only' for this message."
+    ),
+}
+
+
 def bloco_comunicador(nivel: int) -> str:
     return (
         "\n<directive_level>\n"
         f"Concreteness level of this message: {nivel} ({NOMES[nivel]}). {DESCRICOES[nivel]} "
-        "If the plan is more concrete than this level, stay at this level.\n"
+        f"{FORMA[nivel]} If the plan is more concrete than this level, stay at this level.\n"
         "</directive_level>\n"
     )
