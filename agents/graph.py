@@ -15,6 +15,7 @@ from agents.router import run_router
 from agents.escalada import nivel_do_turno
 from agents.strategist import run_strategist, suggested_doc_topics
 from agents.tutor import run_communicator
+from agents.verificador import TENTATIVAS_EXTRA, classificar, escolher, instrucao_de_reescrita, verificador_ligado
 
 
 class TutorState(TypedDict):
@@ -43,6 +44,7 @@ class TutorState(TypedDict):
     stagnation_streak: int
     stagnation_source: str
     session_id: str
+    verificacao: dict
 
 
 async def router_node(state: TutorState) -> dict:
@@ -131,9 +133,8 @@ async def strategist_node(state: TutorState) -> dict:
 
 
 async def tutor_node(state: TutorState) -> dict:
-    tutor_response = await run_communicator(
-        state["strategist_plan"],
-        state["history"],
+    nivel = _nivel_do_estado(state)
+    kwargs = dict(
         intent=state.get("intent") or "DEBUG",
         documentation_context=state.get("documentation_context") or [],
         student_name=str(state.get("student_name") or ""),
@@ -144,9 +145,27 @@ async def tutor_node(state: TutorState) -> dict:
         data_flow_context=str(state.get("data_flow_context") or ""),
         suggested_doc_topics=suggested_doc_topics(state.get("actions") or []),
         problem_statement=str(state.get("problem_statement") or ""),
-        nivel_alvo=_nivel_do_estado(state),
+        nivel_alvo=nivel,
     )
-    return {"tutor_response": tutor_response}
+    tutor_response = await run_communicator(state["strategist_plan"], state["history"], **kwargs)
+    if nivel is None or not verificador_ligado():
+        return {"tutor_response": tutor_response}
+
+    # v1.2: a mensagem só sai no nível-alvo; fora dele, ou revelando, o comunicador reescreve.
+    candidatos: list[tuple[str, int | None]] = []
+    for tentativa in range(TENTATIVAS_EXTRA + 1):
+        lido, motivo = await classificar(state["strategist_plan"], tutor_response)
+        candidatos.append((tutor_response, lido))
+        if lido == nivel or tentativa == TENTATIVAS_EXTRA:
+            break
+        tutor_response = await run_communicator(
+            state["strategist_plan"],
+            state["history"],
+            **kwargs,
+            reescrita=instrucao_de_reescrita(nivel, tutor_response, -1 if lido is None else lido, motivo),
+        )
+    mensagem, lido = escolher(candidatos, nivel)
+    return {"tutor_response": mensagem, "verificacao": {"tentativas": len(candidatos), "nivel_lido": lido}}
 
 
 def route_after_router(

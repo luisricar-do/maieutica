@@ -140,6 +140,7 @@ def _build_system_content(
     data_flow_context: str = "",
     suggested_doc_topics: list[str] | None = None,
     nivel_alvo: int | None = None,
+    reescrita: str = "",
 ) -> str:
     if intent == "CASUAL":
         return COMMUNICATOR_CASUAL_TEMPLATE.format(strategist_plan=strategist_plan)
@@ -177,7 +178,7 @@ def _build_system_content(
         ast_summary=ast,
         data_flow_context=dfc,
         documentation_hint=_documentation_hint(suggested_doc_topics),
-    ) + (bloco_comunicador(nivel_alvo) if nivel_alvo is not None else "")
+    ) + (bloco_comunicador(nivel_alvo) if nivel_alvo is not None else "") + reescrita
 
 
 def _communicator_lc_messages(
@@ -195,6 +196,7 @@ def _communicator_lc_messages(
     suggested_doc_topics: list[str] | None = None,
     problem_statement: str = "",
     nivel_alvo: int | None = None,
+    reescrita: str = "",
 ) -> list[SystemMessage | HumanMessage | AIMessage]:
     docs = documentation_context if documentation_context is not None else []
     lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
@@ -211,6 +213,7 @@ def _communicator_lc_messages(
                 data_flow_context=data_flow_context,
                 suggested_doc_topics=suggested_doc_topics,
                 nivel_alvo=nivel_alvo,
+                reescrita=reescrita,
             ),
         ),
     ]
@@ -248,6 +251,7 @@ async def run_communicator(
     suggested_doc_topics: list[str] | None = None,
     problem_statement: str = "",
     nivel_alvo: int | None = None,
+    reescrita: str = "",
 ) -> str:
     """Gera a mensagem final da ADA a partir do plano interno do estrategista."""
     if intent == "OUT_OF_SCOPE":
@@ -268,6 +272,7 @@ async def run_communicator(
         suggested_doc_topics=suggested_doc_topics,
         problem_statement=problem_statement,
         nivel_alvo=nivel_alvo,
+        reescrita=reescrita,
     )
     response = await llm.ainvoke(lc_messages)
     return _chunk_content_to_text(response.content).strip()

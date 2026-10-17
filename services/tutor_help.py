@@ -430,6 +430,9 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
             finish_reason=usage.finish_reason,
         ),
     }
+    if result.get("verificacao"):
+        # v1.2: quantas versões o verificador pediu e o nível que leu na mensagem entregue.
+        body["tutorMeta"]["verificacao"] = result["verificacao"]
     await log_turn(
         payload,
         final_state,
