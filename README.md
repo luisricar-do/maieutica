@@ -26,9 +26,9 @@ Este repositório é o **artefato medido** da dissertação de mestrado de Luis 
 **Versões medidas.** A bancada reconstrói cada corrida por `git archive` do commit que a gerou:
 
 - `f173f6d` — corrida formativa (`cap4`), Capítulo 4.
-- `1e7e5cd` — corrida somativa (`cap5`), Capítulo 5, e base da versão usada na coleta com
-  alunos. `12676d4` vem depois dele e só acrescenta `hintLevel` ao `tutorMeta`, sem tocar nos
-  prompts.
+- `1e7e5cd` — corrida somativa (`cap5`), Capítulo 5.
+
+A versão do serviço usada na coleta em uso real será fixada quando a coleta começar.
 
 **Por isso o histórico da `main` não deve ser reescrito** (rebase, squash, `push --force`): esses
 commits precisam continuar alcançáveis. Os prompts também estão congelados e têm SHA-256
@@ -542,7 +542,9 @@ telemetria, relevante para a análise de sensibilidade prevista no protocolo.
 
 ## Licença
 
-MIT — o arquivo `LICENSE` será adicionado ao fim da coleta.
+MIT — ver [`LICENSE`](LICENSE).
+
+Como citar: ver [`CITATION.cff`](CITATION.cff).
 
 ## Bancada de avaliação (repositório à parte)
 

@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "Se você usar este software, cite a dissertação que o fundamenta (preferred-citation)."
+type: software
+title: "maieutica — tutor socrático multiagente para Portugol"
+authors:
+  - family-names: "Santos"
+    given-names: "Luis Ricardo Albano"
+license: MIT
+repository-code: "https://github.com/luisricar-do/maieutica"
+version: "0.1.0"
+date-released: "2026-10-17"
+preferred-citation:
+  type: thesis
+  title: "Tutoria Multiagente Socrática no Ensino de Lógica de Programação: Uma Abordagem no Portugol WebStudio"
+  authors:
+    - family-names: "Santos"
+      given-names: "Luis Ricardo Albano"
+  institution:
+    name: "Universidade Federal de Itajubá (UNIFEI)"
+  year: 2026
+  thesis-type: "Dissertação (Mestrado em Ciência e Tecnologia da Computação)"
