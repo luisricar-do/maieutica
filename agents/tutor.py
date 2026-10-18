@@ -23,9 +23,10 @@ Debugging / error context — tone rules:
 - During unresolved debugging, never ask what the student can do "no futuro" or "para não acontecer novamente"; keep the question on the immediate problem.
 - If the student suggested the wrong location/cause and the plan redirects them, acknowledge the attempt briefly but do not reinforce the wrong location as the source of the error.
 
+{concreteness_block}
 If the strategy mentions highlighted lines, your message MUST reflect that smoothly (without inventing line numbers).
 Never invent line numbers. Rely entirely on the <strategist_plan>.
-Never output Portugol code blocks or complete fixes; ask questions only.
+Never output Portugol code blocks or complete fixes. End with a question; at level 2 the question may follow one short sentence that names the concept.
 Avoid generic visual templates like "Quais partes do seu código estão destacadas visualmente...". Prefer the concrete concept from the strategy (type comparison, declaration before use, syntax structure, or data flow).
 Never mention "aberturas", "fechamentos", delimiters, brackets, or parentheses unless the strategy is explicitly about syntax/delimiters/quotes.
 If the strategy includes a short literal compiler excerpt, quote that excerpt once in Portuguese and ask the learner to connect it to the highlighted syntax location. Do not quote long blocks.
@@ -104,6 +105,34 @@ def _documentation_hint(topics: list[str] | None) -> str:
     )
 
 
+_CONCRETENESS_LADDER = """Concreteness ladder:
+  - level 0 `open`: an observation or question that points at no region and names no error.
+  - level 1 `focused`: directs attention to the line, variable or construct of the defect, without saying what is wrong.
+  - level 2 `conceptual`: names the nature of the error or the concept involved (e.g. "o tipo declarado não aceita texto", "a variável é usada antes de ser declarada"), without the concrete correction.
+  - level 3 `revealing`: the concrete correction, in code or as an unambiguous edit instruction. FORBIDDEN."""
+
+
+def _concreteness_block(level: int | None) -> str:
+    """Nível de concretude que o estrategista escolheu, dito ao comunicador como número.
+
+    Sem isto o comunicador só conhecia o ``hint_level`` da UI, fixo na sessão, e lia as próprias
+    falas anteriores no histórico: reproduzia o nível delas e a escada não subia na fala, por
+    mais que subisse no plano. Sem nível (plano de reserva, ou modelo que omitiu a linha), vale
+    o que o plano disser, como antes.
+    """
+    if level is None:
+        return ""
+    return (
+        f"\nTARGET CONCRETENESS LEVEL FOR THIS TURN: {level} (decided by the strategist).\n"
+        f"{_CONCRETENESS_LADDER}\n"
+        "Your message MUST sit exactly at the target level: not below it, not above it. "
+        "Your earlier messages in the conversation may sit at a lower level; do not copy their "
+        "concreteness. If the target is higher than your last message, be visibly more concrete "
+        "this time (point at the construct at level 1, name the concept at level 2). Never reach "
+        "level 3, and never ask a question whose only possible answer is the correction.\n"
+    )
+
+
 def _communicator_llm():
     # 800 e um teto que nao morde nenhuma das tres condicoes: A observou no maximo 271 (quem
     # a mantem curta e o prompt, nao o teto) e B mediana 34. Em 300, metade dos turnos da
@@ -133,6 +162,7 @@ def _build_system_content(
     *,
     student_name: str = "",
     hint_level: int = 1,
+    concreteness_level: int | None = None,
     cursor_line: int | None = None,
     cursor_column: int | None = None,
     ast_summary: str = "",
@@ -175,6 +205,7 @@ def _build_system_content(
         ast_summary=ast,
         data_flow_context=dfc,
         documentation_hint=_documentation_hint(suggested_doc_topics),
+        concreteness_block=_concreteness_block(concreteness_level),
     )
 
 
@@ -186,6 +217,7 @@ def _communicator_lc_messages(
     documentation_context: list[str] | None = None,
     student_name: str = "",
     hint_level: int = 1,
+    concreteness_level: int | None = None,
     cursor_line: int | None = None,
     cursor_column: int | None = None,
     ast_summary: str = "",
@@ -202,6 +234,7 @@ def _communicator_lc_messages(
                 docs,
                 student_name=student_name,
                 hint_level=hint_level,
+                concreteness_level=concreteness_level,
                 cursor_line=cursor_line,
                 cursor_column=cursor_column,
                 ast_summary=ast_summary,
@@ -237,6 +270,7 @@ async def run_communicator(
     documentation_context: list[str] | None = None,
     student_name: str = "",
     hint_level: int = 1,
+    concreteness_level: int | None = None,
     cursor_line: int | None = None,
     cursor_column: int | None = None,
     ast_summary: str = "",
@@ -256,6 +290,7 @@ async def run_communicator(
         documentation_context=documentation_context,
         student_name=student_name,
         hint_level=hint_level,
+        concreteness_level=concreteness_level,
         cursor_line=cursor_line,
         cursor_column=cursor_column,
         ast_summary=ast_summary,
@@ -275,6 +310,7 @@ async def run_communicator_stream(
     documentation_context: list[str] | None = None,
     student_name: str = "",
     hint_level: int = 1,
+    concreteness_level: int | None = None,
     cursor_line: int | None = None,
     cursor_column: int | None = None,
     ast_summary: str = "",
@@ -295,6 +331,7 @@ async def run_communicator_stream(
         documentation_context=documentation_context,
         student_name=student_name,
         hint_level=hint_level,
+        concreteness_level=concreteness_level,
         cursor_line=cursor_line,
         cursor_column=cursor_column,
         ast_summary=ast_summary,

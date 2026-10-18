@@ -173,3 +173,59 @@ async def test_run_communicator_stream_out_of_scope_yields_fixed_redirect() -> N
         ]
     assert parts == [OUT_OF_SCOPE_RESPONSE]
     mock_cls.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_run_communicator_recebe_o_nivel_alvo_do_estrategista() -> None:
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        instance = _patch_chat_client(mock_cls)
+        instance.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_communicator(
+            "Nomeie a incompatibilidade de tipo.", [], intent="DEBUG", concreteness_level=2
+        )
+    system_text = captured[0][0].content
+    assert "TARGET CONCRETENESS LEVEL FOR THIS TURN: 2" in system_text
+    assert "level 2 `conceptual`" in system_text
+    assert "do not copy their concreteness" in system_text
+
+
+@pytest.mark.asyncio
+async def test_run_communicator_sem_nivel_nao_injeta_alvo() -> None:
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        instance = _patch_chat_client(mock_cls)
+        instance.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_communicator("Plano.", [], intent="DEBUG")
+    assert "TARGET CONCRETENESS LEVEL" not in captured[0][0].content
+
+
+@pytest.mark.asyncio
+async def test_run_communicator_stream_recebe_o_nivel_alvo() -> None:
+    captured: list = []
+
+    async def capture_astream(messages):
+        captured.append(messages)
+        yield AIMessageChunk(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        instance = _patch_chat_client(mock_cls)
+        instance.astream = capture_astream
+        out = [
+            d
+            async for d in run_communicator_stream(
+                "Plano.", [], intent="DEBUG", concreteness_level=1
+            )
+        ]
+    assert out == ["ok"]
+    assert "TARGET CONCRETENESS LEVEL FOR THIS TURN: 1" in captured[0][0].content

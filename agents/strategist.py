@@ -1,6 +1,7 @@
 """Agente Pedagogical Strategist: lógica, diagnóstico e chamadas a ferramentas da IDE (sem falar com o aluno)."""
 
 import logging
+import re
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -292,6 +293,7 @@ Rules:
 - Never write learner-facing chat. The Communicator will speak to the student in Brazilian Portuguese.
 - You MUST use `bind_tools` / tool calls for every IDE action needed (highlights, comments, compare, docs, watch, clear, mark resolved, escalate).
 - The `content` field must be a concise internal directive in English or Portuguese (internal only): which lines were highlighted or compared, what single discovery question the Communicator should ask, and any constraint (no full solution).
+- The FIRST line of `content` MUST be `LEVEL: <n>`, where <n> is the concreteness level (0, 1 or 2) you chose for this turn by the ladder below. The Communicator receives this number and must speak at exactly that level, so the directive that follows must be written for that level.
 - If `active_tutor_decorations` > 0 and the topic changes or the bug is fixed, call `clear_highlights` before new highlights when stale marks would confuse.
 - Prefer `compare_lines` for declaration vs usage; prefer `highlight_line` on the analyst focus line for first error turns.
 - ABSOLUTE GUARDRAIL: Never output Portugol source code or full fixes in `content`. Do not paste learner code back as a solution. Use ONLY IDE tools (`scroll_to`, `spotlight_block`, `draw_data_flow`, `activate_focus_mode`, `highlight_line`, etc.) to guide visually.
@@ -311,7 +313,7 @@ Rules:
   - level 1 `focused`: directs attention to the line, variable or construct of the defect, without saying what is wrong.
   - level 2 `conceptual`: names the nature of the error or the concept involved, without the concrete correction.
   - level 3 `revealing`: the concrete correction, in code or as an unambiguous edit instruction. FORBIDDEN in every turn. A question whose only possible answer is the correction ("isn't `i` missing an increment?") is level 3 too.
-- CONTINGENCY RULE (this is the intervention policy; it outranks stylistic preference). Compare with the level of YOUR previous turn in the history:
+- CONTINGENCY RULE (this is the intervention policy; it outranks stylistic preference). Compare with the level of YOUR previous turn (`previous_concreteness_level` in <editor_state>; when it is `unknown`, infer it from the tutor's last message in the history):
   - `PROGRESSO`: keep or lower the level. Never escalate after the learner moves forward.
   - `ESTAGNACAO` or `REGRESSAO` with `stagnation_streak` <= 3: sustain the level and change the angle (another observation, another comparison). Do not escalate yet.
   - `ESTAGNACAO` or `REGRESSAO` with `stagnation_streak` >= 4: escalate exactly one step over your previous turn, never two.
@@ -339,6 +341,7 @@ Rules:
 - Learner debugging turns in current session: {debug_user_turns}
 - Blocked learner turns accumulated since the last progress: {stagnation_streak}
 - Learner movement in the previous turn (PROGRESSO | ESTAGNACAO | REGRESSAO | PEDIDO_EXPLICITO | NENHUM): {student_movement}
+- previous_concreteness_level (the LEVEL you chose in your previous turn, or `unknown`): {previous_concreteness_level}
 - Cursor (1-based, if provided): line {cursor_line} column {cursor_column}
 - AST/editor summary (optional): {ast_summary}
 - Data flow context from IDE (optional, e.g. drawn links): {data_flow_context}
@@ -399,6 +402,48 @@ def _count_user_turns(history: list[dict]) -> int:
     return sum(1 for item in history if item.get("role") == "user")
 
 
+#: Teto do nível que sai do estrategista: o nível 3 (``revealing``) é proibido em qualquer turno.
+MAX_CONCRETENESS_LEVEL = 2
+
+_LEVEL_LINE = re.compile(
+    r"^\s*\**\s*LEVEL\s*[:=]\s*(\d)\b\**"
+    r"(?:[ \t]*[(`]*(?:open|focused|conceptual|revealing)[)`]*)?[ \t.:;—–-]*\n?",
+    re.IGNORECASE,
+)
+
+
+def split_concreteness_level(plan_text: str) -> tuple[int | None, str]:
+    """Separa a linha ``LEVEL: n`` do plano: devolve ``(nível, diretriz sem a linha)``.
+
+    O nível tem de chegar ao comunicador como número, e não diluído na prosa da diretriz: dito
+    só em palavras, o comunicador o reescrevia como mais uma pergunta aberta e a escada nunca
+    subia na fala, por mais que subisse no plano. Sem a linha, ``None`` e o plano intacto.
+    Acima do teto, o nível é rebaixado ao teto: a proibição do nível 3 não depende do modelo.
+    """
+    match = _LEVEL_LINE.match(plan_text or "")
+    if match is None:
+        return None, plan_text
+    level = min(int(match.group(1)), MAX_CONCRETENESS_LEVEL)
+    return level, plan_text[match.end():].strip()
+
+
+def previous_concreteness_level(history: list[dict]) -> int | None:
+    """Nível do turno anterior do tutor, se a IDE o devolveu no histórico (``concretenessLevel``).
+
+    A regra de contingência compara com o nível do turno anterior do estrategista, mas o histórico
+    só traz a fala do comunicador. Inferir o nível dessa fala fecha o ciclo sobre o próprio erro:
+    se a fala ficou aquém do plano, o estrategista lê o nível da fala e não o que decidiu.
+    """
+    for item in reversed(history):
+        if not isinstance(item, dict) or item.get("role") != "assistant":
+            continue
+        raw = item.get("concretenessLevel")
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            return None
+        return max(0, min(MAX_CONCRETENESS_LEVEL, raw))
+    return None
+
+
 def _build_strategist_system_content(
     diagnosis: Diagnosis,
     code: str,
@@ -413,6 +458,7 @@ def _build_strategist_system_content(
     debug_user_turns: int = 0,
     student_movement: str = "NENHUM",
     stagnation_streak: int = 0,
+    previous_level: int | None = None,
 ) -> str:
     vars_map = _diagnosis_to_template_vars(diagnosis, active_tutor_decorations)
     vars_map["numbered_code"] = _numbered_code(code)
@@ -420,6 +466,9 @@ def _build_strategist_system_content(
     vars_map["debug_user_turns"] = str(max(0, debug_user_turns))
     vars_map["stagnation_streak"] = str(max(0, stagnation_streak))
     vars_map["student_movement"] = student_movement.strip().upper() or "NENHUM"
+    vars_map["previous_concreteness_level"] = (
+        str(previous_level) if previous_level is not None else "unknown"
+    )
     vars_map["cursor_line"] = str(cursor_line) if isinstance(cursor_line, int) and cursor_line >= 1 else "n/a"
     vars_map["cursor_column"] = (
         str(cursor_column) if isinstance(cursor_column, int) and cursor_column >= 1 else "n/a"
@@ -476,6 +525,7 @@ def _strategist_lc_messages(
                 debug_user_turns=_count_user_turns(history),
                 stagnation_streak=stagnation_streak,
                 student_movement=student_movement,
+                previous_level=previous_concreteness_level(history),
             )
         ),
     ]

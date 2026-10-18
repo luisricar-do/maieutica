@@ -39,6 +39,7 @@ def _communicator_stream_kwargs(
         "documentation_context": documentation_context,
         "student_name": str(state.get("student_name") or ""),
         "hint_level": int(state.get("hint_level") or 1),
+        "concreteness_level": state.get("concreteness_level"),
         "cursor_line": state.get("cursor_line"),
         "cursor_column": state.get("cursor_column"),
         "ast_summary": str(state.get("ast_summary") or ""),
@@ -64,6 +65,7 @@ def _stream_tutor_meta(
     state: TutorHelpState,
     *,
     baseline: TutorHelpState | None = None,
+    concreteness_level: int | None = None,
 ) -> dict[str, Any]:
     referencia = baseline or state
     return build_tutor_meta_from_actions(
@@ -76,6 +78,7 @@ def _stream_tutor_meta(
         movement_baseline=referencia["student_movement"],
         stagnation_streak_baseline=referencia["stagnation_streak"],
         hint_level=state["hint_level"],
+        concreteness_level=concreteness_level,
     )
 
 
@@ -212,7 +215,11 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             yield format_sse("token", {"text": delta})
         logger.info("help/stream DEBUG: stream concluído")
         collected["tutorMeta"] = _stream_tutor_meta(
-            actions, intent, final, baseline=initial
+            actions,
+            intent,
+            final,
+            baseline=initial,
+            concreteness_level=state.get("concreteness_level"),
         )
         yield format_sse("done", {"tutorMeta": collected["tutorMeta"]})
         await _log_stream_turn(payload, final, collected, intent, started)

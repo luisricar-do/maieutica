@@ -32,6 +32,7 @@ def build_tutor_meta_from_actions(
     movement_baseline: str = "",
     stagnation_streak_baseline: int = 0,
     hint_level: int = 0,
+    concreteness_level: int | None = None,
     model: str = "",
     usage: dict[str, int] | None = None,
     finish_reason: str = "",
@@ -72,6 +73,12 @@ def build_tutor_meta_from_actions(
     # análise teve de ir buscá-lo à configuração; registrado aqui, sai do próprio turno.
     if hint_level:
         meta["hintLevel"] = max(1, min(3, int(hint_level)))
+    # O nível de concretude que o estrategista escolheu (0-2). A IDE devolve-o no item do
+    # histórico desta resposta (``concretenessLevel``) e é com ele que o estrategista do turno
+    # seguinte aplica a regra de contingência, em vez de o inferir da fala do comunicador.
+    # Ausente quando o estrategista não correu ou não declarou o nível.
+    if concreteness_level is not None:
+        meta["concretenessLevel"] = int(concreteness_level)
     # O classificador em vigor no turno. É configuração do serviço, não do pedido: a IDE não o
     # escolhe e o estudante não o vê, mas é ele que decide qual movimento alimentou a política.
     # Depois da sessão o ambiente do serviço já não existe, e sem esta chave a única prova do que
@@ -99,6 +106,7 @@ class TutorHelpState(TypedDict):
     diagnosis: dict
     documentation_context: list[str]
     strategist_plan: str
+    concreteness_level: int | None
     tutor_response: str
     actions: list[dict]
     intent: str
@@ -295,6 +303,7 @@ def parse_help_payload(
         "diagnosis": {},
         "documentation_context": [],
         "strategist_plan": "",
+        "concreteness_level": None,
         "tutor_response": "",
         "actions": [],
         "intent": "",
@@ -418,6 +427,7 @@ async def process_help_request(payload: Any) -> tuple[dict[str, Any], int]:
             movement_baseline=initial_state["student_movement"],
             stagnation_streak_baseline=initial_state["stagnation_streak"],
             hint_level=final_state["hint_level"],
+            concreteness_level=result.get("concreteness_level"),
             usage=usage.as_dict(),
             finish_reason=usage.finish_reason,
         ),

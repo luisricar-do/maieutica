@@ -323,3 +323,37 @@ async def test_iter_help_sse_registra_o_turno_completo(
     assert linha["sessionId"] == "sessao-42"
     assert linha["response"]["message"] == "O que muda em i?"
     assert "studentName" not in linha["request"]
+
+
+@pytest.mark.asyncio
+async def test_iter_help_sse_passa_o_nivel_ao_comunicador_e_ao_meta() -> None:
+    recebido: dict = {}
+
+    async def fake_communicator_stream(*_a, **kwargs):
+        recebido.update(kwargs)
+        yield "ok"
+
+    async def fake_analyst_node(*_a, **_k):
+        return {"diagnosis": {"errorType": "logic", "severity": "low"}}
+
+    async def fake_strategist_node(*_a, **_k):
+        return {"actions": [], "strategist_plan": "p", "concreteness_level": 1}
+
+    with (
+        patch("services.tutor_help_stream.run_router", new_callable=AsyncMock) as mr,
+        patch("services.tutor_help_stream.analyst_node", new_callable=AsyncMock) as ma,
+        patch("services.tutor_help_stream.strategist_node", new_callable=AsyncMock) as ms,
+        patch(
+            "services.tutor_help_stream.run_communicator_stream",
+            fake_communicator_stream,
+        ),
+    ):
+        mr.return_value = {"intent": "DEBUG"}
+        ma.side_effect = fake_analyst_node
+        ms.side_effect = fake_strategist_node
+        chunks = [c async for c in iter_help_sse({"code": "x", "errors": [], "history": []})]
+
+    assert recebido["concreteness_level"] == 1
+    done = next(c.decode("utf-8") for c in chunks if b"event: done" in c)
+    data = json.loads(next(ln for ln in done.split("\n") if ln.startswith("data: "))[6:])
+    assert data["tutorMeta"]["concretenessLevel"] == 1

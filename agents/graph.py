@@ -12,7 +12,11 @@ from agents.rag.query import (
     retrieve_doc_chunks,
 )
 from agents.router import run_router
-from agents.strategist import run_strategist, suggested_doc_topics
+from agents.strategist import (
+    run_strategist,
+    split_concreteness_level,
+    suggested_doc_topics,
+)
 from agents.tutor import run_communicator
 
 
@@ -25,6 +29,7 @@ class TutorState(TypedDict):
     diagnosis: dict
     documentation_context: list[str]
     strategist_plan: str
+    concreteness_level: int | None
     tutor_response: str
     actions: list[dict]
     intent: str
@@ -116,7 +121,12 @@ async def strategist_node(state: TutorState) -> dict:
         stagnation_streak=int(state.get("stagnation_streak") or 0),
         problem_statement=str(state.get("problem_statement") or ""),
     )
-    return {"actions": actions, "strategist_plan": strategist_plan}
+    level, strategist_plan = split_concreteness_level(strategist_plan)
+    return {
+        "actions": actions,
+        "strategist_plan": strategist_plan,
+        "concreteness_level": level,
+    }
 
 
 async def tutor_node(state: TutorState) -> dict:
@@ -127,6 +137,7 @@ async def tutor_node(state: TutorState) -> dict:
         documentation_context=state.get("documentation_context") or [],
         student_name=str(state.get("student_name") or ""),
         hint_level=int(state.get("hint_level") or 1),
+        concreteness_level=state.get("concreteness_level"),
         cursor_line=state.get("cursor_line"),
         cursor_column=state.get("cursor_column"),
         ast_summary=str(state.get("ast_summary") or ""),
