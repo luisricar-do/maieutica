@@ -402,3 +402,52 @@ def test_contingent_level_sem_anterior_usa_o_declarado_dentro_do_ritmo() -> None
     assert _nivel(None, None, "ESTAGNACAO", 4) == 2
     assert _nivel(None, None, "ESTAGNACAO", 1) == 1
     assert _nivel(2, None, "PEDIDO_EXPLICITO", 0) == 2
+
+
+def test_fallback_com_aluno_travado_nao_diz_que_o_bug_foi_resolvido() -> None:
+    from agents.strategist import TOOL_ONLY_FALLBACK_CLEAR_PT, _fallback_plan_pt_for_tool_calls
+
+    diagnosis: Diagnosis = {
+        "errorType": "logic",
+        "errorLine": 4,
+        "affectedVariable": None,
+        "errorDescription": "x",
+        "hintAngle": "y",
+        "severity": "low",
+    }
+    so_limpar = [{"name": "clear_highlights", "args": {}}]
+    assert _fallback_plan_pt_for_tool_calls(so_limpar, diagnosis) == TOOL_ONLY_FALLBACK_CLEAR_PT
+    plano = _fallback_plan_pt_for_tool_calls(so_limpar, diagnosis, blocked=True)
+    assert plano != TOOL_ONLY_FALLBACK_CLEAR_PT
+    assert "intenção do algoritmo" in plano
+
+
+@pytest.mark.asyncio
+async def test_estrategista_recebe_o_historico_como_transcricao_e_nao_como_turnos() -> None:
+    diagnosis: Diagnosis = {
+        "errorType": "logic",
+        "errorLine": 4,
+        "affectedVariable": None,
+        "errorDescription": "x",
+        "hintAngle": "y",
+        "severity": "low",
+    }
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        bound = _patch_bound_chat(mock_cls)
+        bound.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_strategist(
+            diagnosis,
+            [{"role": "assistant", "content": "Olhe a linha 4."}, {"role": "user", "content": "não sei"}],
+            "x",
+        )
+    messages = captured[0]
+    assert not any(isinstance(m, AIMessage) for m in messages)
+    pedido = messages[-1].content
+    assert "ADA (tutor, said by the Communicator): Olhe a linha 4.\nLearner: não sei" in pedido
+    assert pedido.endswith("the Communicator does that.")

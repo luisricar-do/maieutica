@@ -222,3 +222,28 @@ async def test_fallback_classifies_technical_clone_error_as_undeclared_identifie
     assert result["errorType"] == "undeclared_identifier"
     assert result["errorLine"] == 1
     assert "declar" in result["hintAngle"].lower()
+
+
+@pytest.mark.asyncio
+async def test_analyst_recebe_enunciado_e_as_ultimas_falas_do_aluno() -> None:
+    payload = {"errorType": "logic", "errorLine": 5, "errorDescription": "x", "hintAngle": "y", "severity": "low"}
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content=json.dumps(payload))
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        mock_cls.return_value.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_analyst(
+            "programa {}",
+            [],
+            problem_statement="Some os números lidos.",
+            learner_messages=["a", "b", "imprime 0", "não sei"],
+        )
+
+    system_text, human_text = captured[0][0].content, captured[0][1].content
+    assert "Problem statement (what the program should do):\nSome os números lidos." in human_text
+    assert "- b\n- imprime 0\n- não sei" in human_text
+    assert "- a\n" not in human_text
+    assert "never the correction" in system_text

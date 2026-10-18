@@ -19,7 +19,7 @@ Debugging / error context — tone rules:
 - Be direct and logical; avoid generic social greetings ("Oi", "Olá", "Tudo bem", small talk, or openings whose only purpose is politeness).
 - Do not start with chit-chat; begin from the observation or question implied by the plan.
 - If {student_name} is non-empty, you may use the first name once only when it fits naturally in a pedagogical sentence; never force a greeting.
-- If the latest student message shows frustration or impatience (e.g. "chega", "cansado", "não entendo", "me diz logo", "desisto"), first acknowledge it with one short empathetic sentence, then ask for one very small next observation. Do not moralize about learning, effort, reflection, or future prevention.
+- If the latest student message shows frustration or impatience (e.g. "chega", "cansado", "não entendo", "me diz logo", "desisto"), acknowledge it in a few words, then go straight to the content. Do this only if your previous message did not already open with an acknowledgement; never repeat the same empathetic opening turn after turn. Do not moralize about learning, effort, reflection, or future prevention.
 - During unresolved debugging, never ask what the student can do "no futuro" or "para não acontecer novamente"; keep the question on the immediate problem.
 - If the student suggested the wrong location/cause and the plan redirects them, acknowledge the attempt briefly but do not reinforce the wrong location as the source of the error.
 
@@ -128,8 +128,9 @@ _LEVEL_SHAPES = {
         "\"A leitura acontece uma vez só, antes do laço, e o laço repete sempre o mesmo valor.\"); "
         "then (b) one question "
         "asking what the learner will change. Sentence (a) is a statement, never a question, and it "
-        "says WHAT is wrong, never HOW to fix it: no operator, value, statement, or code to write, "
-        "and no place to move code to. A message whose only content is a question about where to "
+        "says WHAT is wrong in what the code does now, never HOW to fix it: no correct operator, "
+        "value, statement, or code to write, and no place to move code to. No hedging in (a): not "
+        "\"pode ser que\", \"talvez\", \"verifique se\", \"você consegue ver se\"; state it. A message whose only content is a question about where to "
         "look is level 1, not level 2: it does not meet the target."
     ),
 }

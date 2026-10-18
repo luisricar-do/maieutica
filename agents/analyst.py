@@ -17,8 +17,8 @@ Given the code and compiler error messages, output ONLY a JSON object with this 
   "errorType": "syntax" | "type_mismatch" | "undeclared_identifier" | "logic" | "infinite_loop" | "none",
   "errorLine": number or null,
   "affectedVariable": string or null,
-  "errorDescription": "short technical description",
-  "hintAngle": "a question that could help the learner discover the issue",
+  "errorDescription": "short technical description of the defect in the current code",
+  "hintAngle": "a discovery question that points at the region or concept, without the fix",
   "severity": "low" | "medium" | "high",
   "dataFlowHint": "optional one line in Portuguese about data flow (e.g. variable used before init, read/write path)"
 }
@@ -28,11 +28,13 @@ Language rules for string fields:
 
 Guidelines for hintAngle and errorDescription:
 - If compiler error messages or compiler error lines are provided, use them as the primary evidence.
+- When there is no compiler error but the problem statement or the learner's messages show that the program does not do what it should (wrong output, extra or missing messages, wrong count), the defect is `logic` (or `infinite_loop`): find the line and construct responsible. Use `none` only when the code does what the statement asks.
+- **errorDescription** describes the DEFECT in what the code does now and its observable effect, never the correction. Good: "A variável que acumula a soma é zerada dentro do laço, a cada volta, e perde o que foi somado antes." Bad: "Inicialize a soma antes do laço." Never write "deve começar com", "mova", "use o operador", "adicione", "troque por", or the corrected value, operator, statement, or position.
 - Prefer the first compiler error line as `errorLine` when the message points to a location.
 - Use `type_mismatch` when the compiler reports incompatible types, wrong assignment types, or a value whose type does not fit the declared variable.
 - Use `undeclared_identifier` when a variable/function/identifier is used before being declared. If the frontend reports a technical JavaScript error like "Cannot read properties of undefined (reading 'clone')" for a missing identifier, still classify it as `undeclared_identifier` and explain it in learner-friendly Portugol terms.
 - Use `syntax` only for malformed syntax, incomplete code, delimiters, brackets, quotes, parser errors, or invalid structure.
-- **hintAngle** must be an actionable angle for the tutor: one concrete discovery question in Portuguese. Prefer hints that imply **which region of the code** deserves attention (e.g. declaration vs usage, loop condition vs body, delimiter pairing) so the tutor can choose IDE tools such as `compare_lines`, `highlight_line`, or `highlight_variable` without you naming tools in the JSON.
+- **hintAngle** must be an actionable angle for the tutor: one concrete discovery question in Portuguese. It must NOT contain the fix: never "Você considerou mover X para fora do laço?", "Que tal usar o operador ...?", or any question whose only answer is the correction. Prefer hints that imply **which region of the code** deserves attention (e.g. declaration vs usage, loop condition vs body, delimiter pairing) so the tutor can choose IDE tools such as `compare_lines`, `highlight_line`, or `highlight_variable` without you naming tools in the JSON.
 - For **string** issues (mismatched quotes, mixing `"` and `'`, wrong delimiter such as an accent, missing quotes where needed): hintAngle should steer toward **comparing the character that opens and the one that closes** the text inside `escreva` (or the literal), without giving the exact fix.
 - For **type_mismatch**: hintAngle must compare the declared type of the target variable with the type of the assigned value. Do NOT mention delimiters, brackets, "aberturas", or "fechamentos".
 - For **undeclared_identifier**: hintAngle must focus on declaration before use and the exact identifier when visible. Do NOT mention delimiters, brackets, "aberturas", or "fechamentos".
@@ -266,8 +268,16 @@ async def run_analyst(
     cursor_column: int | None = None,
     ast_summary: str = "",
     data_flow_context: str = "",
+    problem_statement: str = "",
+    learner_messages: list[str] | None = None,
 ) -> dict:
     llm = create_chat_client(max_tokens=512, temperature=0)
+    # Sem o enunciado e sem o que o aluno relata, um erro de lógica (que não gera erro de
+    # compilação) não tem como ser visto: o analista devolvia ``none`` e o nível 2 ficava sem
+    # conceito a nomear.
+    statement_block = problem_statement.strip() or "(no problem statement)"
+    recent = [m.strip() for m in (learner_messages or []) if m and m.strip()][-3:]
+    learner_block = "\n".join(f"- {m}" for m in recent) if recent else "(no learner messages)"
 
     compiler_lines = compiler_error_lines or []
     errors_block = (
@@ -312,6 +322,12 @@ AST/editor summary:
 
 Data flow context:
 {data_flow_block}
+
+Problem statement (what the program should do):
+{statement_block}
+
+Learner's most recent messages (symptoms they report):
+{learner_block}
 """
 
     messages = [

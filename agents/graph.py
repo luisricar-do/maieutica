@@ -66,6 +66,12 @@ async def analyst_node(state: TutorState) -> dict:
         cursor_column=state.get("cursor_column"),
         ast_summary=str(state.get("ast_summary") or ""),
         data_flow_context=str(state.get("data_flow_context") or ""),
+        problem_statement=str(state.get("problem_statement") or ""),
+        learner_messages=[
+            str(h.get("content") or "")
+            for h in (state.get("history") or [])
+            if isinstance(h, dict) and h.get("role") == "user"
+        ],
     )
     return {"diagnosis": diagnosis}
 
