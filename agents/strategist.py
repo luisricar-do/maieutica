@@ -4,7 +4,7 @@ import logging
 import re
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
 from agents.analyst import Diagnosis
@@ -85,8 +85,14 @@ def _diagnosis_specific_fallback_plan_pt(diagnosis: Diagnosis) -> str:
     return TOOL_ONLY_FALLBACK_MESSAGE_PT
 
 
-def _fallback_plan_pt_for_tool_calls(tool_calls: object, diagnosis: Diagnosis | None = None) -> str:
+def _fallback_plan_pt_for_tool_calls(
+    tool_calls: object, diagnosis: Diagnosis | None = None, *, blocked: bool = False
+) -> str:
     names = _tool_names_from_calls(tool_calls)
+    # Com o aluno travado o bug não foi resolvido, digam o que disserem as tools: o plano de
+    # «o foco mudou ou o bug foi resolvido» chegava ao comunicador em turnos de bloqueio.
+    if blocked and diagnosis is not None and str(diagnosis.get("errorType", "none")) != "none":
+        return _diagnosis_specific_fallback_plan_pt(diagnosis)
     if not names:
         return (
             _diagnosis_specific_fallback_plan_pt(diagnosis)
@@ -251,7 +257,17 @@ def pause_at_iteration(line: int, iteration_limit: int, variables: list[str]) ->
     return "ok"
 
 
+@tool
+def set_concreteness_level(level: int) -> str:
+    """Declara o nível de concretude deste turno (0 open, 1 focused, 2 conceptual). Uma vez por turno."""
+    return "ok"
+
+
+#: Nome da tool de nível: é dado para o grafo, não ação de IDE, e sai da lista antes de chegar à IDE.
+CONCRETENESS_TOOL = "set_concreteness_level"
+
 STRATEGIST_TOOLS = [
+    set_concreteness_level,
     highlight_line,
     highlight_variable,
     clear_highlights,
@@ -293,7 +309,9 @@ Rules:
 - Never write learner-facing chat. The Communicator will speak to the student in Brazilian Portuguese.
 - You MUST use `bind_tools` / tool calls for every IDE action needed (highlights, comments, compare, docs, watch, clear, mark resolved, escalate).
 - The `content` field must be a concise internal directive in English or Portuguese (internal only): which lines were highlighted or compared, what single discovery question the Communicator should ask, and any constraint (no full solution).
-- The FIRST line of `content` MUST be `LEVEL: <n>`, where <n> is the concreteness level (0, 1 or 2) you chose for this turn by the ladder below. The Communicator receives this number and must speak at exactly that level, so the directive that follows must be written for that level.
+- `content` is written TO the Communicator, in the third person ("Point at line 7 and ask what the variable holds after each pass."). It is never the message to the learner: no greetings, no "Vamos ...", no "você", no question addressed to the learner.
+- `content` never carries the edit, not even as a question for the learner: no "move X after the loop", "use the operator ...", "start at ...", "add a `escreva`". At level 2 the directive states WHAT is wrong (the defect from the diagnosis), never HOW to fix it.
+- In EVERY turn you MUST call `set_concreteness_level` exactly once, with the concreteness level (0, 1 or 2) you chose for this turn by the ladder below. The Communicator receives this number and must speak at exactly that level, so the directive in `content` must be written for that level.
 - If `active_tutor_decorations` > 0 and the topic changes or the bug is fixed, call `clear_highlights` before new highlights when stale marks would confuse.
 - Prefer `compare_lines` for declaration vs usage; prefer `highlight_line` on the analyst focus line for first error turns.
 - ABSOLUTE GUARDRAIL: Never output Portugol source code or full fixes in `content`. Do not paste learner code back as a solution. Use ONLY IDE tools (`scroll_to`, `spotlight_block`, `draw_data_flow`, `activate_focus_mode`, `highlight_line`, etc.) to guide visually.
@@ -427,6 +445,80 @@ def split_concreteness_level(plan_text: str) -> tuple[int | None, str]:
     return level, plan_text[match.end():].strip()
 
 
+def pop_declared_level(actions: list[dict[str, Any]]) -> tuple[int | None, list[dict[str, Any]]]:
+    """Tira das ações a chamada de ``set_concreteness_level``: devolve ``(nível declarado, ações de IDE)``.
+
+    O nível declarado numa tool é um argumento tipado, coisa que o modelo cumpre; a linha
+    ``LEVEL: n`` no texto do plano o ``gpt-4o-mini`` omitiu em 155 de 160 turnos (bancada,
+    18/10/2026). Sem a chamada, ou com argumento que não seja inteiro de 0 a 3, ``None``.
+    """
+    level: int | None = None
+    ide_actions: list[dict[str, Any]] = []
+    for action in actions:
+        if action.get("type") != CONCRETENESS_TOOL:
+            ide_actions.append(action)
+            continue
+        raw = (action.get("payload") or {}).get("level")
+        if isinstance(raw, str) and raw.strip().isdigit():
+            raw = int(raw.strip())
+        if isinstance(raw, int) and not isinstance(raw, bool) and 0 <= raw <= 3 and level is None:
+            level = min(raw, MAX_CONCRETENESS_LEVEL)
+    return level, ide_actions
+
+
+_BLOCKED_MOVEMENTS = frozenset({"ESTAGNACAO", "REGRESSAO"})
+
+
+def contingent_level(
+    declared: int | None,
+    previous: int | None,
+    *,
+    student_movement: str,
+    stagnation_streak: int,
+    hint_level: int = 1,
+) -> int:
+    """Aplica a regra de contingência ao nível declarado pelo estrategista e devolve o nível do turno.
+
+    A regra está no prompt do estrategista, mas executada pelo LLM ela é tendência, não garantia
+    (Seção 5.7 da dissertação). Aqui ela vira código, e o modelo só decide onde a regra o deixa:
+
+    - bloqueio (``ESTAGNACAO``/``REGRESSAO``) com acumulado >= 4: um degrau acima do anterior;
+    - bloqueio com acumulado <= 3: mantém o anterior (no nível de dica >= 2, pode subir um degrau);
+    - ``PROGRESSO``: mantém ou baixa, nunca sobe;
+    - ``PEDIDO_EXPLICITO`` e abertura: o declarado, dentro do teto.
+
+    Sem nível anterior (primeiro turno, ou cliente que não devolve ``concretenessLevel``), vale o
+    declarado; sem ele também, 2 sob bloqueio persistente e 1 no resto. O teto é sempre 2, e no
+    nível de dica 1 o conceito (nível 2) espera o acumulado chegar a 4.
+    """
+    movement = (student_movement or "").strip().upper()
+    blocked = movement in _BLOCKED_MOVEMENTS
+    streak = max(0, int(stagnation_streak or 0))
+    if declared is not None:
+        declared = max(0, min(MAX_CONCRETENESS_LEVEL, declared))
+
+    if previous is None:
+        level = declared if declared is not None else (2 if blocked and streak >= 4 else 1)
+        if movement == "NENHUM":
+            level = min(level, 1)
+    elif blocked and streak >= 4:
+        level = previous + 1
+    elif blocked:
+        wanted = declared if declared is not None else previous
+        level = previous if hint_level <= 1 else max(previous, min(wanted, previous + 1))
+    elif movement == "PROGRESSO":
+        level = previous if declared is None else min(declared, previous)
+    else:
+        level = declared if declared is not None else previous
+
+    if hint_level <= 1 and not (blocked and streak >= 4) and movement != "PEDIDO_EXPLICITO":
+        # Ritmo do nível de dica 1: o conceito só entra sob bloqueio persistente. Depois de um
+        # progresso o nível já alcançado não é forçado para baixo (o PROGRESSO só o mantém ou baixa).
+        if previous is None or level > previous:
+            level = min(level, 1)
+    return max(0, min(MAX_CONCRETENESS_LEVEL, level))
+
+
 def previous_concreteness_level(history: list[dict]) -> int | None:
     """Nível do turno anterior do tutor, se a IDE o devolveu no histórico (``concretenessLevel``).
 
@@ -480,20 +572,6 @@ def _build_strategist_system_content(
     return system_content + _documentation_context_block(documentation_context or [])
 
 
-def _history_to_messages(history: list[dict]) -> list[HumanMessage | AIMessage]:
-    messages: list[HumanMessage | AIMessage] = []
-    for item in history:
-        role = item.get("role", "")
-        content = item.get("content", "")
-        if role == "user":
-            messages.append(HumanMessage(content=str(content)))
-        elif role == "assistant":
-            messages.append(AIMessage(content=str(content)))
-        else:
-            logger.warning("Unknown history role ignored: %s", role)
-    return messages
-
-
 def _strategist_lc_messages(
     diagnosis: Diagnosis,
     history: list[dict],
@@ -509,8 +587,8 @@ def _strategist_lc_messages(
     student_movement: str = "NENHUM",
     stagnation_streak: int = 0,
     problem_statement: str = "",
-) -> list[SystemMessage | HumanMessage | AIMessage]:
-    lc_messages: list[SystemMessage | HumanMessage | AIMessage] = [
+) -> list[SystemMessage | HumanMessage]:
+    lc_messages: list[SystemMessage | HumanMessage] = [
         SystemMessage(
             content=_build_strategist_system_content(
                 diagnosis,
@@ -531,12 +609,41 @@ def _strategist_lc_messages(
     ]
     if problem_statement:
         lc_messages.append(HumanMessage(content=build_problem_content(problem_statement)))
-    hist_msgs = _history_to_messages(history)
-    if not hist_msgs:
-        lc_messages.append(HumanMessage(content="Analyze and plan IDE tools for this help request."))
-    else:
-        lc_messages.extend(hist_msgs)
+    lc_messages.append(HumanMessage(content=_planning_request(history)))
     return lc_messages
+
+
+_PLANNING_INSTRUCTION = (
+    "Plan this turn now. Call `set_concreteness_level` and the IDE tools you need, and write in "
+    "`content` the internal directive for the Communicator, in the third person. Do not answer the "
+    "learner: the Communicator does that."
+)
+
+
+def _planning_request(history: list[dict]) -> str:
+    """O histórico como transcrição dentro de um pedido de planejamento, e não como turnos de chat.
+
+    Em turnos de chat, as falas da ADA chegavam ao estrategista como mensagens dele próprio e a
+    última mensagem era a do aluno: o modelo continuava a conversa no papel da ADA e escrevia a
+    fala, muitas vezes com a edição dentro («o que acha de mover…?»), por cima da regra que o
+    proíbe. Como transcrição, a conversa é material a analisar e o pedido final é o plano.
+    """
+    lines: list[str] = []
+    for item in history:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role", "")
+        content = str(item.get("content", "")).strip()
+        if role == "user":
+            lines.append(f"Learner: {content}")
+        elif role == "assistant":
+            lines.append(f"ADA (tutor, said by the Communicator): {content}")
+        else:
+            logger.warning("Unknown history role ignored: %s", role)
+    if not lines:
+        return "Analyze and plan IDE tools for this help request.\n\n" + _PLANNING_INSTRUCTION
+    transcript = "\n".join(lines)
+    return f"<conversation_so_far>\n{transcript}\n</conversation_so_far>\n\n{_PLANNING_INSTRUCTION}"
 
 
 def _chunk_content_to_text(content: object) -> str:
@@ -624,5 +731,9 @@ async def run_strategist(
             "Strategist returned tool calls without plan text; using fallback (n_tools=%d)",
             len(tool_calls),
         )
-        plan_text = _fallback_plan_pt_for_tool_calls(tool_calls, diagnosis)
+        plan_text = _fallback_plan_pt_for_tool_calls(
+            tool_calls,
+            diagnosis,
+            blocked=student_movement.strip().upper() in _BLOCKED_MOVEMENTS,
+        )
     return actions, plan_text

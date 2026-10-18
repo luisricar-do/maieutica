@@ -13,11 +13,14 @@ from agents.rag.query import (
 )
 from agents.router import run_router
 from agents.strategist import (
+    contingent_level,
+    pop_declared_level,
+    previous_concreteness_level,
     run_strategist,
     split_concreteness_level,
     suggested_doc_topics,
 )
-from agents.tutor import run_communicator
+from agents.tutor import error_nature_text, run_communicator
 
 
 class TutorState(TypedDict):
@@ -30,6 +33,7 @@ class TutorState(TypedDict):
     documentation_context: list[str]
     strategist_plan: str
     concreteness_level: int | None
+    declared_concreteness_level: int | None
     tutor_response: str
     actions: list[dict]
     intent: str
@@ -62,6 +66,12 @@ async def analyst_node(state: TutorState) -> dict:
         cursor_column=state.get("cursor_column"),
         ast_summary=str(state.get("ast_summary") or ""),
         data_flow_context=str(state.get("data_flow_context") or ""),
+        problem_statement=str(state.get("problem_statement") or ""),
+        learner_messages=[
+            str(h.get("content") or "")
+            for h in (state.get("history") or [])
+            if isinstance(h, dict) and h.get("role") == "user"
+        ],
     )
     return {"diagnosis": diagnosis}
 
@@ -121,11 +131,23 @@ async def strategist_node(state: TutorState) -> dict:
         stagnation_streak=int(state.get("stagnation_streak") or 0),
         problem_statement=str(state.get("problem_statement") or ""),
     )
-    level, strategist_plan = split_concreteness_level(strategist_plan)
+    declared, actions = pop_declared_level(actions)
+    # A linha ``LEVEL: n`` no texto fica como segunda via: sai do plano de qualquer modo.
+    text_level, strategist_plan = split_concreteness_level(strategist_plan)
+    if declared is None:
+        declared = text_level
+    level = contingent_level(
+        declared,
+        previous_concreteness_level(state["history"]),
+        student_movement=str(state.get("student_movement") or "NENHUM"),
+        stagnation_streak=int(state.get("stagnation_streak") or 0),
+        hint_level=int(state.get("hint_level") or 1),
+    )
     return {
         "actions": actions,
         "strategist_plan": strategist_plan,
         "concreteness_level": level,
+        "declared_concreteness_level": declared,
     }
 
 
@@ -138,6 +160,7 @@ async def tutor_node(state: TutorState) -> dict:
         student_name=str(state.get("student_name") or ""),
         hint_level=int(state.get("hint_level") or 1),
         concreteness_level=state.get("concreteness_level"),
+        error_nature=error_nature_text(state.get("diagnosis")),
         cursor_line=state.get("cursor_line"),
         cursor_column=state.get("cursor_column"),
         ast_summary=str(state.get("ast_summary") or ""),

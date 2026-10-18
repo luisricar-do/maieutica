@@ -16,7 +16,7 @@ from agents.graph import (
 )
 from agents.router import run_router
 from agents.strategist import suggested_doc_topics
-from agents.tutor import run_communicator_stream
+from agents.tutor import error_nature_text, run_communicator_stream
 from services.tutor_help import (
     TutorHelpState,
     build_tutor_meta_from_actions,
@@ -40,6 +40,7 @@ def _communicator_stream_kwargs(
         "student_name": str(state.get("student_name") or ""),
         "hint_level": int(state.get("hint_level") or 1),
         "concreteness_level": state.get("concreteness_level"),
+        "error_nature": error_nature_text(state.get("diagnosis")),
         "cursor_line": state.get("cursor_line"),
         "cursor_column": state.get("cursor_column"),
         "ast_summary": str(state.get("ast_summary") or ""),
@@ -66,6 +67,7 @@ def _stream_tutor_meta(
     *,
     baseline: TutorHelpState | None = None,
     concreteness_level: int | None = None,
+    declared_concreteness_level: int | None = None,
 ) -> dict[str, Any]:
     referencia = baseline or state
     return build_tutor_meta_from_actions(
@@ -79,6 +81,7 @@ def _stream_tutor_meta(
         stagnation_streak_baseline=referencia["stagnation_streak"],
         hint_level=state["hint_level"],
         concreteness_level=concreteness_level,
+        declared_concreteness_level=declared_concreteness_level,
     )
 
 
@@ -220,6 +223,7 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             final,
             baseline=initial,
             concreteness_level=state.get("concreteness_level"),
+            declared_concreteness_level=state.get("declared_concreteness_level"),
         )
         yield format_sse("done", {"tutorMeta": collected["tutorMeta"]})
         await _log_stream_turn(payload, final, collected, intent, started)

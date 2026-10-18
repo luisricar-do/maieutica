@@ -312,11 +312,16 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
   declara-o em `meta.stagnationSource` (`historico` | `turno` | `nenhum`).
 - **`meta.stagnationStreak`** (resposta): o contador que a política consumiu neste turno.
 - **`tutorMeta.concretenessLevel`** (resposta, só em DEBUG): o nível da escada de concretude
-  (0 `open`, 1 `focused`, 2 `conceptual`) que o estrategista escolheu e que o comunicador recebeu
-  como alvo. Ausente quando o estrategista não declarou o nível.
+  (0 `open`, 1 `focused`, 2 `conceptual`) que o comunicador recebeu como alvo. O estrategista o
+  declara na tool `set_concreteness_level` (que não chega à IDE como ação) e o código aplica por
+  cima a regra de contingência: sobe um degrau com estagnação acumulada ≥ 4, mantém com bloqueio
+  mais curto, nunca sobe após `PROGRESSO`, teto 2. Sem declaração, o código decide.
+- **`tutorMeta.concretenessLevelDeclared`** (resposta, opcional): o nível que o estrategista
+  declarou antes da regra; a diferença para `concretenessLevel` é quanto o código o corrigiu.
 - **`concretenessLevel`** dentro de cada turno `assistant` de **`history`** (opcional): a IDE
-  devolve ali o `tutorMeta.concretenessLevel` daquela resposta. O estrategista compara o nível
-  do turno anterior com esse valor; sem ele, infere-o da fala da tutora, que é menos fiável.
+  devolve ali o `tutorMeta.concretenessLevel` daquela resposta. É o nível anterior que a regra de
+  contingência compara; sem ele a regra não tem degrau de partida e vale o nível declarado, ou
+  seja, a escalada só fica garantida pelo código quando a IDE devolve o campo.
 
 **Response** — `200 OK` (`/api/help`)
 
