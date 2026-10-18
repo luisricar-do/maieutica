@@ -159,3 +159,20 @@ def test_tutor_meta_registra_o_nivel_de_dica_em_vigor() -> None:
 
     # Sem valor, o campo não vem: zero não é "nível zero", é ausência de medição.
     assert "hintLevel" not in build_tutor_meta_from_actions([], intent="DEBUG")
+
+
+@pytest.mark.asyncio
+async def test_process_help_meta_traz_o_nivel_de_concretude() -> None:
+    mock_graph = MagicMock()
+    mock_graph.ainvoke = AsyncMock(
+        return_value={
+            "tutor_response": "Pergunta?",
+            "diagnosis": {"errorType": "logic"},
+            "actions": [],
+            "intent": "DEBUG",
+            "concreteness_level": 2,
+        }
+    )
+    with patch("services.tutor_help.tutor_graph", mock_graph):
+        body, _ = await process_help_request({"code": "escreva(1)", "errors": [], "history": []})
+    assert body["tutorMeta"]["concretenessLevel"] == 2

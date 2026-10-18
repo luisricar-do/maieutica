@@ -230,3 +230,39 @@ async def test_graph_out_of_scope_skips_analyst_strategist_and_rag() -> None:
         _args, kwargs = mock_communicator.call_args
         assert kwargs.get("intent") == "OUT_OF_SCOPE"
         assert final["tutor_response"] == "Posso ajudar com Portugol."
+
+
+@pytest.mark.asyncio
+async def test_graph_leva_o_nivel_do_estrategista_ao_comunicador() -> None:
+    diagnosis = {
+        "errorType": "type_mismatch",
+        "errorLine": 2,
+        "affectedVariable": "x",
+        "errorDescription": "teste",
+        "hintAngle": "tipos",
+        "severity": "low",
+    }
+
+    async def analyst_impl(*_args, **_kwargs):
+        return diagnosis
+
+    async def strategist_impl(*_args, **_kwargs):
+        return [], "LEVEL: 2\nNomeie a incompatibilidade de tipo."
+
+    with (
+        patch("agents.graph.run_router", new_callable=AsyncMock) as mock_router,
+        patch("agents.graph.run_analyst", new_callable=AsyncMock) as mock_analyst,
+        patch("agents.graph.run_strategist", new_callable=AsyncMock) as mock_strategist,
+        patch("agents.graph.run_communicator", new_callable=AsyncMock) as mock_communicator,
+    ):
+        mock_router.return_value = {"intent": "DEBUG"}
+        mock_analyst.side_effect = analyst_impl
+        mock_strategist.side_effect = strategist_impl
+        mock_communicator.return_value = "ok"
+
+        final = await build_graph().ainvoke(_base_state())
+
+    args, kwargs = mock_communicator.call_args
+    assert args[0] == "Nomeie a incompatibilidade de tipo."
+    assert kwargs["concreteness_level"] == 2
+    assert final["concreteness_level"] == 2

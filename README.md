@@ -311,6 +311,12 @@ O corpo JSON abaixo aplica-se tanto a **`POST /api/help`** como a **`POST /api/h
   equivale a não enviar nenhum. Sem eles o serviço degrada para o turno corrente, e a resposta
   declara-o em `meta.stagnationSource` (`historico` | `turno` | `nenhum`).
 - **`meta.stagnationStreak`** (resposta): o contador que a política consumiu neste turno.
+- **`tutorMeta.concretenessLevel`** (resposta, só em DEBUG): o nível da escada de concretude
+  (0 `open`, 1 `focused`, 2 `conceptual`) que o estrategista escolheu e que o comunicador recebeu
+  como alvo. Ausente quando o estrategista não declarou o nível.
+- **`concretenessLevel`** dentro de cada turno `assistant` de **`history`** (opcional): a IDE
+  devolve ali o `tutorMeta.concretenessLevel` daquela resposta. O estrategista compara o nível
+  do turno anterior com esse valor; sem ele, infere-o da fala da tutora, que é menos fiável.
 
 **Response** — `200 OK` (`/api/help`)
 

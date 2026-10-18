@@ -5,6 +5,8 @@ from langchain_core.messages import AIMessage
 
 from agents.analyst import Diagnosis
 from agents.strategist import (
+    previous_concreteness_level,
+    split_concreteness_level,
     STRATEGIST_TOOLS,
     TUTOR_TOOLS,
     run_strategist,
@@ -275,3 +277,71 @@ async def test_run_strategist_injects_movement_and_contingency_rule() -> None:
     assert "PEDIDO_EXPLICITO" in system_text
     assert "CONTINGENCY RULE" in system_text
     assert "`PROGRESSO`: keep or lower the level" in system_text
+
+
+def test_split_concreteness_level_tira_a_linha_e_devolve_o_numero() -> None:
+    assert split_concreteness_level("LEVEL: 2\nNomeie o conceito de tipo.") == (
+        2,
+        "Nomeie o conceito de tipo.",
+    )
+    assert split_concreteness_level("level: 1 (focused)\nAponte a linha 3.") == (
+        1,
+        "Aponte a linha 3.",
+    )
+    assert split_concreteness_level("LEVEL: 2 — nomeie o tipo") == (2, "nomeie o tipo")
+
+
+def test_split_concreteness_level_rebaixa_o_nivel_3_ao_teto() -> None:
+    assert split_concreteness_level("LEVEL: 3\nx")[0] == 2
+
+
+def test_split_concreteness_level_sem_linha_preserva_o_plano() -> None:
+    plano = "Destaque a linha 2 e pergunte sobre o tipo."
+    assert split_concreteness_level(plano) == (None, plano)
+
+
+def test_previous_concreteness_level_le_o_ultimo_turno_do_tutor() -> None:
+    history = [
+        {"role": "assistant", "content": "a", "concretenessLevel": 0},
+        {"role": "user", "content": "b"},
+        {"role": "assistant", "content": "c", "concretenessLevel": 1},
+        {"role": "user", "content": "d"},
+    ]
+    assert previous_concreteness_level(history) == 1
+    # Último turno do tutor sem o campo: desconhecido, não o de dois turnos atrás.
+    history.append({"role": "assistant", "content": "e"})
+    assert previous_concreteness_level(history) is None
+    assert previous_concreteness_level([]) is None
+
+
+@pytest.mark.asyncio
+async def test_run_strategist_pede_linha_level_e_injeta_o_nivel_anterior() -> None:
+    diagnosis: Diagnosis = {
+        "errorType": "type_mismatch",
+        "errorLine": 2,
+        "affectedVariable": "x",
+        "errorDescription": "inteiro recebe texto",
+        "hintAngle": "tipos",
+        "severity": "low",
+    }
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        bound = _patch_bound_chat(mock_cls)
+        bound.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_strategist(
+            diagnosis,
+            [
+                {"role": "assistant", "content": "Olhe a linha 2.", "concretenessLevel": 1},
+                {"role": "user", "content": "não sei"},
+            ],
+            'inteiro x\nx = "a"',
+        )
+    system_text = captured[0][0].content
+    assert "The FIRST line of `content` MUST be `LEVEL: <n>`" in system_text
+    assert "previous_concreteness_level (the LEVEL you chose in your previous turn" in system_text
+    assert "or `unknown`): 1" in system_text
