@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 COMMUNICATOR_DEBUG_TEMPLATE = """You are ADA, a Socratic programming logic tutor for Portugol.
 Do not solve the problem for the student.
 You receive a <strategist_plan> from the internal pedagogical engine.
-Your ONLY job is to translate that strategy into 1 or 2 concise sentences in Brazilian Portuguese that invite reflection.
+Your ONLY job is to translate that strategy into 1 to 3 concise sentences in Brazilian Portuguese, at the concreteness level given at the end of these instructions.
 
 Debugging / error context — tone rules:
 - Be direct and logical; avoid generic social greetings ("Oi", "Olá", "Tudo bem", small talk, or openings whose only purpose is politeness).
@@ -23,10 +23,10 @@ Debugging / error context — tone rules:
 - During unresolved debugging, never ask what the student can do "no futuro" or "para não acontecer novamente"; keep the question on the immediate problem.
 - If the student suggested the wrong location/cause and the plan redirects them, acknowledge the attempt briefly but do not reinforce the wrong location as the source of the error.
 
-{concreteness_block}
 If the strategy mentions highlighted lines, your message MUST reflect that smoothly (without inventing line numbers).
-Never invent line numbers. Rely entirely on the <strategist_plan>.
-Never output Portugol code blocks or complete fixes. End with a question; at level 2 the question may follow one short sentence that names the concept.
+Never invent line numbers. Take lines, highlights and the angle from the <strategist_plan>.
+Never output Portugol code blocks or complete fixes. End with a question.
+Never suggest the edit itself, not even as a question: no "e se você mover X para depois do laço?", no "que tal usar o operador `e`?", no "você pode adicionar um `escreva`...", no question whose only answer is the correction. The learner must decide the edit.
 Avoid generic visual templates like "Quais partes do seu código estão destacadas visualmente...". Prefer the concrete concept from the strategy (type comparison, declaration before use, syntax structure, or data flow).
 Never mention "aberturas", "fechamentos", delimiters, brackets, or parentheses unless the strategy is explicitly about syntax/delimiters/quotes.
 If the strategy includes a short literal compiler excerpt, quote that excerpt once in Portuguese and ask the learner to connect it to the highlighted syntax location. Do not quote long blocks.
@@ -42,7 +42,7 @@ Data flow from IDE (optional): {data_flow_context}
 <strategist_plan>
 {strategist_plan}
 </strategist_plan>
-"""
+{concreteness_block}"""
 
 COMMUNICATOR_CASUAL_TEMPLATE = """You are ADA, a warm programming tutor persona for Portugol.
 The student is not asking for debugging right now (greeting, thanks, or chat).
@@ -112,24 +112,79 @@ _CONCRETENESS_LADDER = """Concreteness ladder:
   - level 3 `revealing`: the concrete correction, in code or as an unambiguous edit instruction. FORBIDDEN."""
 
 
-def _concreteness_block(level: int | None) -> str:
-    """Nível de concretude que o estrategista escolheu, dito ao comunicador como número.
+_LEVEL_SHAPES = {
+    0: (
+        "Shape for level 0: one open question about what the program should do versus what it "
+        "does. Point at no line, variable or construct, and name no error."
+    ),
+    1: (
+        "Shape for level 1: point at the line, variable or construct from the plan and ask about "
+        "it. Do not say what is wrong with it."
+    ),
+    2: (
+        "Shape for level 2, in this order: (a) one AFFIRMATIVE sentence that states what is wrong, "
+        "naming the nature of the error or the concept involved in the learner's own construct "
+        "(e.g. \"A variável que acumula o total volta a zero a cada repetição do laço.\", "
+        "\"A leitura acontece uma vez só, antes do laço, e o laço repete sempre o mesmo valor.\"); "
+        "then (b) one question "
+        "asking what the learner will change. Sentence (a) is a statement, never a question, and it "
+        "says WHAT is wrong, never HOW to fix it: no operator, value, statement, or code to write, "
+        "and no place to move code to. A message whose only content is a question about where to "
+        "look is level 1, not level 2: it does not meet the target."
+    ),
+}
+
+
+def error_nature_text(diagnosis: dict | None) -> str:
+    """A natureza do erro, do diagnóstico do analista, para o comunicador nomear no nível 2.
+
+    Sem ela o comunicador só tinha o plano, e o plano muitas vezes é o de reserva, genérico
+    («guie o aluno a observar o foco marcado»): pedido o nível 2, não havia conceito a nomear e a
+    fala saía como mais uma pergunta de foco. Vazio quando não há diagnóstico de erro.
+    """
+    if not isinstance(diagnosis, dict):
+        return ""
+    error_type = str(diagnosis.get("errorType") or "none")
+    if error_type == "none":
+        return ""
+    parts = [f"Error type: {error_type}."]
+    for key, label in (("errorDescription", "Analyst description"), ("hintAngle", "Concept angle")):
+        value = str(diagnosis.get(key) or "").strip()
+        if value:
+            parts.append(f"{label}: {value}")
+    return " ".join(parts)
+
+
+def _concreteness_block(level: int | None, error_nature: str = "") -> str:
+    """Nível de concretude que o estrategista escolheu, dito ao comunicador como número e forma.
 
     Sem isto o comunicador só conhecia o ``hint_level`` da UI, fixo na sessão, e lia as próprias
     falas anteriores no histórico: reproduzia o nível delas e a escada não subia na fala, por
-    mais que subisse no plano. Sem nível (plano de reserva, ou modelo que omitiu a linha), vale
-    o que o plano disser, como antes.
+    mais que subisse no plano. Vai no fim do prompt, depois do plano, e traz a forma da fala em
+    cada nível: só o número não bastava, porque o modelo o lia e voltava à pergunta de foco.
+    Sem nível (plano de reserva, ou modelo que omitiu a linha), vale o que o plano disser.
     """
     if level is None:
         return ""
+    nature = ""
+    if level >= 2 and error_nature:
+        nature = (
+            "\n<error_nature>\n"
+            f"{error_nature}\n"
+            "</error_nature>\n"
+            "Use <error_nature> to know which concept to name in sentence (a). It is internal: "
+            "say the nature of the error in plain words about the learner's code, and never turn it "
+            "into the corrected code or an edit instruction.\n"
+        )
     return (
-        f"\nTARGET CONCRETENESS LEVEL FOR THIS TURN: {level} (decided by the strategist).\n"
+        f"\nTARGET CONCRETENESS LEVEL FOR THIS TURN: {level} (decided by the strategist; it "
+        "outranks the Socratic style above).\n"
         f"{_CONCRETENESS_LADDER}\n"
+        f"{_LEVEL_SHAPES[level]}\n"
         "Your message MUST sit exactly at the target level: not below it, not above it. "
         "Your earlier messages in the conversation may sit at a lower level; do not copy their "
-        "concreteness. If the target is higher than your last message, be visibly more concrete "
-        "this time (point at the construct at level 1, name the concept at level 2). Never reach "
-        "level 3, and never ask a question whose only possible answer is the correction.\n"
+        "concreteness or their wording. Never reach level 3.\n"
+        f"{nature}"
     )
 
 
@@ -163,6 +218,7 @@ def _build_system_content(
     student_name: str = "",
     hint_level: int = 1,
     concreteness_level: int | None = None,
+    error_nature: str = "",
     cursor_line: int | None = None,
     cursor_column: int | None = None,
     ast_summary: str = "",
@@ -205,7 +261,7 @@ def _build_system_content(
         ast_summary=ast,
         data_flow_context=dfc,
         documentation_hint=_documentation_hint(suggested_doc_topics),
-        concreteness_block=_concreteness_block(concreteness_level),
+        concreteness_block=_concreteness_block(concreteness_level, error_nature),
     )
 
 
@@ -218,6 +274,7 @@ def _communicator_lc_messages(
     student_name: str = "",
     hint_level: int = 1,
     concreteness_level: int | None = None,
+    error_nature: str = "",
     cursor_line: int | None = None,
     cursor_column: int | None = None,
     ast_summary: str = "",
@@ -235,6 +292,7 @@ def _communicator_lc_messages(
                 student_name=student_name,
                 hint_level=hint_level,
                 concreteness_level=concreteness_level,
+                error_nature=error_nature,
                 cursor_line=cursor_line,
                 cursor_column=cursor_column,
                 ast_summary=ast_summary,
@@ -271,6 +329,7 @@ async def run_communicator(
     student_name: str = "",
     hint_level: int = 1,
     concreteness_level: int | None = None,
+    error_nature: str = "",
     cursor_line: int | None = None,
     cursor_column: int | None = None,
     ast_summary: str = "",
@@ -291,6 +350,7 @@ async def run_communicator(
         student_name=student_name,
         hint_level=hint_level,
         concreteness_level=concreteness_level,
+        error_nature=error_nature,
         cursor_line=cursor_line,
         cursor_column=cursor_column,
         ast_summary=ast_summary,
@@ -311,6 +371,7 @@ async def run_communicator_stream(
     student_name: str = "",
     hint_level: int = 1,
     concreteness_level: int | None = None,
+    error_nature: str = "",
     cursor_line: int | None = None,
     cursor_column: int | None = None,
     ast_summary: str = "",
@@ -332,6 +393,7 @@ async def run_communicator_stream(
         student_name=student_name,
         hint_level=hint_level,
         concreteness_level=concreteness_level,
+        error_nature=error_nature,
         cursor_line=cursor_line,
         cursor_column=cursor_column,
         ast_summary=ast_summary,

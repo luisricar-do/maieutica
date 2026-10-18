@@ -20,7 +20,7 @@ from agents.strategist import (
     split_concreteness_level,
     suggested_doc_topics,
 )
-from agents.tutor import run_communicator
+from agents.tutor import error_nature_text, run_communicator
 
 
 class TutorState(TypedDict):
@@ -154,6 +154,7 @@ async def tutor_node(state: TutorState) -> dict:
         student_name=str(state.get("student_name") or ""),
         hint_level=int(state.get("hint_level") or 1),
         concreteness_level=state.get("concreteness_level"),
+        error_nature=error_nature_text(state.get("diagnosis")),
         cursor_line=state.get("cursor_line"),
         cursor_column=state.get("cursor_column"),
         ast_summary=str(state.get("ast_summary") or ""),

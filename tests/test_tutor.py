@@ -5,6 +5,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk
 
 from agents.tutor import (
     OUT_OF_SCOPE_RESPONSE,
+    error_nature_text,
     run_communicator,
     run_communicator_stream,
 )
@@ -229,3 +230,49 @@ async def test_run_communicator_stream_recebe_o_nivel_alvo() -> None:
         ]
     assert out == ["ok"]
     assert "TARGET CONCRETENESS LEVEL FOR THIS TURN: 1" in captured[0][0].content
+
+
+async def _system_do_comunicador(**kwargs) -> str:
+    captured: list = []
+
+    async def capture_ainvoke(messages):
+        captured.append(messages)
+        return AIMessage(content="ok")
+
+    with patch("agents.llm.ChatOpenAI") as mock_cls:
+        instance = _patch_chat_client(mock_cls)
+        instance.ainvoke = AsyncMock(side_effect=capture_ainvoke)
+        await run_communicator("Aponte o laço da linha 4.", [], intent="DEBUG", **kwargs)
+    return captured[0][0].content
+
+
+@pytest.mark.asyncio
+async def test_nivel_2_pede_frase_afirmativa_e_leva_a_natureza_do_erro() -> None:
+    natureza = "Error type: logic. Analyst description: a mensagem é decidida dentro do laço."
+    system_text = await _system_do_comunicador(concreteness_level=2, error_nature=natureza)
+    assert "one AFFIRMATIVE sentence that states what is wrong" in system_text
+    assert f"<error_nature>\n{natureza}\n</error_nature>" in system_text
+    # O nível vem depois do plano, no fim do prompt.
+    assert system_text.index("</strategist_plan>") < system_text.index("TARGET CONCRETENESS LEVEL")
+
+
+@pytest.mark.asyncio
+async def test_nivel_1_nao_recebe_a_natureza_do_erro() -> None:
+    system_text = await _system_do_comunicador(concreteness_level=1, error_nature="Error type: logic.")
+    assert "Shape for level 1" in system_text
+    assert "<error_nature>" not in system_text
+
+
+@pytest.mark.asyncio
+async def test_comunicador_proibe_sugerir_a_edicao_em_forma_de_pergunta() -> None:
+    system_text = await _system_do_comunicador(concreteness_level=1)
+    assert "Never suggest the edit itself, not even as a question" in system_text
+
+
+def test_error_nature_text_vem_do_diagnostico() -> None:
+    assert error_nature_text({"errorType": "none"}) == ""
+    assert error_nature_text(None) == ""
+    texto = error_nature_text(
+        {"errorType": "logic", "errorDescription": "conta fora do se", "hintAngle": "fluxo"}
+    )
+    assert texto == "Error type: logic. Analyst description: conta fora do se Concept angle: fluxo"

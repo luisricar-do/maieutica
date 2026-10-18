@@ -16,7 +16,7 @@ from agents.graph import (
 )
 from agents.router import run_router
 from agents.strategist import suggested_doc_topics
-from agents.tutor import run_communicator_stream
+from agents.tutor import error_nature_text, run_communicator_stream
 from services.tutor_help import (
     TutorHelpState,
     build_tutor_meta_from_actions,
@@ -40,6 +40,7 @@ def _communicator_stream_kwargs(
         "student_name": str(state.get("student_name") or ""),
         "hint_level": int(state.get("hint_level") or 1),
         "concreteness_level": state.get("concreteness_level"),
+        "error_nature": error_nature_text(state.get("diagnosis")),
         "cursor_line": state.get("cursor_line"),
         "cursor_column": state.get("cursor_column"),
         "ast_summary": str(state.get("ast_summary") or ""),
