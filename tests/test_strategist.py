@@ -5,6 +5,8 @@ from langchain_core.messages import AIMessage
 
 from agents.analyst import Diagnosis
 from agents.strategist import (
+    contingent_level,
+    pop_declared_level,
     previous_concreteness_level,
     split_concreteness_level,
     STRATEGIST_TOOLS,
@@ -23,6 +25,7 @@ def test_strategist_tools_includes_compare_and_documentation() -> None:
     assert "draw_data_flow" in names
     assert "activate_focus_mode" in names
     assert "pause_at_iteration" in names
+    assert "set_concreteness_level" in names
     assert STRATEGIST_TOOLS is TUTOR_TOOLS
 
 
@@ -315,7 +318,7 @@ def test_previous_concreteness_level_le_o_ultimo_turno_do_tutor() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_strategist_pede_linha_level_e_injeta_o_nivel_anterior() -> None:
+async def test_run_strategist_pede_a_tool_de_nivel_e_injeta_o_nivel_anterior() -> None:
     diagnosis: Diagnosis = {
         "errorType": "type_mismatch",
         "errorLine": 2,
@@ -342,6 +345,60 @@ async def test_run_strategist_pede_linha_level_e_injeta_o_nivel_anterior() -> No
             'inteiro x\nx = "a"',
         )
     system_text = captured[0][0].content
-    assert "The FIRST line of `content` MUST be `LEVEL: <n>`" in system_text
+    assert "you MUST call `set_concreteness_level` exactly once" in system_text
     assert "previous_concreteness_level (the LEVEL you chose in your previous turn" in system_text
     assert "or `unknown`): 1" in system_text
+
+
+def test_pop_declared_level_tira_a_tool_das_acoes_de_ide() -> None:
+    actions = [
+        {"type": "set_concreteness_level", "payload": {"level": 2}},
+        {"type": "highlight_line", "payload": {"line": 3}},
+    ]
+    assert pop_declared_level(actions) == (2, [{"type": "highlight_line", "payload": {"line": 3}}])
+
+
+def test_pop_declared_level_aceita_texto_rebaixa_o_3_e_ignora_lixo() -> None:
+    assert pop_declared_level([{"type": "set_concreteness_level", "payload": {"level": "1"}}])[0] == 1
+    assert pop_declared_level([{"type": "set_concreteness_level", "payload": {"level": 3}}])[0] == 2
+    assert pop_declared_level([{"type": "set_concreteness_level", "payload": {"level": "alto"}}]) == (None, [])
+    assert pop_declared_level([{"type": "set_concreteness_level", "payload": {"level": True}}])[0] is None
+    assert pop_declared_level([{"type": "highlight_line", "payload": {}}])[0] is None
+
+
+def _nivel(declared, previous, movement, streak, hint_level=1):
+    return contingent_level(
+        declared, previous, student_movement=movement, stagnation_streak=streak, hint_level=hint_level
+    )
+
+
+def test_contingent_level_sobe_um_degrau_com_bloqueio_persistente_mesmo_sem_declarar() -> None:
+    assert _nivel(1, 1, "ESTAGNACAO", 4) == 2
+    assert _nivel(None, 1, "ESTAGNACAO", 4) == 2
+    assert _nivel(0, 0, "REGRESSAO", 5) == 1
+    assert _nivel(2, 2, "ESTAGNACAO", 6) == 2
+
+
+def test_contingent_level_nunca_sobe_dois_degraus_nem_passa_do_teto() -> None:
+    assert _nivel(2, 0, "ESTAGNACAO", 4) == 1
+    assert _nivel(3, 2, "PEDIDO_EXPLICITO", 0) == 2
+
+
+def test_contingent_level_mantem_com_bloqueio_curto_no_nivel_de_dica_1() -> None:
+    assert _nivel(2, 1, "ESTAGNACAO", 2) == 1
+    assert _nivel(0, 1, "ESTAGNACAO", 3) == 1
+    assert _nivel(2, 1, "ESTAGNACAO", 2, hint_level=2) == 2
+
+
+def test_contingent_level_nao_sobe_depois_de_progresso() -> None:
+    assert _nivel(2, 1, "PROGRESSO", 0) == 1
+    assert _nivel(0, 2, "PROGRESSO", 0) == 0
+    assert _nivel(None, 2, "PROGRESSO", 0) == 2
+
+
+def test_contingent_level_sem_anterior_usa_o_declarado_dentro_do_ritmo() -> None:
+    assert _nivel(2, None, "NENHUM", 0) == 1
+    assert _nivel(0, None, "PROGRESSO", 0) == 0
+    assert _nivel(None, None, "ESTAGNACAO", 4) == 2
+    assert _nivel(None, None, "ESTAGNACAO", 1) == 1
+    assert _nivel(2, None, "PEDIDO_EXPLICITO", 0) == 2

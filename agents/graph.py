@@ -13,6 +13,9 @@ from agents.rag.query import (
 )
 from agents.router import run_router
 from agents.strategist import (
+    contingent_level,
+    pop_declared_level,
+    previous_concreteness_level,
     run_strategist,
     split_concreteness_level,
     suggested_doc_topics,
@@ -30,6 +33,7 @@ class TutorState(TypedDict):
     documentation_context: list[str]
     strategist_plan: str
     concreteness_level: int | None
+    declared_concreteness_level: int | None
     tutor_response: str
     actions: list[dict]
     intent: str
@@ -121,11 +125,23 @@ async def strategist_node(state: TutorState) -> dict:
         stagnation_streak=int(state.get("stagnation_streak") or 0),
         problem_statement=str(state.get("problem_statement") or ""),
     )
-    level, strategist_plan = split_concreteness_level(strategist_plan)
+    declared, actions = pop_declared_level(actions)
+    # A linha ``LEVEL: n`` no texto fica como segunda via: sai do plano de qualquer modo.
+    text_level, strategist_plan = split_concreteness_level(strategist_plan)
+    if declared is None:
+        declared = text_level
+    level = contingent_level(
+        declared,
+        previous_concreteness_level(state["history"]),
+        student_movement=str(state.get("student_movement") or "NENHUM"),
+        stagnation_streak=int(state.get("stagnation_streak") or 0),
+        hint_level=int(state.get("hint_level") or 1),
+    )
     return {
         "actions": actions,
         "strategist_plan": strategist_plan,
         "concreteness_level": level,
+        "declared_concreteness_level": declared,
     }
 
 

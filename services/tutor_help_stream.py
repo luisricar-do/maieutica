@@ -66,6 +66,7 @@ def _stream_tutor_meta(
     *,
     baseline: TutorHelpState | None = None,
     concreteness_level: int | None = None,
+    declared_concreteness_level: int | None = None,
 ) -> dict[str, Any]:
     referencia = baseline or state
     return build_tutor_meta_from_actions(
@@ -79,6 +80,7 @@ def _stream_tutor_meta(
         stagnation_streak_baseline=referencia["stagnation_streak"],
         hint_level=state["hint_level"],
         concreteness_level=concreteness_level,
+        declared_concreteness_level=declared_concreteness_level,
     )
 
 
@@ -220,6 +222,7 @@ async def iter_help_sse(payload: Any) -> AsyncIterator[bytes]:
             final,
             baseline=initial,
             concreteness_level=state.get("concreteness_level"),
+            declared_concreteness_level=state.get("declared_concreteness_level"),
         )
         yield format_sse("done", {"tutorMeta": collected["tutorMeta"]})
         await _log_stream_turn(payload, final, collected, intent, started)
