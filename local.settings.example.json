@@ -8,6 +8,8 @@
     "LITELLM_API_KEY": "",
     "LITELLM_MODEL": "gpt-4o-mini",
     "LITELLM_EMBEDDING_MODEL": "azure/text-embedding-3-small",
+    "LITELLM_TIMEOUT_SECONDS": "12",
+    "LITELLM_MAX_RETRIES": "1",
     "TELEMETRY_BLOB_CONNECTION_STRING": "",
     "TELEMETRY_BLOB_CONTAINER": "telemetria",
     "EVALUATION_MODE": "0",
