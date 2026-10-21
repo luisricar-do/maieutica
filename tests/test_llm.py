@@ -74,3 +74,41 @@ def test_create_embeddings_client_requires_base_url(
             create_embeddings_client()
 
     mock_emb.assert_not_called()
+
+
+def test_create_chat_client_sets_timeout_and_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LITELLM_BASE_URL", "http://localhost:4000")
+    monkeypatch.delenv("LITELLM_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("LITELLM_MAX_RETRIES", raising=False)
+
+    with patch("agents.llm.ChatOpenAI") as mock_openai:
+        mock_openai.return_value = MagicMock()
+        create_chat_client(max_tokens=1, temperature=0)
+
+    _, kwargs = mock_openai.call_args
+    assert kwargs["timeout"] == 12.0
+    assert kwargs["max_retries"] == 1
+
+
+@pytest.mark.parametrize(
+    ("timeout_raw", "retries_raw", "timeout", "retries"),
+    [("20", "0", 20.0, 0), ("abc", "x", 12.0, 1), ("0", "-1", 12.0, 1)],
+)
+def test_timeout_and_retries_from_env(
+    monkeypatch: pytest.MonkeyPatch,
+    timeout_raw: str,
+    retries_raw: str,
+    timeout: float,
+    retries: int,
+) -> None:
+    monkeypatch.setenv("LITELLM_BASE_URL", "http://localhost:4000")
+    monkeypatch.setenv("LITELLM_TIMEOUT_SECONDS", timeout_raw)
+    monkeypatch.setenv("LITELLM_MAX_RETRIES", retries_raw)
+
+    with patch("agents.llm.OpenAIEmbeddings") as mock_emb:
+        mock_emb.return_value = MagicMock()
+        create_embeddings_client()
+
+    _, kwargs = mock_emb.call_args
+    assert kwargs["timeout"] == timeout
+    assert kwargs["max_retries"] == retries
