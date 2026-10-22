@@ -136,3 +136,66 @@ async def test_read_text_and_put_json(monkeypatch: pytest.MonkeyPatch) -> None:
     args, kwargs = blob.upload_blob.call_args
     assert args[0] == '{"text":"ação"}'.encode()
     assert kwargs["overwrite"] is False
+
+
+@pytest.mark.asyncio
+async def test_versioned_json_roundtrip_uses_etag(monkeypatch: pytest.MonkeyPatch) -> None:
+    from azure.core import MatchConditions
+
+    monkeypatch.setenv(telemetry_store.CONNECTION_STRING_ENV, "UseDevelopmentStorage=true")
+    blob = MagicMock()
+    downloader = blob.download_blob.return_value
+    downloader.readall.return_value = b'{"coletas":[]}'
+    downloader.properties.etag = '"0x1"'
+    service = MagicMock()
+    service.get_blob_client.return_value = blob
+
+    with patch("services.telemetry_store._get_service_client", return_value=service):
+        assert await telemetry_store.read_json_versioned("painel/estado.json") == (
+            {"coletas": []},
+            '"0x1"',
+        )
+        await telemetry_store.put_json_versioned("painel/estado.json", {"a": 1}, '"0x1"')
+
+    _, kwargs = blob.upload_blob.call_args
+    assert kwargs["overwrite"] is True
+    assert kwargs["etag"] == '"0x1"'
+    assert kwargs["match_condition"] == MatchConditions.IfNotModified
+
+
+@pytest.mark.asyncio
+async def test_versioned_json_missing_and_conflicts(monkeypatch: pytest.MonkeyPatch) -> None:
+    from azure.core.exceptions import ResourceModifiedError, ResourceNotFoundError
+
+    monkeypatch.setenv(telemetry_store.CONNECTION_STRING_ENV, "UseDevelopmentStorage=true")
+    blob = MagicMock()
+    blob.download_blob.side_effect = ResourceNotFoundError("não há")
+    service = MagicMock()
+    service.get_blob_client.return_value = blob
+
+    with patch("services.telemetry_store._get_service_client", return_value=service):
+        assert await telemetry_store.read_json_versioned("painel/estado.json") == (None, None)
+
+        blob.upload_blob.side_effect = ResourceExistsError("outra aba criou")
+        with pytest.raises(telemetry_store.VersionConflict):
+            await telemetry_store.put_json_versioned("painel/estado.json", {}, None)
+        assert blob.upload_blob.call_args.kwargs["overwrite"] is False
+
+        blob.upload_blob.side_effect = ResourceModifiedError("etag velho")
+        with pytest.raises(telemetry_store.VersionConflict):
+            await telemetry_store.put_json_versioned("painel/estado.json", {}, '"0x1"')
+
+
+@pytest.mark.asyncio
+async def test_delete_blob_ignores_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    from azure.core.exceptions import ResourceNotFoundError
+
+    monkeypatch.setenv(telemetry_store.CONNECTION_STRING_ENV, "UseDevelopmentStorage=true")
+    blob = MagicMock()
+    blob.delete_blob.side_effect = ResourceNotFoundError("já não há")
+    service = MagicMock()
+    service.get_blob_client.return_value = blob
+
+    with patch("services.telemetry_store._get_service_client", return_value=service):
+        await telemetry_store.delete_blob("sessions/a/b/1.ndjson")
+    blob.delete_blob.assert_called_once()

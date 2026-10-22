@@ -109,6 +109,8 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   ├── painel.html           # Página do painel do condutor (autocontida, servida em /api/painel)
 │   ├── painel.py             # Resumo de sessão a partir da telemetria (função pura)
 │   ├── painel_service.py     # Painel e canal de comandos: autenticação, /api/painel/*, /api/coleta/comandos
+│   ├── coletas.py            # Coletas, atribuição de sessões e lixeira (funções puras)
+│   ├── coletas_service.py    # /api/painel/coletas, /api/painel/sessoes/acoes, /api/painel/exportar
 │   ├── ping.py               # Health: resposta JSON para /api/ping
 │   ├── telemetry.py          # Caso de uso: /api/telemetry (validação + NDJSON)
 │   ├── telemetry_store.py    # Persistência dos lotes no Azure Blob Storage
@@ -126,7 +128,7 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   └── workflows/
 │       └── deploy-containerapp.yml  # Esteira: pytest → imagem no GHCR → Container Apps
 ├── .cursor/                # Contexto e rules para agentes (ver AGENTS.md)
-├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/help/single, /api/telemetry, /api/painel, /api/coleta/comandos
+├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/help/single, /api/telemetry, /api/painel/*, /api/coleta/comandos
 ├── Dockerfile          # Imagem do serviço (host do Azure Functions) para Container Apps
 ├── .dockerignore       # Mantém segredos e registro de interações fora da imagem
 ├── Makefile            # atalhos: make test / make dev / make start / make watch
@@ -560,10 +562,24 @@ telemetria, relevante para a análise de sensibilidade prevista no protocolo.
 Página para quem conduz a sessão em sala: mostra cada máquina (participante, tarefa em curso,
 tempo restante, «Concluí» falhos, erros do tutor, há quanto tempo chegou o último evento) e
 deixa intervir na IDE do aluno sem ir até ela. Os dados saem da telemetria já gravada no blob
-(`sessions/…`); o painel não tem banco próprio.
+(`sessions/…`); o painel não tem banco próprio, só um JSON de estado
+(`painel/estado.json`) com as coletas, as sessões movidas à mão e a lixeira.
 
 **Acesso:** abrir `https://<host>/api/painel` e colar o token. O token fica só na aba
 (`sessionStorage`). A página consulta `GET /api/painel/sessoes` a cada 10 s.
+
+**Coletas.** O condutor cria uma coleta com nome e data (ex.: «Turma A — manhã», 22/10) e a
+abre quando os participantes começam. Toda sessão com sinal desde a abertura entra nela; abrir
+outra coleta encerra a anterior. Uma sessão fora da janela (ou na coleta errada) se move à mão,
+e a escolha manual vale mais que a janela. A coleta é um rótulo do painel: a telemetria e a IDE
+não mudam, e a pertença é calculada na leitura a partir do `serverTs` (primeiro e último sinal).
+
+**Lixeira.** «Descartar» tira a sessão do painel e das exportações sem apagar nada; dá para
+restaurar. «Apagar de vez» só funciona a partir da lixeira e remove lotes, comandos, notas e o
+registro por turno (`interactions/{sessionId}/`); no estado fica só `apagadas: [{sessionId, em,
+blobs, motivo}]`, para constar que houve exclusão. O `scripts/fetch_telemetry.py` lê os blobs
+direto e **não** conhece coletas nem lixeira: sessões descartadas (mas não apagadas) continuam a
+sair nele. Para separar por coleta, usar a exportação abaixo.
 
 | Variável | Descrição |
 | --- | --- |
@@ -607,6 +623,18 @@ cronômetro da IDE, para o tempo restante bater com o que o aluno vê; `lastEven
 `serverTs`, porque o relógio do aluno pode estar errado e o que importa é há quanto tempo o
 servidor não ouve a máquina. Lotes, comandos e notas são imutáveis, então o que já foi lido
 fica em cache na memória do processo.
+
+**Rotas de coleta** (todas com o token):
+
+| Rota | Corpo / parâmetros | Efeito |
+| --- | --- | --- |
+| `GET /api/painel/sessoes` | `?coleta=<id>\|sem\|lixeira\|todas` (padrão `todas`), `?horas=N` | Sessões da visão, cada uma com `coletaId`, `coletaManual` e `descarte`; a resposta traz também `coletas` e `trashCount`. `horas` só limita `todas` e `sem`. |
+| `POST /api/painel/coletas` | `{"acao": "criar", "nome", "data": "AAAA-MM-DD", "abrir"?}` · `{"acao": "abrir"\|"encerrar"\|"excluir", "id"}` · `{"acao": "editar", "id", "nome"?, "data"?}` | `201`/`200` com `{coleta, coletas}`. Excluir só remove o rótulo (e as atribuições manuais a ele). |
+| `POST /api/painel/sessoes/acoes` | `{"acao": "mover", "sessionIds", "coletaId"}` (`null` = sem coleta) · `{"acao": "descartar", "sessionIds", "motivo"?}` · `{"acao": "restaurar"\|"apagar", "sessionIds"}` | Até 200 sessões por pedido. `apagar` responde `409` se alguma não estiver na lixeira. |
+| `GET /api/painel/exportar` | `?coleta=<id>&formato=resumo\|eventos\|interacoes` | Arquivo `{coleta}-{formato}`: `resumo` é CSV com uma linha por tarefa; `eventos` é a telemetria deduplicada por `(sessionId, seq)`; `interacoes` é o registro por turno do tutor. Linhas com `coletaId`; sessões na lixeira ficam de fora. |
+
+O estado é gravado com ETag (concorrência otimista): duas abas do condutor não se sobrescrevem;
+quem perde a corrida relê e reaplica, e só depois de quatro tentativas recebe `409`.
 
 ## Licença
 

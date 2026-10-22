@@ -31,6 +31,8 @@ class FakeStore:
         self.modified = modified or {}
         self.reads: list[str] = []
         self.listed: list[str] = []
+        self.versions: dict[str, int] = {}
+        self.deleted: list[str] = []
 
     async def list_blobs(self, prefix):
         self.listed.append(prefix)
@@ -48,6 +50,22 @@ class FakeStore:
     async def put_json(self, name, obj):
         self.blobs[name] = json.dumps(obj)
 
+    async def read_json_versioned(self, name):
+        if name not in self.blobs:
+            return None, None
+        return json.loads(self.blobs[name]), str(self.versions.get(name, 0))
+
+    async def put_json_versioned(self, name, obj, etag):
+        current = str(self.versions.get(name, 0)) if name in self.blobs else None
+        if etag != current:
+            raise telemetry_store.VersionConflict(name)
+        self.blobs[name] = json.dumps(obj)
+        self.versions[name] = self.versions.get(name, 0) + 1
+
+    async def delete_blob(self, name):
+        self.deleted.append(name)
+        self.blobs.pop(name, None)
+
 
 @pytest.fixture
 def store():
@@ -56,6 +74,9 @@ def store():
         patch.object(telemetry_store, "list_blobs", fake.list_blobs),
         patch.object(telemetry_store, "read_text", fake.read_text),
         patch.object(telemetry_store, "put_json", fake.put_json),
+        patch.object(telemetry_store, "read_json_versioned", fake.read_json_versioned),
+        patch.object(telemetry_store, "put_json_versioned", fake.put_json_versioned),
+        patch.object(telemetry_store, "delete_blob", fake.delete_blob),
     ):
         yield fake
 
@@ -357,5 +378,7 @@ async def test_list_sessions_503_without_blob(store, monkeypatch: pytest.MonkeyP
 def test_painel_html_is_self_contained():
     html = painel_service.painel_html()
     assert html.lstrip().lower().startswith("<!doctype html>")
-    assert "painel/sessoes" in html and "painel/comandos" in html
+    for route in ("painel/sessoes", "painel/comandos", "painel/coletas", "painel/sessoes/acoes",
+                  "painel/exportar"):
+        assert route in html
     assert "<script src" not in html and "<link" not in html
