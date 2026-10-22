@@ -23,6 +23,7 @@
 #   MIN_REPLICAS   0 = escala a zero (arranque a frio)    (0)   — usar 1 durante as aulas
 #   MAX_REPLICAS                                          (3)
 #   GHCR_PAT       PAT clássico com read:packages; só se o pacote no GHCR ficar privado
+#   STUDY_ADMIN_TOKEN  token do painel do condutor (/api/painel); sem ele o painel responde 503
 set -euo pipefail
 
 : "${LITELLM_BASE_URL:?defina LITELLM_BASE_URL}"
@@ -113,6 +114,11 @@ ENV_VARS=(
   "EVALUATION_MODE=1"
   "CLASSIFICADOR_DE_MOVIMENTO=regra"
 )
+# Painel do condutor: o token vai como segredo; sem ele as rotas /api/painel/* ficam em 503.
+if [[ -n "${STUDY_ADMIN_TOKEN:-}" ]]; then
+  SECRETS+=("study-admin-token=$STUDY_ADMIN_TOKEN")
+  ENV_VARS+=("STUDY_ADMIN_TOKEN=secretref:study-admin-token")
+fi
 
 log "Container App ($APP_NAME)"
 if ! az containerapp show -g "$RG" -n "$APP_NAME" -o none 2>/dev/null; then
