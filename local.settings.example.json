@@ -10,6 +10,7 @@
     "LITELLM_EMBEDDING_MODEL": "azure/text-embedding-3-small",
     "TELEMETRY_BLOB_CONNECTION_STRING": "",
     "TELEMETRY_BLOB_CONTAINER": "telemetria",
+    "STUDY_ADMIN_TOKEN": "",
     "EVALUATION_MODE": "0",
     "CLASSIFICADOR_DE_MOVIMENTO": "regra",
     "INTERACTION_LOG_DIR": "",
