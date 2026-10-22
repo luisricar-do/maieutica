@@ -153,10 +153,10 @@ details.log li { margin: 2px 0; }
 
 <section id="login" class="login hidden">
   <h1>Painel do condutor</h1>
-  <p class="muted">Cole o token do condutor (<code>STUDY_ADMIN_TOKEN</code>). Ele fica só nesta aba.</p>
+  <p class="muted">Digite a senha do condutor. Ela fica só nesta aba.</p>
   <div id="login-error" class="alert error hidden"></div>
   <form id="login-form" autocomplete="off">
-    <input id="token-input" type="password" placeholder="Token" required>
+    <input id="token-input" type="password" placeholder="Senha" autocomplete="off" required>
     <button class="primary" type="submit">Entrar</button>
   </form>
 </section>
@@ -169,7 +169,7 @@ details.log li { margin: 2px 0; }
     <span class="spacer"></span>
     <span class="muted small" id="last-update">Ainda não atualizado</span>
     <button id="refresh" type="button">Atualizar agora</button>
-    <button id="logout" type="button" title="Esquecer o token nesta aba">Sair</button>
+    <button id="logout" type="button" title="Esquecer a senha nesta aba">Sair</button>
   </header>
   <main>
     <div id="error" class="alert error hidden"></div>
@@ -290,7 +290,8 @@ details.log li { margin: 2px 0; }
       cache: "no-store"
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (body) {
-        if (res.status === 401) { showLogin("Token inválido."); throw new Error("401"); }
+        if (res.status === 401) { showLogin("Senha incorreta."); throw new Error("401"); }
+        if (res.status === 429) { showLogin("Muitas tentativas erradas. Espere 15 minutos."); throw new Error("401"); }
         if (!res.ok) throw new Error(body.error || ("HTTP " + res.status));
         return body;
       });

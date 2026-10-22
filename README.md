@@ -566,7 +566,7 @@ deixa intervir na IDE do aluno sem ir até ela. Os dados saem da telemetria já 
 
 | Variável | Descrição |
 | --- | --- |
-| `STUDY_ADMIN_TOKEN` | Token do condutor (`Authorization: Bearer <token>`). **Vazio desliga o painel** (as rotas `/api/painel/*` respondem `503`); token errado dá `401`. No Container App, configurar como segredo (`STUDY_ADMIN_TOKEN=… ./scripts/azure_setup.sh` ou `az containerapp secret set` + `--set-env-vars STUDY_ADMIN_TOKEN=secretref:…`). |
+| `STUDY_ADMIN_TOKEN` | Senha do condutor, pedida pela página e enviada como `Authorization: Bearer <senha>`. **Vazio desliga o painel** (as rotas `/api/painel/*` respondem `503`); senha errada dá `401`, e cinco erros seguidos do mesmo IP bloqueiam esse IP por 15 minutos (`429`), para um PIN curto não cair por força bruta. No Container App, configurar como segredo (`STUDY_ADMIN_TOKEN=… ./scripts/azure_setup.sh` ou `az containerapp secret set` + `--set-env-vars STUDY_ADMIN_TOKEN=secretref:…`). |
 
 O prefixo é `painel`, não `admin`: no Azure Functions as rotas `admin/…` pertencem ao host.
 

@@ -62,6 +62,14 @@ DOWNLOAD_CONCURRENCY = 16
 
 PAINEL_HTML_PATH = Path(__file__).with_name("painel.html")
 
+#: Senhas erradas seguidas, por cliente, antes de bloquear: a senha do condutor pode ser
+#: curta (um PIN), e sem isso cairia por força bruta em minutos.
+MAX_AUTH_FAILURES = 5
+AUTH_LOCKOUT_SECONDS = 15 * 60
+
+#: ``cliente -> (falhas seguidas, instante da última)``; um por réplica, como o cache.
+_auth_failures: dict[str, tuple[int, float]] = {}
+
 _events_cache: dict[str, list[dict[str, Any]]] = {}
 _json_cache: dict[str, dict[str, Any]] = {}
 
@@ -72,6 +80,7 @@ def reset_cache() -> None:
     """Esvazia o cache de blobs lidos (testes)."""
     _events_cache.clear()
     _json_cache.clear()
+    _auth_failures.clear()
 
 
 def _utc_iso(moment: datetime) -> str:
@@ -89,21 +98,33 @@ def admin_token() -> str:
     return (os.getenv(ADMIN_TOKEN_ENV) or "").strip()
 
 
-def check_conductor_auth(authorization: str | None) -> tuple[dict[str, Any], int] | None:
+def check_conductor_auth(
+    authorization: str | None, client: str = "", *, now: float | None = None
+) -> tuple[dict[str, Any], int] | None:
     """
     ``None`` se o pedido traz ``Authorization: Bearer <STUDY_ADMIN_TOKEN>``.
 
     Sem a variável configurada o painel fica desligado (503), para não haver token
-    vazio que aceite qualquer pedido; token ausente ou errado dá 401.
+    vazio que aceite qualquer pedido; token ausente ou errado dá 401. Depois de
+    ``MAX_AUTH_FAILURES`` erros seguidos o mesmo cliente recebe 429 por
+    ``AUTH_LOCKOUT_SECONDS``, mesmo com a senha certa; acertar zera a contagem.
     """
     expected = admin_token()
     if not expected:
         return _error(f"Painel desativado: {ADMIN_TOKEN_ENV} não configurado.", 503)
+    moment = time.monotonic() if now is None else now
+    failures, last = _auth_failures.get(client, (0, 0.0))
+    if failures and moment - last >= AUTH_LOCKOUT_SECONDS:
+        failures = 0
+    if failures >= MAX_AUTH_FAILURES:
+        return _error("Muitas tentativas erradas. Tente de novo em 15 minutos.", 429)
     scheme, _, token = (authorization or "").strip().partition(" ")
     if scheme.lower() != "bearer" or not hmac.compare_digest(
         token.strip().encode("utf-8"), expected.encode("utf-8")
     ):
+        _auth_failures[client] = (failures + 1, moment)
         return _error("Token do condutor ausente ou inválido.", 401)
+    _auth_failures.pop(client, None)
     return None
 
 
@@ -228,10 +249,10 @@ def _recent_session_blobs(
 
 
 async def list_sessions(
-    authorization: str | None, query: Mapping[str, str]
+    authorization: str | None, query: Mapping[str, str], client: str = ""
 ) -> tuple[dict[str, Any], int]:
     """Resumo de cada sessão recente, ordenado pelo último evento (mais recente primeiro)."""
-    denied = check_conductor_auth(authorization)
+    denied = check_conductor_auth(authorization, client)
     if denied is not None:
         return denied
     window_hours = _parse_window_hours(query.get("horas"))
@@ -322,10 +343,10 @@ def parse_command(payload: Any) -> tuple[dict[str, Any] | None, tuple[dict[str, 
 
 
 async def create_command(
-    authorization: str | None, payload: Any
+    authorization: str | None, payload: Any, client: str = ""
 ) -> tuple[dict[str, Any], int]:
     """Grava o comando em ``comandos/`` (ou a nota em ``notas/``) e devolve-o com 201."""
-    denied = check_conductor_auth(authorization)
+    denied = check_conductor_auth(authorization, client)
     if denied is not None:
         return denied
     fields, error = parse_command(payload)

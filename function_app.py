@@ -41,6 +41,12 @@ verificar_configuracao()
 app = func.FunctionApp()
 
 
+def _client_ip(req: Request) -> str:
+    """IP de quem chama; atrás do ingress do Container App vem em ``X-Forwarded-For``."""
+    forwarded = (req.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    return forwarded or (req.client.host if req.client else "")
+
+
 def _json_response(body: dict[str, Any], status: int = 200) -> JSONResponse:
     return JSONResponse(content=body, status_code=status)
 
@@ -234,7 +240,7 @@ async def painel_sessions_endpoint(req: Request) -> JSONResponse:
     """Resumo das sessões recentes (``Authorization: Bearer <STUDY_ADMIN_TOKEN>``)."""
     try:
         body, status = await list_sessions(
-            req.headers.get("authorization"), req.query_params
+            req.headers.get("authorization"), req.query_params, _client_ip(req)
         )
         return _json_response(body, status=status)
     except Exception:
@@ -258,7 +264,9 @@ async def painel_commands_endpoint(req: Request) -> JSONResponse:
         except Exception:
             # Corpo inválido vira 400 na validação, depois da autenticação (401 primeiro).
             payload = None
-        body, status = await create_command(req.headers.get("authorization"), payload)
+        body, status = await create_command(
+            req.headers.get("authorization"), payload, _client_ip(req)
+        )
         return _json_response(body, status=status)
     except Exception:
         logger.exception("Erro ao processar /api/painel/comandos")

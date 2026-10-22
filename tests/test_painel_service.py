@@ -84,6 +84,29 @@ def test_auth_ok_with_bearer_token():
     assert painel_service.check_conductor_auth(f"bearer  {TOKEN} ") is None
 
 
+def test_auth_locks_client_after_repeated_failures():
+    for _ in range(painel_service.MAX_AUTH_FAILURES):
+        _, status = painel_service.check_conductor_auth("Bearer errado", "1.2.3.4", now=100.0)
+        assert status == 401
+    # Bloqueado mesmo com a senha certa; outro cliente segue livre.
+    _, status = painel_service.check_conductor_auth(AUTH, "1.2.3.4", now=101.0)
+    assert status == 429
+    assert painel_service.check_conductor_auth(AUTH, "5.6.7.8", now=101.0) is None
+    # Passado o bloqueio, a senha certa entra e zera a contagem.
+    later = 100.0 + painel_service.AUTH_LOCKOUT_SECONDS
+    assert painel_service.check_conductor_auth(AUTH, "1.2.3.4", now=later) is None
+    _, status = painel_service.check_conductor_auth("Bearer errado", "1.2.3.4", now=later + 1)
+    assert status == 401
+
+
+def test_auth_success_resets_failures():
+    for _ in range(painel_service.MAX_AUTH_FAILURES - 1):
+        painel_service.check_conductor_auth("Bearer errado", "9.9.9.9", now=1.0)
+    assert painel_service.check_conductor_auth(AUTH, "9.9.9.9", now=2.0) is None
+    _, status = painel_service.check_conductor_auth("Bearer errado", "9.9.9.9", now=3.0)
+    assert status == 401
+
+
 async def test_routes_require_token(store):
     _, status = await painel_service.list_sessions("Bearer x", {})
     assert status == 401
