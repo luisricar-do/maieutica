@@ -106,6 +106,9 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 ├── services/
 │   ├── __init__.py
 │   ├── interaction_log.py    # Registro NDJSON por turno (trajetórias de uso real e bancada)
+│   ├── painel.html           # Página do painel do condutor (autocontida, servida em /api/painel)
+│   ├── painel.py             # Resumo de sessão a partir da telemetria (função pura)
+│   ├── painel_service.py     # Painel e canal de comandos: autenticação, /api/painel/*, /api/coleta/comandos
 │   ├── ping.py               # Health: resposta JSON para /api/ping
 │   ├── telemetry.py          # Caso de uso: /api/telemetry (validação + NDJSON)
 │   ├── telemetry_store.py    # Persistência dos lotes no Azure Blob Storage
@@ -123,7 +126,7 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   └── workflows/
 │       └── deploy-containerapp.yml  # Esteira: pytest → imagem no GHCR → Container Apps
 ├── .cursor/                # Contexto e rules para agentes (ver AGENTS.md)
-├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/help/single, /api/telemetry
+├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/help/single, /api/telemetry, /api/painel, /api/coleta/comandos
 ├── Dockerfile          # Imagem do serviço (host do Azure Functions) para Container Apps
 ├── .dockerignore       # Mantém segredos e registro de interações fora da imagem
 ├── Makefile            # atalhos: make test / make dev / make start / make watch
@@ -551,6 +554,59 @@ python scripts/fetch_telemetry.py --out dados/
 Gera `dados/events.ndjson` e `dados/events.csv` (uma linha por evento), remove
 duplicados de retentativa e avisa sobre lacunas de `seq` — sinal de perda de
 telemetria, relevante para a análise de sensibilidade prevista no protocolo.
+
+## Painel do condutor (`/api/painel`)
+
+Página para quem conduz a sessão em sala: mostra cada máquina (participante, tarefa em curso,
+tempo restante, «Concluí» falhos, erros do tutor, há quanto tempo chegou o último evento) e
+deixa intervir na IDE do aluno sem ir até ela. Os dados saem da telemetria já gravada no blob
+(`sessions/…`); o painel não tem banco próprio.
+
+**Acesso:** abrir `https://<host>/api/painel` e colar o token. O token fica só na aba
+(`sessionStorage`). A página consulta `GET /api/painel/sessoes` a cada 10 s.
+
+| Variável | Descrição |
+| --- | --- |
+| `STUDY_ADMIN_TOKEN` | Senha do condutor, pedida pela página e enviada como `Authorization: Bearer <senha>`. **Vazio desliga o painel** (as rotas `/api/painel/*` respondem `503`); senha errada dá `401`, e cinco erros seguidos do mesmo IP bloqueiam esse IP por 15 minutos (`429`), para um PIN curto não cair por força bruta. No Container App, configurar como segredo (`STUDY_ADMIN_TOKEN=… ./scripts/azure_setup.sh` ou `az containerapp secret set` + `--set-env-vars STUDY_ADMIN_TOKEN=secretref:…`). |
+
+O prefixo é `painel`, não `admin`: no Azure Functions as rotas `admin/…` pertencem ao host.
+
+**Comandos** (`POST /api/painel/comandos`, com o token) e o que a IDE faz ao recebê-los:
+
+| `kind` | Botão no painel | Na IDE |
+| --- | --- | --- |
+| `extend` (`minutes` 1–30, padrão 5) | `+5 min` | Soma minutos ao cronômetro da tarefa em curso. |
+| `accept` | Aceitar como resolvida | Encerra a tarefa como `solved` (`endedBy: "conductor"`) e avança. |
+| `skip` | Pular tarefa | Encerra sem resolver (`endedBy: "conductor"`) e avança. |
+| `end_session` | Encerrar sessão | Encerra a sessão e limpa a máquina para o próximo participante. |
+| `note` (`text` ≤ 500) | Anotar incidente | Nada: fica só registrado em `notas/{sessionId}/` e aparece no painel. |
+
+```json
+{ "sessionId": "sess-4a11...", "kind": "extend", "minutes": 5 }
+```
+
+Resposta `201` com o comando gravado (`comandos/{sessionId}/{id}.json`, ou `notas/…` para `note`):
+
+```json
+{ "id": "1761090000000-a1b2c3", "sessionId": "sess-4a11...", "kind": "extend", "minutes": 5, "createdAt": "2026-10-21T23:40:00.000Z" }
+```
+
+O `id` é `{epoch_ms:013d}-{6 hex}`, ordenável como texto. A IDE busca os comandos da sua sessão
+em `GET /api/coleta/comandos?sessionId=…&after=<último id aplicado>` (anônima, polling ~10 s;
+`400` para `sessionId` inválido, `503` sem blob) e, ao aplicar um, registra
+`conductor_command_applied` (`commandId`, `kind`, `minutes?`) na telemetria — é isso que o
+painel mostra como «aplicado»; até lá o comando aparece «pendente». A IDE deve fazer esse `GET`
+sem cabeçalhos próprios: é um pedido simples, sem preflight, e o CORS do ingress
+(`scripts/azure_setup.sh`: `GET POST OPTIONS`, cabeçalhos `content-type accept`) já o cobre.
+
+**`GET /api/painel/sessoes`** devolve `{"generatedAt", "sessions": [...]}`, uma entrada por sessão
+com tarefas, tarefa corrente (`startedAt`, `timeboxMs`, `extraMs`), contagens e comandos/notas.
+Por padrão só entram sessões com algum lote nas últimas 24 h (`?horas=N`; `horas=0` traz a
+coleta inteira). Duas réguas de tempo: `startedAt` usa o `ts` do **cliente**, o mesmo relógio do
+cronômetro da IDE, para o tempo restante bater com o que o aluno vê; `lastEventAt` usa o
+`serverTs`, porque o relógio do aluno pode estar errado e o que importa é há quanto tempo o
+servidor não ouve a máquina. Lotes, comandos e notas são imutáveis, então o que já foi lido
+fica em cache na memória do processo.
 
 ## Licença
 

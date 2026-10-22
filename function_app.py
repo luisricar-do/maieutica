@@ -8,6 +8,7 @@ load_dotenv()
 
 # HTTP v2 / FastAPI: Request + tipos de resposta têm de vir da extensão.
 from azurefunctions.extensions.http.fastapi import (  # noqa: E402
+    HTMLResponse,
     JSONResponse,
     Request,
     StreamingResponse,
@@ -15,6 +16,12 @@ from azurefunctions.extensions.http.fastapi import (  # noqa: E402
 
 from agents.config import verificar_configuracao
 from agents.rag.graph import get_compiled_rag_graph
+from services.painel_service import (
+    commands_for_ide,
+    create_command,
+    list_sessions,
+    painel_html,
+)
 from services.ping import ping_response
 from services.telemetry import process_telemetry_request
 from services.tutor_help import process_help_request
@@ -32,6 +39,12 @@ logger = logging.getLogger(__name__)
 verificar_configuracao()
 
 app = func.FunctionApp()
+
+
+def _client_ip(req: Request) -> str:
+    """IP de quem chama; atrás do ingress do Container App vem em ``X-Forwarded-For``."""
+    forwarded = (req.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    return forwarded or (req.client.host if req.client else "")
 
 
 def _json_response(body: dict[str, Any], status: int = 200) -> JSONResponse:
@@ -190,6 +203,91 @@ async def telemetry_endpoint(req: Request) -> JSONResponse:
 
     except Exception:
         logger.exception("Erro ao processar /api/telemetry")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+# --- Painel do condutor da coleta e canal de comandos para a IDE -------------------------
+# Prefixo ``painel``: rotas ``admin/...`` conflitam com as embutidas do host do Functions.
+
+
+@app.route(
+    route="painel",
+    methods=(func.HttpMethod.GET,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def painel_page_endpoint(req: Request) -> HTMLResponse:
+    """Página do condutor (sem dados; o token é pedido no navegador)."""
+    _ = req
+    try:
+        return HTMLResponse(
+            content=painel_html(),
+            headers={"Cache-Control": "no-store"},
+        )
+    except Exception:
+        logger.exception("Erro ao servir /api/painel")
+        return HTMLResponse(content="Erro interno.", status_code=500)
+
+
+@app.route(
+    route="painel/sessoes",
+    methods=(func.HttpMethod.GET,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def painel_sessions_endpoint(req: Request) -> JSONResponse:
+    """Resumo das sessões recentes (``Authorization: Bearer <STUDY_ADMIN_TOKEN>``)."""
+    try:
+        body, status = await list_sessions(
+            req.headers.get("authorization"), req.query_params, _client_ip(req)
+        )
+        return _json_response(body, status=status)
+    except Exception:
+        logger.exception("Erro ao processar /api/painel/sessoes")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+@app.route(
+    route="painel/comandos",
+    methods=(func.HttpMethod.POST,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def painel_commands_endpoint(req: Request) -> JSONResponse:
+    """Grava um comando do condutor para a IDE de uma sessão (ou uma nota de incidente)."""
+    try:
+        try:
+            payload = await req.json()
+        except Exception:
+            # Corpo inválido vira 400 na validação, depois da autenticação (401 primeiro).
+            payload = None
+        body, status = await create_command(
+            req.headers.get("authorization"), payload, _client_ip(req)
+        )
+        return _json_response(body, status=status)
+    except Exception:
+        logger.exception("Erro ao processar /api/painel/comandos")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+@app.route(
+    route="coleta/comandos",
+    methods=(func.HttpMethod.GET,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def coleta_commands_endpoint(req: Request) -> JSONResponse:
+    """Polling da IDE do aluno: comandos da sua sessão com ``id > after``."""
+    try:
+        body, status = await commands_for_ide(req.query_params)
+        return _json_response(body, status=status)
+    except Exception:
+        logger.exception("Erro ao processar /api/coleta/comandos")
         return _json_response(
             {"error": "Erro interno ao processar a solicitação."},
             status=500,

@@ -87,3 +87,52 @@ async def test_existing_container_does_not_raise(monkeypatch: pytest.MonkeyPatch
 
     with patch("services.telemetry_store._get_service_client", return_value=service):
         await telemetry_store.put_ndjson("sessions/a/b/1.ndjson", "{}\n")
+
+
+@pytest.mark.asyncio
+async def test_list_blobs_returns_names_and_dates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(telemetry_store.CONNECTION_STRING_ENV, "UseDevelopmentStorage=true")
+    props = MagicMock()
+    props.name = "comandos/s/1.json"
+    props.last_modified = "quando"
+    container = MagicMock()
+    container.list_blobs.return_value = [props]
+    service = MagicMock()
+    service.get_container_client.return_value = container
+
+    with patch("services.telemetry_store._get_service_client", return_value=service):
+        listing = await telemetry_store.list_blobs("comandos/s/")
+
+    container.list_blobs.assert_called_once_with(name_starts_with="comandos/s/")
+    assert listing == [("comandos/s/1.json", "quando")]
+
+
+@pytest.mark.asyncio
+async def test_list_blobs_without_container_is_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    from azure.core.exceptions import ResourceNotFoundError
+
+    monkeypatch.setenv(telemetry_store.CONNECTION_STRING_ENV, "UseDevelopmentStorage=true")
+    container = MagicMock()
+    container.list_blobs.side_effect = ResourceNotFoundError("sem contentor")
+    service = MagicMock()
+    service.get_container_client.return_value = container
+
+    with patch("services.telemetry_store._get_service_client", return_value=service):
+        assert await telemetry_store.list_blobs("sessions/") == []
+
+
+@pytest.mark.asyncio
+async def test_read_text_and_put_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(telemetry_store.CONNECTION_STRING_ENV, "UseDevelopmentStorage=true")
+    blob = MagicMock()
+    blob.download_blob.return_value.readall.return_value = "ação".encode()
+    service = MagicMock()
+    service.get_blob_client.return_value = blob
+
+    with patch("services.telemetry_store._get_service_client", return_value=service):
+        assert await telemetry_store.read_text("notas/s/1.json") == "ação"
+        await telemetry_store.put_json("notas/s/1.json", {"text": "ação"})
+
+    args, kwargs = blob.upload_blob.call_args
+    assert args[0] == '{"text":"ação"}'.encode()
+    assert kwargs["overwrite"] is False
