@@ -357,9 +357,9 @@ details.log li { margin: 2px 0; }
     });
     var stats = [
       [active, "participantes ativos agora"],
-      [solved, "cenários resolvidos"],
-      [timeouts, "tempos esgotados"],
-      [withErrors, "sessões com erro do tutor"],
+      [solved, "cenários resolvidos (24 h)"],
+      [timeouts, "tempos esgotados (24 h)"],
+      [withErrors, "sessões com erro do tutor (24 h)"],
       [stuck, "máquinas sem sinal há mais de 5 min"]
     ];
     $("summary").innerHTML = stats.map(function (s) {
@@ -414,7 +414,8 @@ details.log li { margin: 2px 0; }
 
   function renderCard(session) {
     var pid = session.participantId ? String(session.participantId).slice(0, 8) : "(sem pseudônimo)";
-    var total = Array.isArray(session.taskOrder) && session.taskOrder.length ? session.taskOrder.length : 6;
+    /* A ordem sorteada tem o treino e os seis cenários, mas cada estudante faz três (TASKS_PER_PARTICIPANT na IDE). */
+    var total = 3;
     var noTask = !session.currentTask || session.sessionEnded;
     var sid = esc(session.sessionId);
     var badges = [
