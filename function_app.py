@@ -11,11 +11,13 @@ from azurefunctions.extensions.http.fastapi import (  # noqa: E402
     HTMLResponse,
     JSONResponse,
     Request,
+    Response,
     StreamingResponse,
 )
 
 from agents.config import verificar_configuracao
 from agents.rag.graph import get_compiled_rag_graph
+from services.coletas_service import coleta_action, export_coleta, session_action
 from services.painel_service import (
     commands_for_ide,
     create_command,
@@ -270,6 +272,84 @@ async def painel_commands_endpoint(req: Request) -> JSONResponse:
         return _json_response(body, status=status)
     except Exception:
         logger.exception("Erro ao processar /api/painel/comandos")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+async def _json_body(req: Request) -> Any:
+    """Corpo JSON ou ``None``: corpo inválido vira 400 na validação, depois da autenticação."""
+    try:
+        return await req.json()
+    except Exception:
+        return None
+
+
+@app.route(
+    route="painel/coletas",
+    methods=(func.HttpMethod.POST,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def painel_coletas_endpoint(req: Request) -> JSONResponse:
+    """Cria, abre, encerra, edita ou exclui uma coleta (``{"acao": ...}``)."""
+    try:
+        body, status = await coleta_action(
+            req.headers.get("authorization"), await _json_body(req), _client_ip(req)
+        )
+        return _json_response(body, status=status)
+    except Exception:
+        logger.exception("Erro ao processar /api/painel/coletas")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+@app.route(
+    route="painel/sessoes/acoes",
+    methods=(func.HttpMethod.POST,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def painel_session_actions_endpoint(req: Request) -> JSONResponse:
+    """Move sessões de coleta, descarta, restaura ou apaga de vez (só da lixeira)."""
+    try:
+        body, status = await session_action(
+            req.headers.get("authorization"), await _json_body(req), _client_ip(req)
+        )
+        return _json_response(body, status=status)
+    except Exception:
+        logger.exception("Erro ao processar /api/painel/sessoes/acoes")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+@app.route(
+    route="painel/exportar",
+    methods=(func.HttpMethod.GET,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def painel_export_endpoint(req: Request) -> Response:
+    """Arquivo de uma coleta: ``?coleta=<id>&formato=eventos|interacoes|resumo``."""
+    try:
+        body, status, media_type, filename = await export_coleta(
+            req.headers.get("authorization"), req.query_params, _client_ip(req)
+        )
+        if isinstance(body, dict):
+            return _json_response(body, status=status)
+        return Response(
+            content=body,
+            status_code=status,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-store",
+            },
+        )
+    except Exception:
+        logger.exception("Erro ao processar /api/painel/exportar")
         return _json_response(
             {"error": "Erro interno ao processar a solicitação."},
             status=500,

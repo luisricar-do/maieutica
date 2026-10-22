@@ -144,3 +144,81 @@ def _put_json_sync(blob_name: str, obj: dict[str, Any]) -> None:
 async def put_json(blob_name: str, obj: dict[str, Any]) -> None:
     """Grava um JSON imutável (``overwrite=False``): o nome já é único por construção."""
     await asyncio.to_thread(_put_json_sync, blob_name, obj)
+
+
+# --- Estado mutável do painel (coletas, atribuições, lixeira) --------------------------
+#
+# Único blob reescrito no contentor. A concorrência é otimista pelo ETag: quem grava com
+# um ETag velho recebe ``VersionConflict`` e relê, para duas abas do condutor não se
+# apagarem uma à outra.
+
+
+class VersionConflict(Exception):
+    """O blob mudou (ou passou a existir) desde a leitura."""
+
+
+def _read_json_versioned_sync(blob_name: str) -> tuple[dict[str, Any] | None, str | None]:
+    from azure.core.exceptions import ResourceNotFoundError
+
+    service = _get_service_client()
+    blob = service.get_blob_client(container=container_name(), blob=blob_name)
+    try:
+        downloader = blob.download_blob()
+    except ResourceNotFoundError:
+        return None, None
+    text = downloader.readall().decode("utf-8")
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        parsed = None
+    return (parsed if isinstance(parsed, dict) else None), downloader.properties.etag
+
+
+async def read_json_versioned(blob_name: str) -> tuple[dict[str, Any] | None, str | None]:
+    """``(conteúdo, etag)``; ``(None, None)`` se o blob não existe."""
+    return await asyncio.to_thread(_read_json_versioned_sync, blob_name)
+
+
+def _put_json_versioned_sync(blob_name: str, obj: dict[str, Any], etag: str | None) -> None:
+    from azure.core import MatchConditions
+    from azure.core.exceptions import ResourceExistsError, ResourceModifiedError
+
+    service = _get_service_client()
+    _ensure_container(service)
+    blob = service.get_blob_client(container=container_name(), blob=blob_name)
+    data = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    content_type = "application/json; charset=utf-8"
+    try:
+        if etag is None:
+            blob.upload_blob(data, overwrite=False, content_type=content_type)
+        else:
+            blob.upload_blob(
+                data,
+                overwrite=True,
+                content_type=content_type,
+                etag=etag,
+                match_condition=MatchConditions.IfNotModified,
+            )
+    except (ResourceExistsError, ResourceModifiedError) as exc:
+        raise VersionConflict(blob_name) from exc
+
+
+async def put_json_versioned(blob_name: str, obj: dict[str, Any], etag: str | None) -> None:
+    """Grava só se o blob ainda está no ``etag`` lido (``None``: só se não existe)."""
+    await asyncio.to_thread(_put_json_versioned_sync, blob_name, obj, etag)
+
+
+def _delete_blob_sync(blob_name: str) -> None:
+    from azure.core.exceptions import ResourceNotFoundError
+
+    service = _get_service_client()
+    blob = service.get_blob_client(container=container_name(), blob=blob_name)
+    try:
+        blob.delete_blob()
+    except ResourceNotFoundError:
+        pass
+
+
+async def delete_blob(blob_name: str) -> None:
+    """Apaga o blob; não existir já é o resultado pedido."""
+    await asyncio.to_thread(_delete_blob_sync, blob_name)

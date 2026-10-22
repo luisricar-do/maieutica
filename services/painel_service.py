@@ -8,10 +8,13 @@ Casos de uso por trás das rotas (ver ``function_app.py``):
 - ``POST /api/painel/comandos``     — grava um comando (ou nota), exige o token;
 - ``GET  /api/coleta/comandos``     — a IDE do aluno busca os comandos da sua sessão.
 
+Coletas, lixeira e exportação estão em ``services.coletas_service``.
+
 Armazenamento no mesmo contentor da telemetria (``services.telemetry_store``):
 ``comandos/{sessionId}/{id}.json`` e ``notas/{sessionId}/{id}.json``. Lotes de
 telemetria, comandos e notas são imutáveis, logo o conteúdo já lido fica em cache
-em memória pelo nome do blob.
+em memória pelo nome do blob. A exceção é ``painel/estado.json`` (coletas,
+atribuições, lixeira), relido a cada pedido e gravado com ETag.
 
 O prefixo é ``painel`` e não ``admin``: no Azure Functions as rotas ``admin/...``
 pertencem ao host.
@@ -31,6 +34,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from services import telemetry_store
+from services.coletas import coleta_of_session, normalize_state, public_coletas
 from services.painel import (
     COMMAND_KINDS,
     group_by_session,
@@ -45,6 +49,10 @@ ADMIN_TOKEN_ENV = "STUDY_ADMIN_TOKEN"
 SESSIONS_PREFIX = "sessions/"
 COMMANDS_PREFIX = "comandos/"
 NOTES_PREFIX = "notas/"
+STATE_BLOB = "painel/estado.json"
+
+#: Tentativas de gravar o estado quando outra aba o mudou entre a leitura e a escrita.
+STATE_WRITE_ATTEMPTS = 4
 
 DEFAULT_EXTEND_MINUTES = 5
 MIN_EXTEND_MINUTES = 1
@@ -210,6 +218,35 @@ async def _jsons_by_session(
     return grouped
 
 
+# --- Estado mutável (coletas, atribuições, lixeira) -----------------------------------
+
+
+async def load_state() -> dict[str, Any]:
+    state, _ = await telemetry_store.read_json_versioned(STATE_BLOB)
+    return normalize_state(state)
+
+
+async def mutate_state(change: Callable[[dict[str, Any]], T]) -> tuple[dict[str, Any], T]:
+    """
+    Lê o estado, aplica ``change`` (in place) e grava com o ETag lido.
+
+    Se outra aba gravou no meio, relê e aplica de novo; ``change`` deve, portanto, poder
+    correr mais de uma vez. Exceções de ``change`` sobem sem gravar nada.
+    """
+    for attempt in range(STATE_WRITE_ATTEMPTS):
+        raw, etag = await telemetry_store.read_json_versioned(STATE_BLOB)
+        state = normalize_state(raw)
+        result = change(state)
+        try:
+            await telemetry_store.put_json_versioned(STATE_BLOB, state, etag)
+        except telemetry_store.VersionConflict:
+            if attempt == STATE_WRITE_ATTEMPTS - 1:
+                raise
+            continue
+        return state, result
+    raise AssertionError("inalcançável")
+
+
 # --- GET /api/painel/sessoes ----------------------------------------------------------
 
 
@@ -223,10 +260,15 @@ def _parse_window_hours(raw: str | None) -> int | None:
     return value if 0 <= value <= MAX_WINDOW_HOURS else None
 
 
-def _recent_session_blobs(
-    listing: list[tuple[str, datetime | None]], window_hours: int, now: datetime
+def _session_blobs(
+    listing: list[tuple[str, datetime | None]],
+    cutoff: datetime | None,
+    always: set[str] = frozenset(),
 ) -> dict[str, list[str]]:
-    """Blobs por sessão, só das sessões com algum lote dentro da janela."""
+    """
+    Blobs por sessão, só das sessões com algum lote modificado depois de ``cutoff``
+    (``None``: todas) ou listadas em ``always``.
+    """
     by_session: dict[str, list[str]] = {}
     newest: dict[str, datetime | None] = {}
     for name, modified in listing:
@@ -237,21 +279,100 @@ def _recent_session_blobs(
         current = newest.get(session_id)
         if modified is not None and (current is None or modified > current):
             newest[session_id] = modified
-    if window_hours == 0:
+    if cutoff is None:
         return by_session
-    cutoff = now - timedelta(hours=window_hours)
     return {
         sid: names
         for sid, names in by_session.items()
         # Sem ``last_modified`` (não deveria acontecer) a sessão entra: melhor sobrar.
-        if newest.get(sid) is None or newest[sid] >= cutoff
+        if sid in always or newest.get(sid) is None or newest[sid] >= cutoff
     }
+
+
+async def summarize_sessions(blobs: dict[str, list[str]]) -> list[dict[str, Any]]:
+    """Resumo (``services.painel.summarize_session``) de cada sessão de ``blobs``."""
+    names = [name for session_names in blobs.values() for name in session_names]
+    batches = await _gather_limited(names, _events_of, DOWNLOAD_CONCURRENCY)
+    events = [event for batch in batches for event in batch]
+
+    wanted = set(blobs)
+    commands = await _jsons_by_session(COMMANDS_PREFIX, wanted)
+    notes = await _jsons_by_session(NOTES_PREFIX, wanted)
+    return [
+        summarize_session(session_events, commands.get(sid, ()), notes.get(sid, ()))
+        for sid, session_events in group_by_session(events).items()
+    ]
+
+
+def _with_coleta(session: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
+    sid = session["sessionId"] or ""
+    return {
+        **session,
+        "coletaId": coleta_of_session(
+            sid, session["firstEventAt"], session["lastEventAt"], state
+        ),
+        "coletaManual": sid in state["atribuicoes"],
+        "descarte": state["descartes"].get(sid),
+    }
+
+
+#: Visões de ``/api/painel/sessoes?coleta=``, além do ``id`` de uma coleta.
+VIEW_ALL = "todas"
+VIEW_NONE = "sem"
+VIEW_TRASH = "lixeira"
+
+
+def _parse_iso(value: Any) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+
+
+async def sessions_of_view(
+    state: dict[str, Any], view: str, window_hours: int, now: datetime
+) -> list[dict[str, Any]]:
+    """
+    Sessões de uma visão, já com ``coletaId``/``descarte``, fora da lixeira (exceto em
+    ``lixeira``). Para uma coleta, só baixa as sessões com lote desde a abertura dela
+    (mais as movidas para ela à mão); ``todas`` e ``sem`` usam a janela de horas.
+    """
+    trash = set(state["descartes"])
+    always: set[str] = set()
+    cutoff: datetime | None = None
+    if view == VIEW_TRASH:
+        always = trash
+        cutoff = datetime.max.replace(tzinfo=UTC)
+    elif view in (VIEW_ALL, VIEW_NONE):
+        cutoff = None if window_hours == 0 else now - timedelta(hours=window_hours)
+    else:
+        coleta = next(c for c in state["coletas"] if c["id"] == view)
+        always = {sid for sid, cid in state["atribuicoes"].items() if cid == view}
+        opened = _parse_iso(coleta.get("abertaEm"))
+        cutoff = opened if opened is not None else datetime.max.replace(tzinfo=UTC)
+
+    blobs = _session_blobs(await telemetry_store.list_blobs(SESSIONS_PREFIX), cutoff, always)
+    sessions = [_with_coleta(s, state) for s in await summarize_sessions(blobs)]
+
+    if view == VIEW_TRASH:
+        return [s for s in sessions if s["sessionId"] in trash]
+    sessions = [s for s in sessions if s["sessionId"] not in trash]
+    if view == VIEW_NONE:
+        return [s for s in sessions if s["coletaId"] is None]
+    if view != VIEW_ALL:
+        return [s for s in sessions if s["coletaId"] == view]
+    return sessions
 
 
 async def list_sessions(
     authorization: str | None, query: Mapping[str, str], client: str = ""
 ) -> tuple[dict[str, Any], int]:
-    """Resumo de cada sessão recente, ordenado pelo último evento (mais recente primeiro)."""
+    """
+    Resumo de cada sessão da visão pedida, ordenado pelo último evento (recente primeiro).
+
+    ``coleta``: ``id`` de uma coleta, ``sem`` (sem coleta), ``lixeira`` ou ``todas``
+    (padrão). ``horas`` limita ``todas`` e ``sem`` às sessões com lote recente.
+    """
     denied = check_conductor_auth(authorization, client)
     if denied is not None:
         return denied
@@ -261,24 +382,23 @@ async def list_sessions(
     if not telemetry_store.is_configured():
         return _error("Armazenamento de telemetria não configurado.", 503)
 
+    state = await load_state()
+    view = (query.get("coleta") or "").strip() or VIEW_ALL
+    if view not in (VIEW_ALL, VIEW_NONE, VIEW_TRASH) and not any(
+        c["id"] == view for c in state["coletas"]
+    ):
+        return _error("Coleta não encontrada.", 404)
+
     now = datetime.now(UTC)
-    blobs = _recent_session_blobs(
-        await telemetry_store.list_blobs(SESSIONS_PREFIX), window_hours, now
-    )
-    names = [name for session_names in blobs.values() for name in session_names]
-    batches = await _gather_limited(names, _events_of, DOWNLOAD_CONCURRENCY)
-    events = [event for batch in batches for event in batch]
-
-    wanted = set(blobs)
-    commands = await _jsons_by_session(COMMANDS_PREFIX, wanted)
-    notes = await _jsons_by_session(NOTES_PREFIX, wanted)
-
-    sessions = [
-        summarize_session(session_events, commands.get(sid, ()), notes.get(sid, ()))
-        for sid, session_events in group_by_session(events).items()
-    ]
+    sessions = await sessions_of_view(state, view, window_hours, now)
     sessions.sort(key=lambda s: s["lastEventAt"] or "", reverse=True)
-    return {"generatedAt": _utc_iso(now), "sessions": sessions}, 200
+    return {
+        "generatedAt": _utc_iso(now),
+        "view": view,
+        "coletas": public_coletas(state),
+        "trashCount": len(state["descartes"]),
+        "sessions": sessions,
+    }, 200
 
 
 # --- POST /api/painel/comandos --------------------------------------------------------
