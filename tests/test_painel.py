@@ -202,3 +202,42 @@ def test_group_by_session_drops_lines_without_session():
     other = {**_ev(1, "session_start"), "sessionId": "sess-bbb"}
     groups = group_by_session([_ev(1, "session_start"), other, {"seq": 1, "type": "x"}])
     assert set(groups) == {SID, "sess-bbb"}
+
+
+def test_resumed_session_counts_prior_tasks_and_rebuilds_running_one():
+    # Mesma matrícula numa aba nova: o treino (0) e o cenário 3 acabaram na sessão anterior,
+    # o 1 estava em curso e volta com o início original, sem ``task_start`` novo.
+    events = [
+        _ev(1, "session_start"),
+        _ev(
+            2,
+            "study_assigned",
+            taskOrder=[0, 3, 1, 2],
+            resumed=True,
+            completed=[0, 3],
+            runningTask=1,
+            runningStartedAt="2026-10-21T09:50:00.000Z",
+            runningLabel="T1 — Cenário",
+            runningTimeboxMs=600_000,
+            runningPractice=False,
+            runningExtraMs=300_000,
+        ),
+    ]
+    summary = summarize_session(events)
+    assert summary["resumed"] == {"completed": [0, 3], "runningTask": 1}
+    assert summary["completedScenarios"] == 1
+    current = summary["currentTask"]
+    assert (current["task"], current["startedAt"], current["timeboxMs"], current["extraMs"]) == (
+        1,
+        "2026-10-21T09:50:00.000Z",
+        600_000,
+        300_000,
+    )
+
+    summary = summarize_session([*events, _end(3, 1)])
+    assert summary["completedScenarios"] == 2 and summary["currentTask"] is None
+
+
+def test_session_without_resume_has_no_prior_tasks():
+    summary = summarize_session([_ev(1, "study_assigned", taskOrder=[0, 1])])
+    assert summary["resumed"] is None and summary["completedScenarios"] == 0

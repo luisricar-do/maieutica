@@ -200,3 +200,49 @@ async def test_export_formats(store):
     ):
         _, status, _, _ = await coletas_service.export_coleta(AUTH, query)
         assert status == expected
+
+
+async def test_conversation_turns_in_order(store):
+    def turn(ts, history, message, **extra):
+        return json.dumps({
+            "ts": ts, "sessionId": SID, "endpoint": "/api/help/stream",
+            "request": {"history": history, "errors": ["e1"]},
+            "response": {"message": message}, "intent": "hint", "studentMovement": "ESTAGNACAO",
+            "stagnationStreak": 2, "latencyMs": 1500, **extra,
+        }) + "\n"
+
+    store.blobs[f"interactions/{SID}/b.ndjson"] = turn(
+        "2026-10-31T10:02:00Z",
+        [{"role": "user", "content": "oi"}, {"role": "assistant", "content": "olá"},
+         {"role": "user", "content": "não entendi"}],
+        "O que o laço faz?",
+    )
+    # Botão de ajuda: o history termina no tutor, não há fala nova do estudante.
+    store.blobs[f"interactions/{SID}/a.ndjson"] = turn(
+        "2026-10-31T10:01:00Z", [{"role": "assistant", "content": "olá"}], "", error="Timeout: x"
+    )
+    store.blobs[f"interactions/{OTHER}/c.ndjson"] = turn("2026-10-31T10:00:00Z", [], "outra")
+    # Treino: a IDE grava sob treino-{sid}; entra na conversa, marcado.
+    store.blobs[f"interactions/treino-{SID}/t.ndjson"] = json.dumps({
+        "ts": "2026-10-31T09:59:00Z", "sessionId": f"treino-{SID}",
+        "request": {"history": [{"role": "user", "content": "trco"}]}, "response": {"message": "Onde?"},
+    }) + "\n"
+
+    body, status = await coletas_service.session_conversation(AUTH, {"sessao": SID})
+    assert status == 200 and body["sessionId"] == SID
+    practice, first, second = body["turns"]
+    assert (practice["practice"], practice["student"]) == (True, "trco") and not first["practice"]
+    assert (first["student"], first["tutor"], first["error"]) == ("", "", "Timeout: x")
+    assert (second["student"], second["tutor"]) == ("não entendi", "O que o laço faz?")
+    assert second["compilerErrors"] == 1 and second["movement"] == "ESTAGNACAO"
+    assert "request" not in second
+
+
+async def test_conversation_validates_and_requires_token(store):
+    _, status = await coletas_service.session_conversation("Bearer x", {"sessao": SID})
+    assert status == 401
+    for query in ({}, {"sessao": "../painel"}):
+        _, status = await coletas_service.session_conversation(AUTH, query)
+        assert status == 400
+    body, status = await coletas_service.session_conversation(AUTH, {"sessao": "sem-turnos"})
+    assert status == 200 and body["turns"] == []

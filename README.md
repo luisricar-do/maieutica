@@ -110,7 +110,7 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   ├── painel.py             # Resumo de sessão a partir da telemetria (função pura)
 │   ├── painel_service.py     # Painel e canal de comandos: autenticação, /api/painel/*, /api/coleta/comandos
 │   ├── coletas.py            # Coletas, atribuição de sessões e lixeira (funções puras)
-│   ├── coletas_service.py    # /api/painel/coletas, /api/painel/sessoes/acoes, /api/painel/exportar
+│   ├── coletas_service.py    # /api/painel/coletas, /api/painel/sessoes/acoes, /api/painel/exportar, /api/painel/conversa
 │   ├── ping.py               # Health: resposta JSON para /api/ping
 │   ├── telemetry.py          # Caso de uso: /api/telemetry (validação + NDJSON)
 │   ├── telemetry_store.py    # Persistência dos lotes no Azure Blob Storage
@@ -632,6 +632,7 @@ fica em cache na memória do processo.
 | `POST /api/painel/coletas` | `{"acao": "criar", "nome", "data": "AAAA-MM-DD", "abrir"?}` · `{"acao": "abrir"\|"encerrar"\|"excluir", "id"}` · `{"acao": "editar", "id", "nome"?, "data"?}` | `201`/`200` com `{coleta, coletas}`. Excluir só remove o rótulo (e as atribuições manuais a ele). |
 | `POST /api/painel/sessoes/acoes` | `{"acao": "mover", "sessionIds", "coletaId"}` (`null` = sem coleta) · `{"acao": "descartar", "sessionIds", "motivo"?}` · `{"acao": "restaurar"\|"apagar", "sessionIds"}` | Até 200 sessões por pedido. `apagar` responde `409` se alguma não estiver na lixeira. |
 | `GET /api/painel/exportar` | `?coleta=<id>&formato=resumo\|eventos\|interacoes` | Arquivo `{coleta}-{formato}`: `resumo` é CSV com uma linha por tarefa; `eventos` é a telemetria deduplicada por `(sessionId, seq)`; `interacoes` é o registro por turno do tutor. Linhas com `coletaId`; sessões na lixeira ficam de fora. |
+| `GET /api/painel/conversa` | `?sessao=<sessionId>` | Turnos do tutor da sessão, do mais antigo ao mais novo, com os do treino (`treino-<sessionId>`, marcados com `practice`): hora, fala do estudante (último item do `history`, se for dele), resposta do tutor, intenção, movimento, estagnação, erros de compilação, latência e erro. Falas acima de 6000 caracteres vêm cortadas; o turno inteiro sai em `exportar?formato=interacoes`. |
 
 O estado é gravado com ETag (concorrência otimista): duas abas do condutor não se sobrescrevem;
 quem perde a corrida relê e reaplica, e só depois de quatro tentativas recebe `409`.

@@ -4,7 +4,8 @@ Coletas, lixeira e exportação do painel do condutor (rotas em ``function_app.p
 - ``POST /api/painel/coletas``        — criar, abrir, encerrar, editar ou excluir uma coleta;
 - ``POST /api/painel/sessoes/acoes``  — mover sessões de coleta, descartar, restaurar ou
   apagar de vez;
-- ``GET  /api/painel/exportar``       — eventos, interações ou resumo de uma coleta.
+- ``GET  /api/painel/exportar``       — eventos, interações ou resumo de uma coleta;
+- ``GET  /api/painel/conversa``       — turnos do tutor de uma sessão, para ler no painel.
 
 Tudo exige o token do condutor. As regras (pertença, transições) são as funções puras de
 ``services.coletas``; aqui fica só o I/O.
@@ -266,3 +267,70 @@ async def export_coleta(
         for event in dedupe_events(events.get(sid, []))
     ]
     return _ndjson(lines), 200, media_type, filename
+
+
+# --- GET /api/painel/conversa -----------------------------------------------------------
+
+#: Teto por fala na conversa do painel; o turno inteiro sai na exportação ``interacoes``.
+MAX_TURN_TEXT = 6000
+
+#: A IDE grava os turnos do treino sob ``treino-{sessionId}`` (fora das trajetórias e da
+#: exportação), mas o condutor lê a conversa inteira da sessão.
+PRACTICE_PREFIX = "treino-"
+
+
+def _clip(value: Any) -> str:
+    text = value if isinstance(value, str) else ""
+    return text if len(text) <= MAX_TURN_TEXT else text[:MAX_TURN_TEXT] + "…"
+
+
+def _student_text(request: Any) -> str:
+    """Fala do estudante neste turno: o último item do ``history``, se for dele.
+
+    Turno sem fala nova (pedido de ajuda pelo botão) termina no ``assistant``; aí não há
+    fala, e repetir o ``user`` anterior duplicaria a mensagem na conversa.
+    """
+    history = request.get("history") if isinstance(request, dict) else None
+    last = history[-1] if isinstance(history, list) and history else None
+    if isinstance(last, dict) and last.get("role") == "user":
+        return _clip(last.get("content"))
+    return ""
+
+
+def conversation_turn(record: dict[str, Any]) -> dict[str, Any]:
+    """Um turno do registro (``services.interaction_log``) no formato enxuto do painel."""
+    response = record.get("response") if isinstance(record.get("response"), dict) else {}
+    request = record.get("request") if isinstance(record.get("request"), dict) else {}
+    errors = request.get("errors")
+    return {
+        "ts": record.get("ts"),
+        "practice": str(record.get("sessionId") or "").startswith(PRACTICE_PREFIX),
+        "endpoint": record.get("endpoint"),
+        "student": _student_text(request),
+        "tutor": _clip(response.get("message")),
+        "intent": record.get("intent") or "",
+        "movement": record.get("studentMovement") or "",
+        "stagnationStreak": record.get("stagnationStreak"),
+        "compilerErrors": len(errors) if isinstance(errors, list) else 0,
+        "latencyMs": record.get("latencyMs"),
+        "error": record.get("error"),
+    }
+
+
+async def session_conversation(
+    authorization: str | None, query: Mapping[str, str], client: str = ""
+) -> tuple[dict[str, Any], int]:
+    """Turnos do tutor de uma sessão (``?sessao=<sessionId>``), treino incluído, em ordem."""
+    denied = check_conductor_auth(authorization, client)
+    if denied is not None:
+        return denied
+    session_id = _parse_safe_id(query.get("sessao"))
+    if session_id is None:
+        return _error("'sessao' inválida.", 400)
+    if not telemetry_store.is_configured():
+        return _error("Armazenamento de telemetria não configurado.", 503)
+    records = await _session_interactions([f"{PRACTICE_PREFIX}{session_id}", session_id])
+    turns = sorted(
+        (conversation_turn(r) for r in records), key=lambda t: str(t["ts"] or "")
+    )
+    return {"sessionId": session_id, "turns": turns}, 200

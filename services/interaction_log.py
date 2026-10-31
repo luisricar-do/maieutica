@@ -45,6 +45,9 @@ _REQUEST_FIELDS = (
     "cursorColumn",
     "astSummary",
     "dataFlowContext",
+    # A IDE passou a mandar o enunciado da tarefa da coleta; sem ele no registro, a análise
+    # não distingue o turno em que o tutor sabia a tarefa do turno em que a inferiu do código.
+    "problemStatement",
 )
 
 _TRUTHY = frozenset({"1", "true", "yes", "on", "sim"})

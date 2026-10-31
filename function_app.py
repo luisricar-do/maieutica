@@ -17,7 +17,12 @@ from azurefunctions.extensions.http.fastapi import (  # noqa: E402
 
 from agents.config import verificar_configuracao
 from agents.rag.graph import get_compiled_rag_graph
-from services.coletas_service import coleta_action, export_coleta, session_action
+from services.coletas_service import (
+    coleta_action,
+    export_coleta,
+    session_action,
+    session_conversation,
+)
 from services.painel_service import (
     commands_for_ide,
     create_command,
@@ -350,6 +355,26 @@ async def painel_export_endpoint(req: Request) -> Response:
         )
     except Exception:
         logger.exception("Erro ao processar /api/painel/exportar")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+@app.route(
+    route="painel/conversa",
+    methods=(func.HttpMethod.GET,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def painel_conversation_endpoint(req: Request) -> JSONResponse:
+    """Turnos do tutor de uma sessão (``?sessao=<sessionId>``), para ler no painel."""
+    try:
+        body, status = await session_conversation(
+            req.headers.get("authorization"), req.query_params, _client_ip(req)
+        )
+        return _json_response(body, status=status)
+    except Exception:
+        logger.exception("Erro ao processar /api/painel/conversa")
         return _json_response(
             {"error": "Erro interno ao processar a solicitação."},
             status=500,

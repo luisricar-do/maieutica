@@ -1,6 +1,7 @@
 """Enunciado do exercício como contexto do pedido — nunca como fala do estudante.
 
-Em sala a IDE não envia enunciado: o tutor infere a tarefa do código. A bancada precisa dele,
+A IDE envia o enunciado da tarefa da coleta desde o teste real de 31/10/2026; antes não enviava,
+e o tutor inferia a tarefa do código (no T5 inverteu a quantidade de números). A bancada precisa dele,
 porque o protocolo de Al-Hossami dá a descrição do problema a quem orienta, e os turnos de
 referência foram escritos por humanos que a tinham.
 
