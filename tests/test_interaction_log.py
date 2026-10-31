@@ -20,6 +20,7 @@ _PAYLOAD = {
     "previousErrors": [],
     "studentName": "Fulana",
     "sessionId": "sessao-01",
+    "problemStatement": "Leia 3 números e escreva o maior.",
 }
 
 
@@ -43,6 +44,7 @@ def test_registro_nao_guarda_o_nome_do_estudante() -> None:
     )
     assert "studentName" not in record["request"]
     assert record["request"]["previousCode"] == "escreva(0)"
+    assert record["request"]["problemStatement"] == "Leia 3 números e escreva o maior."
     assert record["sessionId"] == "sessao-01"
     assert record["studentMovement"] == "ESTAGNACAO"
     assert record["model"] == "gpt-4o-mini"
