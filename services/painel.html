@@ -1337,7 +1337,7 @@ dialog.convo[open] { display: flex; flex-direction: column; }
       if (t.latencyMs != null) meta.push('<span class="num">' + esc((t.latencyMs / 1000).toFixed(1).replace(".", ",")) + " s</span>");
       if (t.error) meta.push('<span class="badge danger" title="' + esc(t.error) + '">erro do tutor</span>');
       var student = t.student
-        ? '<div class="bubble student"><span class="who">Estudante</span>' + esc(t.student) + "</div>"
+        ? '<div class="bubble student"><span class="who">' + (t.proactive ? "Mensagem automática da IDE" : "Estudante") + "</span>" + esc(t.student) + "</div>"
         : '<div class="small muted">Sem mensagem do estudante neste turno.</div>';
       var tutor = t.tutor
         ? '<div class="bubble tutor"><span class="who">Tutor</span>' + esc(t.tutor) + "</div>"
