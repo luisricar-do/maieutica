@@ -241,3 +241,12 @@ def test_resumed_session_counts_prior_tasks_and_rebuilds_running_one():
 def test_session_without_resume_has_no_prior_tasks():
     summary = summarize_session([_ev(1, "study_assigned", taskOrder=[0, 1])])
     assert summary["resumed"] is None and summary["completedScenarios"] == 0
+
+
+def test_turno_automatico_da_ide_nao_conta_como_do_estudante():
+    events = [
+        _ev(1, "chat_turn_user", origin="proactive"),
+        _ev(2, "chat_turn_user", origin="student"),
+        _ev(3, "chat_turn_user"),
+    ]
+    assert summarize_session(events)["chatTurns"] == 2

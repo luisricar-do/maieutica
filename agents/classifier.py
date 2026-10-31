@@ -33,6 +33,7 @@ from agents.llm import create_chat_client
 from agents.movement import (
     StudentMovement,
     classify_movement,
+    is_student_turn,
     stagnation_streak,
     turnos_que_o_texto_decide,
 )
@@ -164,11 +165,7 @@ class _Sonda:
 
 
 def _indices_de_estudante(history: list[dict]) -> list[int]:
-    return [
-        i
-        for i, item in enumerate(history)
-        if isinstance(item, dict) and item.get("role") == "user"
-    ]
+    return [i for i, item in enumerate(history) if is_student_turn(item)]
 
 
 def _estado_do_turno(history: list[dict], indice: int, code: str, errors: list[str]) -> tuple[str, list[str]]:

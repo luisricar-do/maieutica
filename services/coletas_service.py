@@ -23,6 +23,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
+from agents.movement import is_student_turn
 from services import telemetry_store
 from services.coletas import (
     SESSION_ACTIONS,
@@ -290,11 +291,15 @@ def _student_text(request: Any) -> str:
     Turno sem fala nova (pedido de ajuda pelo botão) termina no ``assistant``; aí não há
     fala, e repetir o ``user`` anterior duplicaria a mensagem na conversa.
     """
-    history = request.get("history") if isinstance(request, dict) else None
-    last = history[-1] if isinstance(history, list) and history else None
+    last = _last_history_item(request)
     if isinstance(last, dict) and last.get("role") == "user":
         return _clip(last.get("content"))
     return ""
+
+
+def _last_history_item(request: Any) -> Any:
+    history = request.get("history") if isinstance(request, dict) else None
+    return history[-1] if isinstance(history, list) and history else None
 
 
 def conversation_turn(record: dict[str, Any]) -> dict[str, Any]:
@@ -302,9 +307,14 @@ def conversation_turn(record: dict[str, Any]) -> dict[str, Any]:
     response = record.get("response") if isinstance(record.get("response"), dict) else {}
     request = record.get("request") if isinstance(record.get("request"), dict) else {}
     errors = request.get("errors")
+    last = _last_history_item(request)
     return {
         "ts": record.get("ts"),
         "practice": str(record.get("sessionId") or "").startswith(PRACTICE_PREFIX),
+        # Mensagem automática da IDE (gatilho de erro), não fala do estudante.
+        "proactive": isinstance(last, dict)
+        and last.get("role") == "user"
+        and not is_student_turn(last),
         "endpoint": record.get("endpoint"),
         "student": _student_text(request),
         "tutor": _clip(response.get("message")),

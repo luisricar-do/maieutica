@@ -157,12 +157,22 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", stripped).strip()
 
 
+def is_student_turn(item: object) -> bool:
+    """Turno do estudante: ``role == "user"`` que não seja mensagem automática da IDE.
+
+    A IDE manda os gatilhos proativos (erro de compilação ou de execução) como ``user``, para o
+    tutor responder, mas marca-os com ``origin: "proactive"``: não são fala do estudante e não
+    entram no movimento nem na estagnação. A bancada não manda ``origin``, e para ela nada muda.
+    """
+    return (
+        isinstance(item, dict)
+        and item.get("role") == "user"
+        and item.get("origin") != "proactive"
+    )
+
+
 def _user_turns(history: list[dict]) -> list[str]:
-    return [
-        str(item.get("content", ""))
-        for item in history
-        if isinstance(item, dict) and item.get("role") == "user"
-    ]
+    return [str(item.get("content", "")) for item in history if is_student_turn(item)]
 
 
 def is_explicit_request(text: str) -> bool:
@@ -288,6 +298,13 @@ def classify_movement(
     a regra do compilador continuam determinísticos: o primeiro é a condição de H2 e o segundo é
     evidência objetiva, e nenhum dos dois melhora por ser estimado.
     """
+    ultimo = next(
+        (h for h in reversed(history) if isinstance(h, dict) and h.get("role") == "user"), None
+    )
+    if ultimo is not None and not is_student_turn(ultimo):
+        # Turno aberto pela IDE (gatilho proativo): não há fala nova do estudante a classificar.
+        return {"movement": "NENHUM", "source": "nenhum"}
+
     user_turns = _user_turns(history)
     if not user_turns:
         return {"movement": "NENHUM", "source": "nenhum"}
@@ -359,10 +376,7 @@ def stagnation_streak(
     o pedido deixa ver: o turno corrente. ``source`` distingue os dois casos, e a distinção
     entra na telemetria, porque um contador degradado não sustenta leitura de contingência.
     """
-    indices = [
-        i for i, item in enumerate(history)
-        if isinstance(item, dict) and item.get("role") == "user"
-    ]
+    indices = [i for i, item in enumerate(history) if is_student_turn(item)]
     if not indices:
         return {"streak": 0, "source": "nenhum"}
 

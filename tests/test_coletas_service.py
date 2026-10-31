@@ -246,3 +246,15 @@ async def test_conversation_validates_and_requires_token(store):
         assert status == 400
     body, status = await coletas_service.session_conversation(AUTH, {"sessao": "sem-turnos"})
     assert status == 200 and body["turns"] == []
+
+
+def test_conversation_marks_ide_automatic_turn():
+    record = {
+        "ts": "2026-10-31T10:00:00Z", "sessionId": SID,
+        "request": {"history": [{"role": "user", "origin": "proactive", "content": "Você tentou executar…"}]},
+        "response": {"message": "O que você observou?"},
+    }
+    turn = coletas_service.conversation_turn(record)
+    assert turn["proactive"] is True and turn["student"] == "Você tentou executar…"
+    record["request"]["history"][0].pop("origin")
+    assert coletas_service.conversation_turn(record)["proactive"] is False

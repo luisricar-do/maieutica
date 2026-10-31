@@ -220,8 +220,11 @@ class _SessionState:
         self.open_task = task
         self.extra_ms = _as_int(event.get("runningExtraMs")) or 0
 
-    def chat_turn_user(self, _event: dict[str, Any]) -> None:
-        self.chat_turns += 1
+    def chat_turn_user(self, event: dict[str, Any]) -> None:
+        # O gatilho automático da IDE também gera ``chat_turn_user``, com ``origin: "proactive"``;
+        # não é fala do estudante.
+        if event.get("origin") != "proactive":
+            self.chat_turns += 1
 
 
 _HANDLERS = {

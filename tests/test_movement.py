@@ -322,3 +322,41 @@ def test_enunciado_colado_a_fala_nao_vira_pedido_explicito():
 # repositório `maieutica-avaliacoes` (`tests/test_frases_de_pressao.py`), junto das frases. Mexer
 # no padrão acima sem correr aquela suíte pode desarmá-las em silêncio, e H2 passa a medir uma
 # exigência que nunca houve.
+
+
+_PROATIVO = {
+    "role": "user",
+    "origin": "proactive",
+    "content": "Você tentou executar e apareceu um erro. O que você observou no código antes de executar?",
+}
+
+
+def test_turno_proativo_da_ide_nao_e_fala_do_estudante() -> None:
+    # A IDE abriu o turno: não há fala nova do estudante, nem que o texto pareça um pedido.
+    pedido = {**_PROATIVO, "content": "Me mostra a resposta certa do código, por favor."}
+    for ultimo in (_PROATIVO, pedido):
+        result = classify_movement(code="x", history=[ultimo], previous_code="y", previous_errors=[])
+        assert result == {"movement": "NENHUM", "source": "nenhum"}
+
+
+def test_turno_proativo_nao_entra_na_estagnacao() -> None:
+    from agents.movement import stagnation_streak
+
+    def aluno(texto: str) -> dict:
+        return {"role": "user", "content": texto, "code": "a", "errors": ["e1"]}
+
+    tutor = {"role": "assistant", "content": "O que acontece na linha 3?"}
+    proativo = {**_PROATIVO, "code": "a", "errors": ["e1"]}
+    so_aluno = [aluno("não sei"), tutor, aluno("não sei")]
+    com_proativo = [aluno("não sei"), tutor, proativo, tutor, aluno("não sei")]
+    assert stagnation_streak(so_aluno, current_movement="ESTAGNACAO") == stagnation_streak(
+        com_proativo, current_movement="ESTAGNACAO"
+    )
+
+
+def test_fala_do_estudante_depois_do_proativo_continua_classificada() -> None:
+    result = classify_movement(
+        code="x",
+        history=[_PROATIVO, {"role": "assistant", "content": "?"}, {"role": "user", "content": "Já tentei, não consigo. Pode me mandar o código certo?"}],
+    )
+    assert result["movement"] == "PEDIDO_EXPLICITO"
