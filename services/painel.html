@@ -566,6 +566,8 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
       $("error").classList.add("hidden");
       $("sync-dot").className = "dot ok";
       $("last-update").textContent = "Atualizado às " + new Date().toLocaleTimeString("pt-BR");
+      // Antes do render: com zero sessões, loading ainda true deixaria «Carregando…» na tela.
+      state.loading = false;
       render();
     }).catch(function (err) {
       if (err.message === "401" || seq !== state.requestSeq) return;
@@ -574,6 +576,8 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
         setView(VIEW_ALL);
         return;
       }
+      state.loading = false;
+      renderList();
       $("sync-dot").className = "dot err";
       $("error").textContent = "Falha ao atualizar: " + err.message + ". Os dados abaixo podem estar desatualizados.";
       $("error").classList.remove("hidden");
