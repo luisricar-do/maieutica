@@ -261,6 +261,21 @@ dialog .field input[type=text], dialog .field input[type=date], dialog .field se
 dialog .hint { font-size: 12px; color: var(--muted); }
 dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
+/* ---------------------------------------------------------------- conversa com o tutor */
+button.link { border: 0; background: none; padding: 0; color: var(--accent); font-size: inherit; }
+button.link:hover:not(:disabled) { text-decoration: underline; }
+dialog.convo { width: min(780px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
+dialog.convo[open] { display: flex; flex-direction: column; }
+.convo-head { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+.convo-head h2 { margin: 0; font-size: 17px; }
+.convo-body { overflow-y: auto; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 18px; }
+.turn { display: flex; flex-direction: column; gap: 6px; }
+.turn-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.bubble { padding: 8px 12px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13.5px; max-width: 88%; }
+.bubble.student { align-self: flex-end; background: var(--accent-soft); }
+.bubble.tutor { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--border); }
+.bubble .who { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+
 .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 20; display: flex; flex-direction: column; gap: 8px; max-width: calc(100vw - 32px); }
 .toast {
   padding: 10px 14px; border-radius: 10px; background: var(--text); color: var(--bg);
@@ -331,6 +346,17 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
       <button type="submit" id="dlg-ok" class="primary">OK</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="convo" class="convo">
+  <div class="convo-head">
+    <h2 id="convo-title"></h2>
+    <span class="small muted" id="convo-sub"></span>
+    <span class="spacer"></span>
+    <button type="button" class="sm" id="convo-refresh">Atualizar</button>
+    <button type="button" class="sm ghost" id="convo-close">Fechar</button>
+  </div>
+  <div class="convo-body" id="convo-body"></div>
 </dialog>
 
 <div class="toasts" id="toasts"></div>
@@ -569,6 +595,7 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
       // Antes do render: com zero sessões, loading ainda true deixaria «Carregando…» na tela.
       state.loading = false;
       render();
+      if ($("convo").open) loadConversation(false);
     }).catch(function (err) {
       if (err.message === "401" || seq !== state.requestSeq) return;
       if (err.status === 404 && state.view !== VIEW_ALL) {
@@ -983,7 +1010,8 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
       '<div class="c-time"><span class="countdown" data-countdown="' + sid + '"></span></div>' +
       '<div class="c-prog">' + renderPips(s) + ' <span class="small muted num">' + s.completedScenarios + "/" + SCENARIOS + "</span></div>" +
       '<div class="c-age"><span class="age" data-age="' + sid + '">—</span></div>' +
-      '<div class="c-tutor small num" title="Turnos com o tutor · erros do tutor">' + s.chatTurns + " turnos" +
+      '<div class="c-tutor small num" title="Turnos com o tutor · erros do tutor">' +
+      (s.chatTurns ? '<button type="button" class="link" data-act="conversa" title="Ver a conversa com o tutor">' + s.chatTurns + " turnos</button>" : "0 turnos") +
       (s.tutorErrors ? ' · <b style="color:var(--danger)">' + s.tutorErrors + " erro" + (s.tutorErrors > 1 ? "s" : "") + "</b>" : "") + "</div>" +
       '<div class="c-chev chev" aria-hidden="true">›</div>' +
       "</div>";
@@ -1028,7 +1056,9 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
     var noTask = !s.currentTask || s.sessionEnded;
     var actions;
     if (s.descarte) {
-      actions = '<button type="button" class="sm" data-act="restore">Restaurar</button>' +
+      actions = '<button type="button" class="sm" data-act="conversa">Ver conversa</button>' +
+        '<span class="sep"></span>' +
+        '<button type="button" class="sm" data-act="restore">Restaurar</button>' +
         '<button type="button" class="sm danger" data-act="erase">Apagar de vez…</button>';
     } else {
       actions =
@@ -1037,6 +1067,7 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
         '<button type="button" class="sm" data-act="skip"' + (noTask ? " disabled" : "") + ">Pular tarefa</button>" +
         '<button type="button" class="sm danger" data-act="end_session"' + (s.sessionEnded ? " disabled" : "") + ">Encerrar sessão</button>" +
         '<span class="sep"></span>' +
+        '<button type="button" class="sm" data-act="conversa">Ver conversa</button>' +
         '<button type="button" class="sm" data-act="note">Anotar incidente</button>' +
         '<button type="button" class="sm" data-act="move">Mover para coleta…</button>' +
         '<button type="button" class="sm ghost danger" data-act="discard">Descartar</button>';
@@ -1179,6 +1210,7 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
   function onSessionAction(s, act) {
     var who = whoOf(s);
     var task = s.currentTask ? (s.currentTask.label || shortLabel(s.currentTask)) : "";
+    if (act === "conversa") { openConversation(s); return; }
     if (act === "note") {
       ask({
         title: "Incidente na sessão de " + who, confirmLabel: "Anotar",
@@ -1229,6 +1261,76 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
       renderList();
       tick();
     }
+  }
+
+  /* ---------------------------------------------------------------- conversa com o tutor */
+
+  /* Diálogo próprio (não o ask): fica aberto entre as atualizações e recarrega junto com elas. */
+  var convo = { sessionId: null, seq: 0 };
+
+  function openConversation(s) {
+    convo.sessionId = s.sessionId;
+    $("convo-title").textContent = "Conversa de " + whoOf(s);
+    $("convo-sub").textContent = "";
+    $("convo-body").innerHTML = '<div class="empty"><b>Carregando…</b></div>';
+    if (!$("convo").open) $("convo").showModal();
+    loadConversation(true);
+  }
+
+  function closeConversation() {
+    convo.sessionId = null;
+    convo.seq++;
+    if ($("convo").open) $("convo").close();
+  }
+
+  function loadConversation(toBottom) {
+    if (!convo.sessionId) return;
+    var seq = ++convo.seq;
+    $("convo-refresh").disabled = true;
+    api("painel/conversa?sessao=" + encodeURIComponent(convo.sessionId)).then(function (body) {
+      if (seq !== convo.seq) return;
+      renderConversation(Array.isArray(body.turns) ? body.turns : [], toBottom);
+    }).catch(function (err) {
+      if (seq !== convo.seq) return;
+      if (err.message === "401") { closeConversation(); return; }
+      $("convo-body").innerHTML = '<div class="empty"><b>Não deu para carregar a conversa.</b>' + esc(err.message) + "</div>";
+    }).finally(function () {
+      if (seq === convo.seq) $("convo-refresh").disabled = false;
+    });
+  }
+
+  function fmtTurnTime(iso) {
+    var t = parseTime(iso);
+    return t == null ? "—" : new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  function renderConversation(turns, toBottom) {
+    var body = $("convo-body");
+    // Quem está lendo turnos antigos não é arrastado para o fim a cada atualização.
+    var atBottom = toBottom || body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+    $("convo-sub").textContent = plural(turns.length, "turno", "turnos");
+    if (!turns.length) {
+      body.innerHTML = '<div class="empty"><b>Nenhum turno registrado.</b>Os turnos aparecem aqui quando o estudante fala com o tutor.</div>';
+      return;
+    }
+    body.innerHTML = turns.map(function (t) {
+      var meta = ['<span class="num">' + esc(fmtTurnTime(t.ts)) + "</span>"];
+      if (t.practice) meta.push('<span class="badge">treino</span>');
+      if (t.intent) meta.push('<span class="badge accent" title="Intenção">' + esc(t.intent) + "</span>");
+      if (t.movement) meta.push('<span class="badge" title="Movimento do estudante">' + esc(t.movement) + "</span>");
+      if (t.stagnationStreak) meta.push('<span title="Turnos seguidos sem progresso">estagnação ' + esc(t.stagnationStreak) + "</span>");
+      if (t.compilerErrors) meta.push("<span>" + plural(t.compilerErrors, "erro de compilação", "erros de compilação") + "</span>");
+      if (t.latencyMs != null) meta.push('<span class="num">' + esc((t.latencyMs / 1000).toFixed(1).replace(".", ",")) + " s</span>");
+      if (t.error) meta.push('<span class="badge danger" title="' + esc(t.error) + '">erro do tutor</span>');
+      var student = t.student
+        ? '<div class="bubble student"><span class="who">Estudante</span>' + esc(t.student) + "</div>"
+        : '<div class="small muted">Sem mensagem do estudante neste turno.</div>';
+      var tutor = t.tutor
+        ? '<div class="bubble tutor"><span class="who">Tutor</span>' + esc(t.tutor) + "</div>"
+        : '<div class="small muted">' + (t.error ? "O tutor não respondeu." : "Resposta vazia.") + "</div>";
+      return '<div class="turn"><div class="turn-meta">' + meta.join("") + "</div>" + student + tutor + "</div>";
+    }).join("");
+    if (atBottom) body.scrollTop = body.scrollHeight;
   }
 
   function onBulk(event) {
@@ -1300,8 +1402,14 @@ dialog .buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top
   $("stats").addEventListener("click", onFilter);
   $("list").addEventListener("click", onListClick);
   $("bulk").addEventListener("click", onBulk);
+  $("convo-refresh").addEventListener("click", function () { loadConversation(false); });
+  $("convo-close").addEventListener("click", closeConversation);
+  $("convo").addEventListener("close", function () { convo.sessionId = null; convo.seq++; });
+  $("convo").addEventListener("click", function (event) {
+    if (event.target === this) closeConversation();  // clique no fundo escurecido
+  });
   document.addEventListener("keydown", function (event) {
-    if (event.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !$("dlg").open) {
+    if (event.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && !$("dlg").open && !$("convo").open) {
       event.preventDefault();
       $("search").focus();
     }
