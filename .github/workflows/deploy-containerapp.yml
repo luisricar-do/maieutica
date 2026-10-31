@@ -72,6 +72,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
+          build-args: BUILD_SHA=${{ github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -103,29 +104,32 @@ jobs:
             --image "$IMAGE_REF" \
             --only-show-errors -o none
 
-      - name: Smoke test (/api/ping)
+      - name: Smoke test (/api/ping responde o commit novo)
         env:
           RG: ${{ vars.AZURE_RESOURCE_GROUP }}
           APP: ${{ vars.AZURE_CONTAINERAPP_NAME }}
+          SHA: ${{ github.sha }}
         run: |
-          # Só pinga depois de a revisão nova estar pronta; antes disso responde a antiga.
-          for _ in $(seq 1 40); do
-            # Here-string, não `< <(...)`: sem o \n final o `read` devolve 1 e o `bash -e` sai.
-            read -r latest ready <<< "$(az containerapp show -g "$RG" -n "$APP" \
-              --query "[properties.latestRevisionName, properties.latestReadyRevisionName]" -o tsv | tr '\n' ' ')"
-            [ "$latest" = "$ready" ] && break
-            sleep 6
-          done
-          if [ "$latest" != "$ready" ]; then
-            echo "::error::Revisão $latest não ficou pronta (última pronta: $ready)."
-            az containerapp logs show -g "$RG" -n "$APP" --type system --tail 50 || true
+          fqdn=$(az containerapp show -g "$RG" -n "$APP" \
+            --query properties.configuration.ingress.fqdn -o tsv 2>/dev/null || true)
+          if [ -z "$fqdn" ]; then
+            echo "::error::Não foi possível ler o FQDN do Container App."
             exit 1
           fi
-          fqdn=$(az containerapp show -g "$RG" -n "$APP" \
-            --query properties.configuration.ingress.fqdn -o tsv)
-          # O host do Functions demora a subir a frio (import do LangGraph incluído).
-          curl --fail --silent --show-error \
-            --retry 20 --retry-delay 6 --retry-all-errors --max-time 15 \
-            "https://${fqdn}/api/ping"
-          echo
-          echo "### Publicado em https://${fqdn}/api" >> "$GITHUB_STEP_SUMMARY"
+          # Pronto é o ping devolver este commit: até lá responde a revisão antiga, ou nada enquanto
+          # o host do Functions sobe a frio (import do LangGraph incluído). Não se lê mais
+          # latestReadyRevisionName: a extensão containerapp passou a devolvê-lo vazio, e a esteira
+          # falhava com a revisão nova já no ar.
+          body=""
+          for _ in $(seq 1 60); do
+            body=$(curl --silent --max-time 15 "https://${fqdn}/api/ping" || true)
+            if printf '%s' "$body" | grep -q "\"build\": *\"${SHA}\""; then
+              echo "$body"
+              echo "### Publicado em https://${fqdn}/api (${SHA:0:7})" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::/api/ping não chegou ao commit ${SHA} em 10 min. Última resposta: ${body:-vazia}"
+          az containerapp revision list -g "$RG" -n "$APP" -o table || true
+          exit 1

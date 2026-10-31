@@ -213,7 +213,7 @@ make watch
 
 Isto corre `func start --verbose` e **reinicia** o processo quando deteta alterações em ficheiros Python no projeto (é um restart do processo, não hot-reload dentro do mesmo processo).
 
-- **GET** `http://localhost:7071/api/ping` — health check, resposta JSON: `{"pong": true}`.
+- **GET** `http://localhost:7071/api/ping` — health check, resposta JSON: `{"pong": true, "build": null}`. Na imagem, `build` é o commit (`BUILD_SHA`), que o smoke test da esteira espera ver.
 - **POST** `http://localhost:7071/api/help` — tutor socrático, resposta JSON (`message`, `diagnosis`, `actions`, `tutorMeta`). Preflight CORS é tratado pelo host quando `Host.CORS` está definido em `local.settings.json`.
 - **POST** `http://localhost:7071/api/help/stream` — mesmo corpo JSON que `/api/help`, resposta **`text/event-stream`** (SSE). Eventos típicos: `diagnosis` (JSON do analista), `action` (ações pedagógicas na IDE), `token` (fragmentos de texto do tutor), `done` (fim do stream, com `tutorMeta` opcional) ou `error` (falha de validação ou interna). O frontend em [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) consome este endpoint para exibir a resposta em tempo real.
 - **POST** `http://localhost:7071/api/help/single` — chamada única ao modelo, sem grafo, para as condições B e C da bancada. Mesmo corpo de `/api/help` mais `promptVariant` (`socratic` | `neutral`); ver [Chamada única para a bancada](#chamada-única-para-a-bancada-post-apihelpsingle).
@@ -269,7 +269,7 @@ variables `AZURE_*` no repositório. O app fica com `EVALUATION_MODE=1`,
 
 **A cada push na `main` — esteira** ([`.github/workflows/deploy-containerapp.yml`](.github/workflows/deploy-containerapp.yml)):
 `pytest` → build e push para o GHCR (`sha-<commit>` e `latest`) → `az containerapp update` por
-OIDC → smoke test em `/api/ping`. Também corre à mão (`gh workflow run deploy-containerapp.yml`).
+OIDC → smoke test: espera `/api/ping` devolver o commit novo. Também corre à mão (`gh workflow run deploy-containerapp.yml`).
 
 No primeiro push o pacote nasce privado no GHCR: torne-o público em *Package settings* ou corra o
 script com `GHCR_PAT=<PAT com read:packages>` para o Container App o puxar com credencial.
