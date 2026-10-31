@@ -13,3 +13,8 @@ COPY requirements.txt /
 RUN pip install -r /requirements.txt
 
 COPY . /home/site/wwwroot
+
+# Commit da imagem, devolvido por /api/ping: a esteira espera vê-lo para dar o deploy por pronto.
+# Por último, para a troca de commit não invalidar a camada do pip.
+ARG BUILD_SHA=""
+ENV BUILD_SHA=${BUILD_SHA}
