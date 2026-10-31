@@ -208,6 +208,7 @@ label.toggle { display: inline-flex; align-items: center; gap: 6px; user-select:
 .pip.aborted, .pip.skipped { background: var(--danger); border-color: var(--danger); }
 .pip.current { border: 2px solid var(--accent); background: var(--accent-soft); }
 .pip.ended-other { background: var(--muted); border-color: var(--muted); }
+.pip.prior { background: repeating-linear-gradient(45deg, var(--muted) 0 3px, transparent 3px 6px); border-color: var(--muted); }
 
 .detail { padding: 4px 16px 16px 47px; background: var(--surface-2); border-top: 1px dashed var(--border); }
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
@@ -962,8 +963,16 @@ dialog.convo[open] { display: flex; flex-direction: column; }
     var tasks = s.tasks || [];
     var practice = tasks.filter(function (t) { return t.practice; })[0];
     var scen = tasks.filter(function (t) { return !t.practice; });
+    // Retomada: o que a mesma matrícula encerrou na sessão anterior vem antes, hachurado.
+    var prior = (s.resumed && s.resumed.completed) || [];
+    var seen = {};
+    tasks.forEach(function (t) { seen[t.task] = true; });
+    if (!practice && prior.indexOf(0) >= 0) practice = { task: 0, prior: true };
+    scen = prior.filter(function (i) { return i !== 0 && !seen[i]; })
+      .map(function (i) { return { task: i, prior: true }; }).concat(scen);
     var cur = s.currentTask;
     function pip(t, isPractice) {
+      if (t && t.prior) return '<span class="pip prior' + (isPractice ? " practice" : "") + '" title="' + (isPractice ? "Treino" : "T" + t.task) + ': encerrada numa sessão anterior desta matrícula"></span>';
       if (!t) return '<span class="pip' + (isPractice ? " practice" : "") + '" title="' + (isPractice ? "Treino" : "Cenário ainda não iniciado") + '"></span>';
       var open = cur && cur.task === t.task && !t.endedAt;
       var cls = open ? "current" : (t.outcome || (t.endedAt ? "ended-other" : "current"));
@@ -984,6 +993,7 @@ dialog.convo[open] { display: flex; flex-direction: column; }
     var pid = pidOf(s);
     var who = '<div class="pid" title="' + esc(s.participantId || "") + '">' + esc(pid || "(sem pseudônimo)") + "</div>" +
       '<div class="sub">' + (s.isTest ? '<span class="badge warn">teste</span> ' : "") +
+      (s.resumed ? '<span class="badge accent" title="A mesma matrícula voltou numa aba nova; o que ela já tinha encerrado conta aqui">retomada</span> ' : "") +
       (s.coletaManual && state.view !== VIEW_TRASH ? '<span class="badge" title="Movida à mão">manual</span> ' : "") +
       (state.view === VIEW_ALL && s.coletaId ? esc(coletaName(s.coletaId)) + " · " : "") +
       '<span class="mono">' + esc(String(s.sessionId).slice(0, 8)) + "</span></div>";
@@ -1052,6 +1062,10 @@ dialog.convo[open] { display: flex; flex-direction: column; }
       ["Build", s.buildSha ? String(s.buildSha).slice(0, 10) : "—"]
     ];
     if (s.condition) meta.splice(4, 0, ["Etapa (cond)", s.condition]);
+    if (s.resumed) {
+      var before = s.resumed.completed.map(function (i) { return i === 0 ? "Treino" : "T" + i; });
+      meta.push(["Retomada", "continua uma sessão anterior" + (before.length ? "; já encerradas: " + before.join(", ") : "")]);
+    }
 
     var noTask = !s.currentTask || s.sessionEnded;
     var actions;

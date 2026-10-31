@@ -114,6 +114,8 @@ class _SessionState:
         self.task_order: list[int] | None = None
         self.chat_turns = 0
         self.tutor_errors = 0
+        #: Retomada (mesma matrícula numa aba nova): tarefas encerradas na sessão anterior.
+        self.resumed: dict[str, Any] | None = None
 
     def apply(self, event: dict[str, Any]) -> None:
         kind = event.get("type")
@@ -192,6 +194,31 @@ class _SessionState:
         order = event.get("taskOrder")
         if isinstance(order, list):
             self.task_order = [i for i in order if _as_int(i) is not None]
+        if event.get("resumed") is True:
+            self._resume(event)
+
+    def _resume(self, event: dict[str, Any]) -> None:
+        """A IDE retoma sem ``task_start`` novo (a tarefa não recomeça): monta-a daqui."""
+        raw = event.get("completed")
+        values = (_as_int(v) for v in raw) if isinstance(raw, list) else ()
+        completed = sorted({i for i in values if i is not None})
+        running = _as_int(event.get("runningTask"))
+        self.resumed = {"completed": completed, "runningTask": running}
+        if running is None or self.open_task is not None or _last_task_with(self.tasks, running):
+            return
+        task = _new_task(
+            {
+                "taskLabel": event.get("runningLabel"),
+                "practice": event.get("runningPractice"),
+                # Início original, no relógio do aluno, como o ``ts`` de um ``task_start``.
+                "ts": event.get("runningStartedAt"),
+                "timeboxMs": event.get("runningTimeboxMs"),
+            },
+            running,
+        )
+        self.tasks.append(task)
+        self.open_task = task
+        self.extra_ms = _as_int(event.get("runningExtraMs")) or 0
 
     def chat_turn_user(self, _event: dict[str, Any]) -> None:
         self.chat_turns += 1
@@ -263,6 +290,13 @@ def _summarize_notes(notes: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _completed_scenarios(state: _SessionState) -> int:
+    """Cenários encerrados nesta sessão e, numa retomada, os encerrados antes (0 é o treino)."""
+    ended = {t["task"] for t in state.tasks if t["endedAt"] is not None and not t["practice"]}
+    prior = set(state.resumed["completed"]) - {0} if state.resumed else set()
+    return len(ended | prior)
+
+
 def summarize_session(
     events: Iterable[dict[str, Any]],
     commands: Iterable[dict[str, Any]] = (),
@@ -302,9 +336,8 @@ def summarize_session(
         "taskOrder": state.task_order,
         "tasks": state.tasks,
         "currentTask": _current_task(state),
-        "completedScenarios": sum(
-            1 for t in state.tasks if t["endedAt"] is not None and not t["practice"]
-        ),
+        "completedScenarios": _completed_scenarios(state),
+        "resumed": state.resumed,
         "chatTurns": state.chat_turns,
         "tutorErrors": state.tutor_errors,
         "commands": _summarize_commands(commands, state.applied),
