@@ -8,11 +8,14 @@ import pytest
 from services.coletas import (
     StateError,
     apply_coleta_action,
+    apply_controle_action,
     apply_session_action,
     coleta_of_session,
+    controle_for_ide,
     empty_state,
     normalize_state,
     public_coletas,
+    public_controle,
     slugify,
     summary_csv,
 )
@@ -169,3 +172,81 @@ def test_summary_csv_one_row_per_task():
         ("s2", "", "", ""),
     ]
     assert {r["coletaId"] for r in rows} == {"c1"}
+
+
+def test_summary_csv_keeps_old_columns_and_adds_starter_code_last():
+    sessions = [{"sessionId": "s1", "tasks": [{"task": 2, "starterCode": False}]}]
+    rows = list(csv.reader(io.StringIO(summary_csv("c1", sessions))))
+    assert rows[0][:3] == ["coletaId", "sessionId", "participantId"]
+    assert rows[0][-1] == "starterCode" and rows[1][-1] == "False"
+
+
+# --- Controle da sessão -------------------------------------------------------------------
+
+
+def test_controle_defaults_show_starter_code_and_keep_start_locked():
+    state = normalize_state(None)
+    assert controle_for_ide(state) == {"preCodigo": True, "inicioLiberado": False}
+    # Estado gravado antes do controle existir: mesmos padrões.
+    assert controle_for_ide(normalize_state({"coletas": []})) == {
+        "preCodigo": True,
+        "inicioLiberado": False,
+    }
+
+
+def test_normalize_keeps_controle_and_drops_garbage():
+    raw = {"controle": {"preCodigo": False, "liberacao": {"coletaId": "a", "em": T0}}}
+    assert normalize_state(raw)["controle"] == {
+        "preCodigo": False,
+        "liberacao": {"coletaId": "a", "em": T0},
+    }
+    bad = {"controle": {"preCodigo": "nao", "liberacao": {"coletaId": 3}}}
+    assert normalize_state(bad)["controle"] == {"preCodigo": True, "liberacao": None}
+
+
+def test_coleta_action_does_not_wipe_controle():
+    state = _state_with(("a", T0, None))
+    apply_controle_action(state, {"acao": "pre_codigo", "mostrar": False}, T1)
+    apply_controle_action(state, {"acao": "liberar"}, T1)
+    state = normalize_state(state)  # como em ``mutate_state``: gravado e relido
+    apply_coleta_action(state, {"acao": "editar", "id": "a", "nome": "Turma A"}, T2)
+    assert controle_for_ide(normalize_state(state)) == {"preCodigo": False, "inicioLiberado": True}
+
+
+def test_release_belongs_to_the_open_coleta():
+    state = _state_with(("a", T0, None), ("b", None, None))
+    apply_controle_action(state, {"acao": "liberar"}, T1)
+    assert public_controle(state) == {
+        "preCodigo": True,
+        "inicioLiberado": True,
+        "liberadoEm": T1,
+        "coletaAberta": "a",
+    }
+    # A turma seguinte começa travada: abrir outra coleta encerra «a» e a liberação não vale.
+    apply_coleta_action(state, {"acao": "abrir", "id": "b"}, T2)
+    assert controle_for_ide(state)["inicioLiberado"] is False
+    assert public_controle(state)["liberadoEm"] is None
+    apply_controle_action(state, {"acao": "liberar"}, T2)
+    assert controle_for_ide(state)["inicioLiberado"] is True
+    apply_controle_action(state, {"acao": "travar"}, T2)
+    assert controle_for_ide(state)["inicioLiberado"] is False
+
+
+def test_release_without_open_coleta_holds_until_one_opens():
+    state = _state_with(("a", None, None))
+    apply_controle_action(state, {"acao": "liberar"}, T1)
+    assert public_controle(state)["inicioLiberado"] is True
+    assert public_controle(state)["coletaAberta"] is None
+    apply_coleta_action(state, {"acao": "abrir", "id": "a"}, T2)
+    assert public_controle(state)["inicioLiberado"] is False
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [None, [], {}, {"acao": "reiniciar"}, {"acao": "pre_codigo"},
+     {"acao": "pre_codigo", "mostrar": "false"}, {"acao": "pre_codigo", "mostrar": 0}],
+)
+def test_controle_action_validation(payload):
+    with pytest.raises(StateError) as exc:
+        apply_controle_action(empty_state(), payload, T0)
+    assert exc.value.status == 400

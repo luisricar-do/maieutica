@@ -6,7 +6,9 @@ Casos de uso por trás das rotas (ver ``function_app.py``):
 - ``GET  /api/painel``              — página HTML (``services/painel.html``), anônima;
 - ``GET  /api/painel/sessoes``      — resumo das sessões, exige o token do condutor;
 - ``POST /api/painel/comandos``     — grava um comando (ou nota), exige o token;
-- ``GET  /api/coleta/comandos``     — a IDE do aluno busca os comandos da sua sessão.
+- ``GET  /api/coleta/comandos``     — a IDE do aluno busca os comandos da sua sessão;
+- ``POST /api/painel/controle``     — libera o início / trava, liga ou desliga o pré-código;
+- ``GET  /api/coleta/controle``     — a IDE lê esse controle (global, sem sessão).
 
 Coletas, lixeira e exportação estão em ``services.coletas_service``.
 
@@ -34,7 +36,15 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from services import telemetry_store
-from services.coletas import coleta_of_session, normalize_state, public_coletas
+from services.coletas import (
+    StateError,
+    apply_controle_action,
+    coleta_of_session,
+    controle_for_ide,
+    normalize_state,
+    public_coletas,
+    public_controle,
+)
 from services.painel import (
     COMMAND_KINDS,
     group_by_session,
@@ -65,6 +75,11 @@ MAX_AFTER_LENGTH = 64
 DEFAULT_WINDOW_HOURS = 24
 MAX_WINDOW_HOURS = 24 * 120
 
+#: Quanto tempo a resposta de ``/api/coleta/controle`` fica em memória. Todas as máquinas da
+#: sala consultam a cada ~10 s enquanto esperam; sem isto cada consulta baixaria o estado.
+#: Um «Liberar início» gravado noutra réplica chega, no pior caso, com este atraso a mais.
+CONTROLE_CACHE_SECONDS = 3.0
+
 #: Downloads simultâneos de blobs (cada um numa thread do SDK síncrono).
 DOWNLOAD_CONCURRENCY = 16
 
@@ -80,6 +95,8 @@ _auth_failures: dict[str, tuple[int, float]] = {}
 
 _events_cache: dict[str, list[dict[str, Any]]] = {}
 _json_cache: dict[str, dict[str, Any]] = {}
+#: ``(instante monotônico, resposta)`` da última leitura do controle para a IDE.
+_controle_cache: list[tuple[float, dict[str, Any]]] = []
 
 T = TypeVar("T")
 
@@ -89,6 +106,7 @@ def reset_cache() -> None:
     _events_cache.clear()
     _json_cache.clear()
     _auth_failures.clear()
+    _controle_cache.clear()
 
 
 def _utc_iso(moment: datetime) -> str:
@@ -396,6 +414,7 @@ async def list_sessions(
         "generatedAt": _utc_iso(now),
         "view": view,
         "coletas": public_coletas(state),
+        "controle": public_controle(state),
         "trashCount": len(state["descartes"]),
         "sessions": sessions,
     }, 200
@@ -533,3 +552,51 @@ async def commands_for_ide(query: Mapping[str, str]) -> tuple[dict[str, Any], in
     commands = [_command_for_ide(doc) for doc in docs if doc.get("id")]
     commands.sort(key=lambda c: c["id"])
     return {"commands": commands}, 200
+
+
+# --- Controle da sessão: POST /api/painel/controle e GET /api/coleta/controle ---------
+
+
+def _remember_controle(state: dict[str, Any], moment: float) -> dict[str, Any]:
+    body = controle_for_ide(state)
+    _controle_cache[:] = [(moment, body)]
+    return body
+
+
+async def controle_action(
+    authorization: str | None, payload: Any, client: str = ""
+) -> tuple[dict[str, Any], int]:
+    """
+    ``{"acao": "liberar" | "travar" | "pre_codigo", "mostrar"?: bool}``; devolve o controle
+    como o painel o mostra (``services.coletas.public_controle``).
+    """
+    denied = check_conductor_auth(authorization, client)
+    if denied is not None:
+        return denied
+    if not telemetry_store.is_configured():
+        return _error("Armazenamento de telemetria não configurado.", 503)
+    now = _utc_iso(datetime.now(UTC))
+    try:
+        state, _ = await mutate_state(lambda s: apply_controle_action(s, payload, now))
+    except StateError as exc:
+        return _error(str(exc), exc.status)
+    except telemetry_store.VersionConflict:
+        return _error("O estado do painel mudou em outra aba; tente de novo.", 409)
+    # Esta réplica responde já com o valor novo; as outras, quando o cache delas vencer.
+    _remember_controle(state, time.monotonic())
+    logger.info("Controle da sessão alterado pelo condutor: %s", payload.get("acao"))
+    return public_controle(state), 200
+
+
+async def controle_for_ide_request(*, now: float | None = None) -> tuple[dict[str, Any], int]:
+    """
+    ``{"preCodigo": bool, "inicioLiberado": bool}`` para a IDE do aluno, sem token.
+
+    Não revela mais do que esses dois booleanos: nada de coletas nem de sessões.
+    """
+    if not telemetry_store.is_configured():
+        return _error("Armazenamento de telemetria não configurado.", 503)
+    moment = time.monotonic() if now is None else now
+    if _controle_cache and moment - _controle_cache[0][0] < CONTROLE_CACHE_SECONDS:
+        return dict(_controle_cache[0][1]), 200
+    return dict(_remember_controle(await load_state(), moment)), 200

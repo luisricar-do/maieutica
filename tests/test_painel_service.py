@@ -133,6 +133,8 @@ async def test_routes_require_token(store):
     assert status == 401
     _, status = await painel_service.create_command(None, {"sessionId": SID, "kind": "skip"})
     assert status == 401
+    _, status = await painel_service.controle_action("Bearer x", {"acao": "liberar"})
+    assert status == 401
     assert store.blobs == {}
 
 
@@ -379,6 +381,75 @@ def test_painel_html_is_self_contained():
     html = painel_service.painel_html()
     assert html.lstrip().lower().startswith("<!doctype html>")
     for route in ("painel/sessoes", "painel/comandos", "painel/coletas", "painel/sessoes/acoes",
-                  "painel/exportar"):
+                  "painel/exportar", "painel/controle"):
         assert route in html
     assert "<script src" not in html and "<link" not in html
+
+
+# --- Controle da sessão ---------------------------------------------------------------
+
+
+async def test_ide_controle_defaults_without_state_and_without_token(store, monkeypatch):
+    monkeypatch.delenv(painel_service.ADMIN_TOKEN_ENV)
+    body, status = await painel_service.controle_for_ide_request()
+    assert status == 200
+    assert body == {"preCodigo": True, "inicioLiberado": False}
+
+
+async def test_ide_controle_503_without_blob(store, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv(telemetry_store.CONNECTION_STRING_ENV)
+    _, status = await painel_service.controle_for_ide_request()
+    assert status == 503
+
+
+async def test_controle_action_persists_and_ide_sees_it(store):
+    body, status = await painel_service.controle_action(
+        AUTH, {"acao": "pre_codigo", "mostrar": False}
+    )
+    assert status == 200
+    assert body == {
+        "preCodigo": False,
+        "inicioLiberado": False,
+        "liberadoEm": None,
+        "coletaAberta": None,
+    }
+    body, status = await painel_service.controle_action(AUTH, {"acao": "liberar"})
+    assert status == 200 and body["inicioLiberado"] is True and body["liberadoEm"]
+
+    saved = json.loads(store.blobs[painel_service.STATE_BLOB])
+    assert saved["controle"]["preCodigo"] is False
+    assert saved["controle"]["liberacao"]["coletaId"] is None
+
+    # Outra réplica (cache vazio) lê do blob.
+    painel_service.reset_cache()
+    ide, _ = await painel_service.controle_for_ide_request()
+    assert ide == {"preCodigo": False, "inicioLiberado": True}
+
+
+async def test_controle_action_400_and_nothing_written(store):
+    _, status = await painel_service.controle_action(AUTH, {"acao": "pre_codigo"})
+    assert status == 400
+    _, status = await painel_service.controle_action(AUTH, None)
+    assert status == 400
+    assert painel_service.STATE_BLOB not in store.blobs
+
+
+async def test_ide_controle_is_cached_briefly(store):
+    await painel_service.controle_for_ide_request(now=100.0)
+    reads = len(store.reads)
+    # Estado mudado por fora (outra réplica): dentro da janela, o cache responde.
+    store.blobs[painel_service.STATE_BLOB] = json.dumps(
+        {"controle": {"preCodigo": False, "liberacao": None}}
+    )
+    body, _ = await painel_service.controle_for_ide_request(now=101.0)
+    assert body["preCodigo"] is True and len(store.reads) == reads
+    later = 100.0 + painel_service.CONTROLE_CACHE_SECONDS
+    body, _ = await painel_service.controle_for_ide_request(now=later)
+    assert body["preCodigo"] is False
+
+
+async def test_list_sessions_includes_controle(store):
+    body, status = await painel_service.list_sessions(AUTH, {})
+    assert status == 200
+    assert body["controle"]["preCodigo"] is True
+    assert body["controle"]["inicioLiberado"] is False
