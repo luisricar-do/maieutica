@@ -74,6 +74,7 @@ def test_task_in_progress_uses_client_ts_for_start():
         "task": 1,
         "label": "T1 — Cenário",
         "practice": False,
+        "starterCode": None,
         "startedAt": "2026-10-21T09:59:00.000Z",
         "timeboxMs": 600_000,
         "extraMs": 0,
@@ -250,3 +251,31 @@ def test_turno_automatico_da_ide_nao_conta_como_do_estudante():
         _ev(3, "chat_turn_user"),
     ]
     assert summarize_session(events)["chatTurns"] == 2
+
+
+def test_task_records_whether_starter_code_was_shown():
+    summary = summarize_session(
+        [_start(1, 0, starterCode=True), _end(2, 0), _start(3, 4, starterCode=False)]
+    )
+    assert [t["starterCode"] for t in summary["tasks"]] == [True, False]
+    assert summary["currentTask"]["starterCode"] is False
+    # Sessões anteriores ao controle não mandam o campo: fica desconhecido, não «com código».
+    assert summarize_session([_start(1, 2)])["tasks"][0]["starterCode"] is None
+
+
+def test_resumed_running_task_keeps_starter_code():
+    summary = summarize_session(
+        [
+            _ev(
+                1,
+                "study_assigned",
+                taskOrder=[0, 5],
+                resumed=True,
+                completed=[0],
+                runningTask=5,
+                runningStartedAt="2026-10-21T09:50:00.000Z",
+                runningStarterCode=False,
+            )
+        ]
+    )
+    assert summary["currentTask"]["starterCode"] is False

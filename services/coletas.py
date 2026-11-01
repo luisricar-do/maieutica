@@ -7,7 +7,8 @@ O estado vive num único JSON (``painel/estado.json``, ver ``services.coletas_se
       "coletas":     [{"id", "nome", "data", "criadaEm", "abertaEm", "encerradaEm"}],
       "atribuicoes": {sessionId: coletaId | None},   # escolha manual do condutor
       "descartes":   {sessionId: {"em", "motivo"}},  # lixeira (reversível)
-      "apagadas":    [{"sessionId", "em", "blobs"}]  # registro do que foi apagado de vez
+      "apagadas":    [{"sessionId", "em", "blobs"}], # registro do que foi apagado de vez
+      "controle":    {"preCodigo", "liberacao"}      # o que a IDE lê (ver «Controle da sessão»)
     }
 
 Uma sessão pertence a uma coleta por uma de duas vias:
@@ -47,7 +48,13 @@ class StateError(Exception):
 
 
 def empty_state() -> dict[str, Any]:
-    return {"coletas": [], "atribuicoes": {}, "descartes": {}, "apagadas": []}
+    return {
+        "coletas": [],
+        "atribuicoes": {},
+        "descartes": {},
+        "apagadas": [],
+        "controle": default_controle(),
+    }
 
 
 def normalize_state(raw: Any) -> dict[str, Any]:
@@ -62,6 +69,8 @@ def normalize_state(raw: Any) -> dict[str, Any]:
             state[key] = dict(raw[key])
     if isinstance(raw.get("apagadas"), list):
         state["apagadas"] = list(raw["apagadas"])
+    # Sem isto, qualquer ação de coleta (que grava o estado normalizado) apagaria o controle.
+    state["controle"] = normalize_controle(raw.get("controle"))
     return state
 
 
@@ -252,6 +261,95 @@ def public_coletas(state: dict[str, Any]) -> list[dict[str, Any]]:
     return items
 
 
+# --- Controle da sessão (o que a IDE lê) ------------------------------------------------
+#
+# Duas chaves que o condutor muda pelo painel e a IDE consulta por polling
+# (``GET /api/coleta/controle``):
+#
+# - ``preCodigo``: se os cenários (T1–T6) abrem com o código defeituoso ou com o esqueleto
+#   vazio. Vale para os cenários **iniciados** depois da mudança: a IDE lê o valor no
+#   **Iniciar** e guarda-o com a tarefa. O treino mostra sempre o código. Padrão: ligado.
+# - ``liberacao``: depois do treino, todos esperam o condutor liberar o primeiro cenário. A
+#   liberação guarda a coleta aberta naquele momento e só vale enquanto ela for a aberta:
+#   abrir outra coleta trava de novo sozinho, sem o condutor ter de lembrar de desfazer a da
+#   turma anterior. Padrão: travado.
+
+CONTROLE_ACTIONS = ("liberar", "travar", "pre_codigo")
+
+
+def default_controle() -> dict[str, Any]:
+    return {"preCodigo": True, "liberacao": None}
+
+
+def normalize_controle(raw: Any) -> dict[str, Any]:
+    controle = default_controle()
+    if not isinstance(raw, dict):
+        return controle
+    if isinstance(raw.get("preCodigo"), bool):
+        controle["preCodigo"] = raw["preCodigo"]
+    release = raw.get("liberacao")
+    if isinstance(release, dict) and isinstance(release.get("em"), str):
+        coleta_id = release.get("coletaId")
+        controle["liberacao"] = {
+            "coletaId": coleta_id if isinstance(coleta_id, str) else None,
+            "em": release["em"],
+        }
+    return controle
+
+
+def open_coleta_id(state: dict[str, Any]) -> str | None:
+    """A coleta aberta (``_open`` garante que há no máximo uma)."""
+    for coleta in state["coletas"]:
+        if coleta_status(coleta) == "aberta":
+            return coleta["id"]
+    return None
+
+
+def start_released(state: dict[str, Any]) -> bool:
+    """Liberado se houve liberação com a mesma coleta aberta de agora (ou nenhuma, nas duas)."""
+    release = state["controle"]["liberacao"]
+    return release is not None and release["coletaId"] == open_coleta_id(state)
+
+
+def apply_controle_action(state: dict[str, Any], payload: Any, now: str) -> None:
+    """``{"acao": liberar|travar|pre_codigo, "mostrar"?: bool}`` (in place)."""
+    if not isinstance(payload, dict):
+        raise StateError("O corpo JSON deve ser um objeto.")
+    action = payload.get("acao")
+    controle = state["controle"]
+    if action == "liberar":
+        controle["liberacao"] = {"coletaId": open_coleta_id(state), "em": now}
+    elif action == "travar":
+        controle["liberacao"] = None
+    elif action == "pre_codigo":
+        show = payload.get("mostrar")
+        if not isinstance(show, bool):
+            raise StateError("'mostrar' é obrigatório em 'pre_codigo' (true ou false).")
+        controle["preCodigo"] = show
+    else:
+        raise StateError(f"'acao' deve ser um de: {', '.join(CONTROLE_ACTIONS)}.")
+
+
+def public_controle(state: dict[str, Any]) -> dict[str, Any]:
+    """Para o painel: as duas chaves já resolvidas e de onde vem a liberação."""
+    released = start_released(state)
+    release = state["controle"]["liberacao"]
+    return {
+        "preCodigo": state["controle"]["preCodigo"],
+        "inicioLiberado": released,
+        "liberadoEm": release["em"] if released and release else None,
+        "coletaAberta": open_coleta_id(state),
+    }
+
+
+def controle_for_ide(state: dict[str, Any]) -> dict[str, Any]:
+    """Para a IDE: só o que ela usa (a rota é anônima)."""
+    return {
+        "preCodigo": state["controle"]["preCodigo"],
+        "inicioLiberado": start_released(state),
+    }
+
+
 # --- Exportação -------------------------------------------------------------------------
 
 SUMMARY_COLUMNS = (
@@ -277,6 +375,8 @@ SUMMARY_COLUMNS = (
     "studentTurns",
     "checks",
     "failedChecks",
+    # Por último, para não deslocar as colunas de exportações anteriores.
+    "starterCode",
 )
 
 

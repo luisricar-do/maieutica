@@ -25,6 +25,8 @@ from services.coletas_service import (
 )
 from services.painel_service import (
     commands_for_ide,
+    controle_action,
+    controle_for_ide_request,
     create_command,
     list_sessions,
     painel_html,
@@ -393,6 +395,46 @@ async def coleta_commands_endpoint(req: Request) -> JSONResponse:
         return _json_response(body, status=status)
     except Exception:
         logger.exception("Erro ao processar /api/coleta/comandos")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+@app.route(
+    route="painel/controle",
+    methods=(func.HttpMethod.POST,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def painel_controle_endpoint(req: Request) -> JSONResponse:
+    """Libera o início dos cenários, trava de novo ou liga/desliga o pré-código."""
+    try:
+        body, status = await controle_action(
+            req.headers.get("authorization"), await _json_body(req), _client_ip(req)
+        )
+        return _json_response(body, status=status)
+    except Exception:
+        logger.exception("Erro ao processar /api/painel/controle")
+        return _json_response(
+            {"error": "Erro interno ao processar a solicitação."},
+            status=500,
+        )
+
+
+@app.route(
+    route="coleta/controle",
+    methods=(func.HttpMethod.GET,),
+    auth_level=func.AuthLevel.ANONYMOUS,
+)
+async def coleta_controle_endpoint(req: Request) -> JSONResponse:
+    """Polling da IDE: o início já foi liberado? Os cenários mostram o pré-código?"""
+    _ = req
+    try:
+        body, status = await controle_for_ide_request()
+        # Sem cache no navegador: a aba em espera tem de ver o «Liberar início» na volta seguinte.
+        return JSONResponse(content=body, status_code=status, headers={"Cache-Control": "no-store"})
+    except Exception:
+        logger.exception("Erro ao processar /api/coleta/controle")
         return _json_response(
             {"error": "Erro interno ao processar a solicitação."},
             status=500,

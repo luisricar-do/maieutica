@@ -77,11 +77,18 @@ def group_by_session(events: Iterable[dict[str, Any]]) -> dict[str, list[dict[st
     return groups
 
 
+def _as_bool(value: Any) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
 def _new_task(event: dict[str, Any], index: int | None) -> dict[str, Any]:
     return {
         "task": index,
         "label": _as_str(event.get("taskLabel")),
         "practice": bool(event.get("practice")) or index == 0,
+        # Se a aba abriu com o código defeituoso (``True``) ou com o esqueleto vazio
+        # (``False``); ``None`` nas sessões anteriores ao controle, que eram todas com código.
+        "starterCode": _as_bool(event.get("starterCode")),
         "startedAt": _as_str(event.get("ts")),
         "endedAt": None,
         "outcome": None,
@@ -213,6 +220,7 @@ class _SessionState:
                 # Início original, no relógio do aluno, como o ``ts`` de um ``task_start``.
                 "ts": event.get("runningStartedAt"),
                 "timeboxMs": event.get("runningTimeboxMs"),
+                "starterCode": event.get("runningStarterCode"),
             },
             running,
         )
@@ -255,6 +263,7 @@ def _current_task(state: _SessionState) -> dict[str, Any] | None:
         "task": task["task"],
         "label": task["label"],
         "practice": task["practice"],
+        "starterCode": task["starterCode"],
         "startedAt": task["startedAt"],
         "timeboxMs": task["timeboxMs"],
         "extraMs": state.extra_ms,

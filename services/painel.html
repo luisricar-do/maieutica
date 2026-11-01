@@ -129,6 +129,14 @@ main { padding: 14px 20px 60px; max-width: 1600px; margin: 0 auto; }
 .alert.info { background: var(--accent-soft); color: var(--text); }
 
 /* ---------------------------------------------------------------- resumo */
+/* Controle da sessão: valem para a sala toda, não para uma sessão. */
+.control {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; margin-bottom: 12px; padding: 10px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+}
+.control .item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.control .item-title { font-weight: 650; }
+.control .hint { flex-basis: 100%; margin-top: -4px; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 10px; margin-bottom: 12px; }
 .stat {
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
@@ -315,6 +323,7 @@ dialog.convo[open] { display: flex; flex-direction: column; }
 
   <main>
     <div id="error" class="alert error hidden"></div>
+    <section class="control hidden" id="control" aria-label="Controle da sessão"></section>
     <section class="stats" id="stats"></section>
 
     <div class="toolbar">
@@ -381,7 +390,7 @@ dialog.convo[open] { display: flex; flex-direction: column; }
   var VIEW_ALL = "todas", VIEW_NONE = "sem", VIEW_TRASH = "lixeira";
 
   var state = {
-    token: null, view: null, coletas: [], sessions: [], trashCount: 0,
+    token: null, view: null, coletas: [], sessions: [], trashCount: 0, controle: null,
     serverOffsetMs: 0, loading: false, requestSeq: 0,
     expanded: {}, selected: {}, filter: "all", search: "", sort: "priority", includeTest: false
   };
@@ -495,7 +504,17 @@ dialog.convo[open] { display: flex; flex-direction: column; }
       : { key: "task", text: "Em tarefa", cls: "accent" };
     if (s.completedScenarios >= SCENARIOS) return { key: "done", text: "Concluiu", cls: "ok" };
     if (ageMs(s) >= ACTIVE_WINDOW_MS) return { key: "idle", text: "Inativa", cls: "" };
+    if (awaitingRelease(s) && !(state.controle && state.controle.inicioLiberado)) {
+      return { key: "waiting", text: "Aguarda liberação", cls: "warn" };
+    }
     return { key: "waiting", text: s.participantId ? "Entre tarefas" : "No formulário", cls: "" };
+  }
+
+  /* Terminou o treino e ainda não começou cenário: é quem o «Liberar início» solta. */
+  function awaitingRelease(s) {
+    if (s.descarte || s.sessionEnded || s.currentTask || s.completedScenarios > 0) return false;
+    return (s.tasks || []).some(function (t) { return t.practice && t.endedAt; }) ||
+      !!(s.resumed && s.resumed.completed.indexOf(0) >= 0);
   }
 
   /* Motivos para o condutor olhar a sessão agora; o nível mais alto pinta a linha. */
@@ -584,6 +603,7 @@ dialog.convo[open] { display: flex; flex-direction: column; }
       state.coletas = Array.isArray(body.coletas) ? body.coletas : [];
       state.sessions = Array.isArray(body.sessions) ? body.sessions : [];
       state.trashCount = body.trashCount || 0;
+      state.controle = body.controle || null;
       if (!state.view) {
         // Primeira carga sem preferência: abre direto na coleta aberta, se houver.
         var open = state.coletas.filter(function (c) { return c.status === "aberta"; })[0];
@@ -645,6 +665,15 @@ dialog.convo[open] { display: flex; flex-direction: column; }
     return api("painel/sessoes/acoes", { method: "POST", body: body }).then(function (res) {
       ids.forEach(function (id) { delete state.selected[id]; });
       refresh();
+      return res;
+    });
+  }
+
+  function controleAction(body) {
+    return api("painel/controle", { method: "POST", body: body }).then(function (res) {
+      state.controle = res;
+      renderControl();
+      renderList();
       return res;
     });
   }
@@ -917,6 +946,69 @@ dialog.convo[open] { display: flex; flex-direction: column; }
     }).sort(compare);
   }
 
+  function renderControl() {
+    var c = state.controle, el = $("control");
+    if (!c) { el.classList.add("hidden"); return; }
+    var waiting = state.sessions.filter(function (s) { return inPool(s) && isActive(s) && awaitingRelease(s); }).length;
+    var start = c.inicioLiberado
+      ? '<span class="badge ok">liberado' + (c.liberadoEm ? " às " + esc(fmtHour(c.liberadoEm)) : "") + "</span>" +
+        '<button type="button" class="sm" data-control="travar">Travar de novo</button>'
+      : '<span class="badge warn">travado</span>' +
+        (waiting ? '<span class="small">' + esc(plural(waiting, "estudante aguardando", "estudantes aguardando")) + "</span>" : "") +
+        '<button type="button" class="sm primary" data-control="liberar">Liberar início</button>';
+    var hint = "O treino sempre abre com o código. A escolha do pré-código vale para cenários iniciados a partir de agora; " +
+      (c.coletaAberta
+        ? "a liberação vale para a coleta aberta (abrir outra coleta trava de novo)."
+        : "sem coleta aberta, a liberação vale até uma coleta ser aberta.");
+    el.innerHTML =
+      '<div class="item"><span class="item-title">Início dos cenários</span>' + start + "</div>" +
+      '<div class="item"><span class="item-title">Pré-código nos cenários</span>' +
+        '<div class="seg" role="group" aria-label="Pré-código nos cenários">' +
+          '<button type="button" data-control="com-codigo" class="' + (c.preCodigo ? "on" : "") + '" aria-pressed="' + c.preCodigo + '">Com o código defeituoso</button>' +
+          '<button type="button" data-control="do-zero" class="' + (c.preCodigo ? "" : "on") + '" aria-pressed="' + !c.preCodigo + '">Do zero (programa vazio)</button>' +
+        "</div></div>" +
+      '<span class="hint small muted">' + esc(hint) + "</span>";
+    el.classList.remove("hidden");
+  }
+
+  function onControl(event) {
+    var btn = event.target.closest("[data-control]");
+    var c = state.controle;
+    if (!btn || !c) return;
+    var act = btn.getAttribute("data-control");
+    if (act === "liberar") {
+      ask({
+        title: "Liberar o início dos cenários?", confirmLabel: "Liberar início",
+        message: "Quem terminou o treino passa a ver o Iniciar do primeiro cenário (em até ~10 s). Quem ainda está no treino segue direto ao terminar." +
+          (c.coletaAberta ? "" : "\n\nNão há coleta aberta: a liberação vale até uma coleta ser aberta.")
+      }).then(function (ok) {
+        if (ok) controleAction({ acao: "liberar" }).then(function () { toast("Início liberado. As IDEs liberam em até ~10 s."); }).catch(fail);
+      });
+    } else if (act === "travar") {
+      ask({
+        title: "Travar o início de novo?", confirmLabel: "Travar",
+        message: "Quem terminou o treino e ainda não começou o primeiro cenário volta a esperar. Quem já começou não é afetado."
+      }).then(function (ok) {
+        if (ok) controleAction({ acao: "travar" }).then(function () { toast("Início travado."); }).catch(fail);
+      });
+    } else if (act === "com-codigo" || act === "do-zero") {
+      var show = act === "com-codigo";
+      if (show === c.preCodigo) return;
+      ask({
+        title: show ? "Cenários com o código defeituoso?" : "Cenários do zero?",
+        confirmLabel: show ? "Mostrar o código" : "Começar do zero",
+        message: (show
+          ? "Os próximos cenários abrem com o programa defeituoso do banco, para o estudante corrigir."
+          : "Os próximos cenários abrem com o programa vazio: o estudante escreve a solução, conferida pelos mesmos casos de teste do «Concluí».") +
+          " Quem já está num cenário continua como começou. O treino sempre mostra o código."
+      }).then(function (ok) {
+        if (ok) controleAction({ acao: "pre_codigo", mostrar: show }).then(function () {
+          toast(show ? "Próximos cenários com o código defeituoso." : "Próximos cenários do zero.");
+        }).catch(fail);
+      });
+    }
+  }
+
   function renderStats() {
     var pool = state.sessions.filter(inPool);
     var active = 0, attention = 0, inTask = 0, done = 0, solved = 0, timeouts = 0, errors = 0;
@@ -1033,7 +1125,8 @@ dialog.convo[open] { display: flex; flex-direction: column; }
     var tasks = s.tasks || [];
     var rows = tasks.map(function (t) {
       var dur = t.elapsedMs != null ? fmtDuration(t.elapsedMs) : (t.endedAt ? "—" : "em curso");
-      return "<tr><td>" + esc(shortLabel(t)) + (t.practice ? ' <span class="badge">treino</span>' : "") + "</td>" +
+      return "<tr><td>" + esc(shortLabel(t)) + (t.practice ? ' <span class="badge">treino</span>' : "") +
+        (t.starterCode === false ? ' <span class="badge accent" title="Abriu com o esqueleto vazio, sem o código defeituoso">do zero</span>' : "") + "</td>" +
         "<td>" + esc(fmtHour(t.startedAt)) + "</td><td>" + esc(dur) + "</td>" +
         "<td>" + esc(t.endedAt || t.outcome ? (OUTCOMES[t.outcome] || t.outcome || "?") : "—") + (t.endedBy === "conductor" ? ' <span class="badge">condutor</span>' : "") + "</td>" +
         '<td class="num">' + esc(t.studentTurns != null ? t.studentTurns : "—") + "</td>" +
@@ -1136,6 +1229,7 @@ dialog.convo[open] { display: flex; flex-direction: column; }
 
     renderViewSelect();
     renderColetaBar();
+    renderControl();
     renderStats();
     renderFilters();
     renderList();
@@ -1414,6 +1508,7 @@ dialog.convo[open] { display: flex; flex-direction: column; }
   $("search").addEventListener("input", function () { state.search = this.value; renderFilters(); renderList(); tick(); });
   $("filter-seg").addEventListener("click", onFilter);
   $("stats").addEventListener("click", onFilter);
+  $("control").addEventListener("click", onControl);
   $("list").addEventListener("click", onListClick);
   $("bulk").addEventListener("click", onBulk);
   $("convo-refresh").addEventListener("click", function () { loadConversation(false); });

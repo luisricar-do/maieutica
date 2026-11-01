@@ -108,7 +108,7 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   ├── interaction_log.py    # Registro NDJSON por turno (trajetórias de uso real e bancada)
 │   ├── painel.html           # Página do painel do condutor (autocontida, servida em /api/painel)
 │   ├── painel.py             # Resumo de sessão a partir da telemetria (função pura)
-│   ├── painel_service.py     # Painel e canal de comandos: autenticação, /api/painel/*, /api/coleta/comandos
+│   ├── painel_service.py     # Painel e canal de comandos: autenticação, /api/painel/*, /api/coleta/comandos|controle
 │   ├── coletas.py            # Coletas, atribuição de sessões e lixeira (funções puras)
 │   ├── coletas_service.py    # /api/painel/coletas, /api/painel/sessoes/acoes, /api/painel/exportar, /api/painel/conversa
 │   ├── ping.py               # Health: resposta JSON para /api/ping
@@ -128,7 +128,7 @@ maieutica/   (raiz — também o nome do pacote Poetry: portugol-tutor-api)
 │   └── workflows/
 │       └── deploy-containerapp.yml  # Esteira: pytest → imagem no GHCR → Container Apps
 ├── .cursor/                # Contexto e rules para agentes (ver AGENTS.md)
-├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/help/single, /api/telemetry, /api/painel/*, /api/coleta/comandos
+├── function_app.py     # HTTP: /api/ping, /api/help, /api/help/stream, /api/help/single, /api/telemetry, /api/painel/*, /api/coleta/comandos|controle
 ├── Dockerfile          # Imagem do serviço (host do Azure Functions) para Container Apps
 ├── .dockerignore       # Mantém segredos e registro de interações fora da imagem
 ├── Makefile            # atalhos: make test / make dev / make start / make watch
@@ -624,15 +624,17 @@ cronômetro da IDE, para o tempo restante bater com o que o aluno vê; `lastEven
 servidor não ouve a máquina. Lotes, comandos e notas são imutáveis, então o que já foi lido
 fica em cache na memória do processo.
 
-**Rotas de coleta** (todas com o token):
+**Rotas de coleta** (todas com o token, menos `GET /api/coleta/controle`, que é da IDE):
 
 | Rota | Corpo / parâmetros | Efeito |
 | --- | --- | --- |
-| `GET /api/painel/sessoes` | `?coleta=<id>\|sem\|lixeira\|todas` (padrão `todas`), `?horas=N` | Sessões da visão, cada uma com `coletaId`, `coletaManual` e `descarte`; a resposta traz também `coletas` e `trashCount`. `horas` só limita `todas` e `sem`. |
+| `GET /api/painel/sessoes` | `?coleta=<id>\|sem\|lixeira\|todas` (padrão `todas`), `?horas=N` | Sessões da visão, cada uma com `coletaId`, `coletaManual` e `descarte`; a resposta traz também `coletas`, `controle` (ver `POST /api/painel/controle`) e `trashCount`. `horas` só limita `todas` e `sem`. |
 | `POST /api/painel/coletas` | `{"acao": "criar", "nome", "data": "AAAA-MM-DD", "abrir"?}` · `{"acao": "abrir"\|"encerrar"\|"excluir", "id"}` · `{"acao": "editar", "id", "nome"?, "data"?}` | `201`/`200` com `{coleta, coletas}`. Excluir só remove o rótulo (e as atribuições manuais a ele). |
 | `POST /api/painel/sessoes/acoes` | `{"acao": "mover", "sessionIds", "coletaId"}` (`null` = sem coleta) · `{"acao": "descartar", "sessionIds", "motivo"?}` · `{"acao": "restaurar"\|"apagar", "sessionIds"}` | Até 200 sessões por pedido. `apagar` responde `409` se alguma não estiver na lixeira. |
-| `GET /api/painel/exportar` | `?coleta=<id>&formato=resumo\|eventos\|interacoes` | Arquivo `{coleta}-{formato}`: `resumo` é CSV com uma linha por tarefa; `eventos` é a telemetria deduplicada por `(sessionId, seq)`; `interacoes` é o registro por turno do tutor. Linhas com `coletaId`; sessões na lixeira ficam de fora. |
+| `GET /api/painel/exportar` | `?coleta=<id>&formato=resumo\|eventos\|interacoes` | Arquivo `{coleta}-{formato}`: `resumo` é CSV com uma linha por tarefa (a coluna `starterCode` diz se o cenário abriu com o código defeituoso, `True`, ou do zero, `False`; vazia nas sessões anteriores ao controle); `eventos` é a telemetria deduplicada por `(sessionId, seq)`; `interacoes` é o registro por turno do tutor. Linhas com `coletaId`; sessões na lixeira ficam de fora. |
 | `GET /api/painel/conversa` | `?sessao=<sessionId>` | Turnos do tutor da sessão, do mais antigo ao mais novo, com os do treino (`treino-<sessionId>`, marcados com `practice`): hora, fala do estudante (último item do `history`, se for dele), resposta do tutor, intenção, movimento, estagnação, erros de compilação, latência e erro. Falas acima de 6000 caracteres vêm cortadas; o turno inteiro sai em `exportar?formato=interacoes`. |
+| `POST /api/painel/controle` | `{"acao": "liberar"\|"travar"}` · `{"acao": "pre_codigo", "mostrar": true\|false}` | `200` com `{"preCodigo", "inicioLiberado", "liberadoEm", "coletaAberta"}`. `liberar` solta o primeiro cenário para todos os que terminaram o treino; vale enquanto a coleta aberta no momento da liberação for a aberta (abrir outra trava de novo). `pre_codigo` decide se T1–T6 abrem com o código defeituoso ou com o esqueleto vazio (o treino mostra sempre); vale para cenários iniciados depois. Padrão: pré-código ligado, início travado. `400` para corpo inválido. |
+| `GET /api/coleta/controle` | — (**anônima**, para a IDE) | `{"preCodigo": bool, "inicioLiberado": bool}`, com `Cache-Control: no-store`; em memória por 3 s em cada réplica. `503` sem blob. A IDE consulta a cada ~10 s fora de tarefa e de novo no **Iniciar** de cada cenário. |
 
 O estado é gravado com ETag (concorrência otimista): duas abas do condutor não se sobrescrevem;
 quem perde a corrida relê e reaplica, e só depois de quatro tentativas recebe `409`.
