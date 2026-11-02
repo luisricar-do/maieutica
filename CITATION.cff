@@ -11,7 +11,7 @@ version: "0.1.0"
 date-released: "2026-10-17"
 preferred-citation:
   type: thesis
-  title: "Tutoria Multiagente Socrática no Ensino de Lógica de Programação: Uma Abordagem no Portugol WebStudio"
+  title: "Tutoria socrática multiagente para depuração em Portugol"
   authors:
     - family-names: "Santos"
       given-names: "Luis Ricardo Albano"
