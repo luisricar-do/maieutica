@@ -393,7 +393,7 @@ async def test_ide_controle_defaults_without_state_and_without_token(store, monk
     monkeypatch.delenv(painel_service.ADMIN_TOKEN_ENV)
     body, status = await painel_service.controle_for_ide_request()
     assert status == 200
-    assert body == {"preCodigo": True, "inicioLiberado": False}
+    assert body == {"preCodigo": False, "inicioLiberado": False}
 
 
 async def test_ide_controle_503_without_blob(store, monkeypatch: pytest.MonkeyPatch):
@@ -404,11 +404,11 @@ async def test_ide_controle_503_without_blob(store, monkeypatch: pytest.MonkeyPa
 
 async def test_controle_action_persists_and_ide_sees_it(store):
     body, status = await painel_service.controle_action(
-        AUTH, {"acao": "pre_codigo", "mostrar": False}
+        AUTH, {"acao": "pre_codigo", "mostrar": True}
     )
     assert status == 200
     assert body == {
-        "preCodigo": False,
+        "preCodigo": True,
         "inicioLiberado": False,
         "liberadoEm": None,
         "coletaAberta": None,
@@ -417,13 +417,13 @@ async def test_controle_action_persists_and_ide_sees_it(store):
     assert status == 200 and body["inicioLiberado"] is True and body["liberadoEm"]
 
     saved = json.loads(store.blobs[painel_service.STATE_BLOB])
-    assert saved["controle"]["preCodigo"] is False
+    assert saved["controle"]["preCodigo"] is True
     assert saved["controle"]["liberacao"]["coletaId"] is None
 
     # Outra réplica (cache vazio) lê do blob.
     painel_service.reset_cache()
     ide, _ = await painel_service.controle_for_ide_request()
-    assert ide == {"preCodigo": False, "inicioLiberado": True}
+    assert ide == {"preCodigo": True, "inicioLiberado": True}
 
 
 async def test_controle_action_400_and_nothing_written(store):
@@ -439,17 +439,17 @@ async def test_ide_controle_is_cached_briefly(store):
     reads = len(store.reads)
     # Estado mudado por fora (outra réplica): dentro da janela, o cache responde.
     store.blobs[painel_service.STATE_BLOB] = json.dumps(
-        {"controle": {"preCodigo": False, "liberacao": None}}
+        {"controle": {"preCodigo": True, "liberacao": None}}
     )
     body, _ = await painel_service.controle_for_ide_request(now=101.0)
-    assert body["preCodigo"] is True and len(store.reads) == reads
+    assert body["preCodigo"] is False and len(store.reads) == reads
     later = 100.0 + painel_service.CONTROLE_CACHE_SECONDS
     body, _ = await painel_service.controle_for_ide_request(now=later)
-    assert body["preCodigo"] is False
+    assert body["preCodigo"] is True
 
 
 async def test_list_sessions_includes_controle(store):
     body, status = await painel_service.list_sessions(AUTH, {})
     assert status == 200
-    assert body["controle"]["preCodigo"] is True
+    assert body["controle"]["preCodigo"] is False
     assert body["controle"]["inicioLiberado"] is False

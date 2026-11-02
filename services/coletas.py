@@ -268,7 +268,9 @@ def public_coletas(state: dict[str, Any]) -> list[dict[str, Any]]:
 #
 # - ``preCodigo``: se os cenários (T1–T6) abrem com o código defeituoso ou com o esqueleto
 #   vazio. Vale para os cenários **iniciados** depois da mudança: a IDE lê o valor no
-#   **Iniciar** e guarda-o com a tarefa. O treino mostra sempre o código. Padrão: ligado.
+#   **Iniciar** e guarda-o com a tarefa. O treino mostra sempre o código. Padrão: desligado
+#   (escrever do zero): com o código na tela o cenário ficava fácil demais e a Ada sobrava, e
+#   um estado perdido ou nunca gravado não pode reabrir o código sem o condutor pedir.
 # - ``liberacao``: depois do treino, todos esperam o condutor liberar o primeiro cenário. A
 #   liberação guarda a coleta aberta naquele momento e só vale enquanto ela for a aberta:
 #   abrir outra coleta trava de novo sozinho, sem o condutor ter de lembrar de desfazer a da
@@ -278,7 +280,7 @@ CONTROLE_ACTIONS = ("liberar", "travar", "pre_codigo")
 
 
 def default_controle() -> dict[str, Any]:
-    return {"preCodigo": True, "liberacao": None}
+    return {"preCodigo": False, "liberacao": None}
 
 
 def normalize_controle(raw: Any) -> dict[str, Any]:

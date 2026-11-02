@@ -184,40 +184,40 @@ def test_summary_csv_keeps_old_columns_and_adds_starter_code_last():
 # --- Controle da sessão -------------------------------------------------------------------
 
 
-def test_controle_defaults_show_starter_code_and_keep_start_locked():
+def test_controle_defaults_hide_starter_code_and_keep_start_locked():
     state = normalize_state(None)
-    assert controle_for_ide(state) == {"preCodigo": True, "inicioLiberado": False}
+    assert controle_for_ide(state) == {"preCodigo": False, "inicioLiberado": False}
     # Estado gravado antes do controle existir: mesmos padrões.
     assert controle_for_ide(normalize_state({"coletas": []})) == {
-        "preCodigo": True,
+        "preCodigo": False,
         "inicioLiberado": False,
     }
 
 
 def test_normalize_keeps_controle_and_drops_garbage():
-    raw = {"controle": {"preCodigo": False, "liberacao": {"coletaId": "a", "em": T0}}}
+    raw = {"controle": {"preCodigo": True, "liberacao": {"coletaId": "a", "em": T0}}}
     assert normalize_state(raw)["controle"] == {
-        "preCodigo": False,
+        "preCodigo": True,
         "liberacao": {"coletaId": "a", "em": T0},
     }
     bad = {"controle": {"preCodigo": "nao", "liberacao": {"coletaId": 3}}}
-    assert normalize_state(bad)["controle"] == {"preCodigo": True, "liberacao": None}
+    assert normalize_state(bad)["controle"] == {"preCodigo": False, "liberacao": None}
 
 
 def test_coleta_action_does_not_wipe_controle():
     state = _state_with(("a", T0, None))
-    apply_controle_action(state, {"acao": "pre_codigo", "mostrar": False}, T1)
+    apply_controle_action(state, {"acao": "pre_codigo", "mostrar": True}, T1)
     apply_controle_action(state, {"acao": "liberar"}, T1)
     state = normalize_state(state)  # como em ``mutate_state``: gravado e relido
     apply_coleta_action(state, {"acao": "editar", "id": "a", "nome": "Turma A"}, T2)
-    assert controle_for_ide(normalize_state(state)) == {"preCodigo": False, "inicioLiberado": True}
+    assert controle_for_ide(normalize_state(state)) == {"preCodigo": True, "inicioLiberado": True}
 
 
 def test_release_belongs_to_the_open_coleta():
     state = _state_with(("a", T0, None), ("b", None, None))
     apply_controle_action(state, {"acao": "liberar"}, T1)
     assert public_controle(state) == {
-        "preCodigo": True,
+        "preCodigo": False,
         "inicioLiberado": True,
         "liberadoEm": T1,
         "coletaAberta": "a",
