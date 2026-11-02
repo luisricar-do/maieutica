@@ -2,7 +2,7 @@
 
 **Repositório:** [github.com/luisricar-do/maieutica](https://github.com/luisricar-do/maieutica)
 
-Backend **multiagente (MAS)** com **tutor socrático** para integração com um fork do **Portugol Webstudio** (portugol.dev), desenvolvido como artefato de dissertação de Mestrado em Informática na Educação (UNIFEI).
+Backend **multiagente (MAS)** com **tutor socrático** para integração com um fork do **Portugol Webstudio** (portugol.dev), desenvolvido como artefato de dissertação de mestrado do Programa de Pós-Graduação em Ciência e Tecnologia da Computação (UNIFEI).
 
 O serviço expõe uma API HTTP em Python (Azure Functions v2, hoje servida num **Azure Container App**) que orquestra os agentes via **LangGraph**. No caminho de depuração (`DEBUG`):
 
@@ -21,14 +21,20 @@ Este repositório é o **artefato medido** da dissertação de mestrado de Luis 
 |-------------|-------|
 | **maieutica** (este) | O serviço: tutor socrático, grafo LangGraph, registro por turno e telemetria. |
 | [portugol-ai-tutor](https://github.com/luisricar-do/portugol-ai-tutor) | A IDE (fork do Portugol Webstudio) que consome `/api/help/stream` e envia a telemetria. |
-| [maieutica-avaliacoes](https://github.com/luisricar-do/maieutica-avaliacoes) | A bancada de avaliação dos Capítulos 4 e 5. **Privada até a defesa** (contém dados de pesquisa não publicados). |
+| [maieutica-avaliacoes](https://github.com/luisricar-do/maieutica-avaliacoes) | A bancada de avaliação da dissertação. **Privada até a defesa** (contém dados de pesquisa não publicados). |
 
 **Versões medidas.** A bancada reconstrói cada corrida por `git archive` do commit que a gerou:
 
-- `f173f6d` — corrida formativa (`cap4`), Capítulo 4.
-- `1e7e5cd` — corrida somativa (`cap5`), Capítulo 5.
+- `f173f6d` — corrida formativa (`cap4`).
+- `1e7e5cd` — v1, corrida somativa (`cap5`), ciclo 1 da dissertação.
+- `5aa6e64` — v1.1, cadeias de bloqueio (ramo `h1-escalada-programatica`).
+- `ed16cf0` — v2, verificação pré-registrada do ciclo 2.
 
-A versão do serviço usada na coleta em uso real será fixada quando a coleta começar.
+A coleta em uso real (03/11/2026) roda o serviço em `a35750a`, com os cinco arquivos de prompt e
+de grafo (`agents/router.py`, `analyst.py`, `strategist.py`, `tutor.py`, `graph.py`) idênticos aos
+de `ed16cf0`; o que muda é a mensagem automática da IDE, que deixa de contar na classificação de
+movimento e no acúmulo de bloqueio, o teto de 12 s com uma nova tentativa por chamada ao modelo,
+o enunciado no registro por turno e o painel do condutor.
 
 **Por isso o histórico da `main` não deve ser reescrito** (rebase, squash, `push --force`): esses
 commits precisam continuar alcançáveis. Os prompts também estão congelados e têm SHA-256
@@ -395,7 +401,7 @@ interrompe a resposta ao estudante.
 ## Chamada única para a bancada (`POST /api/help/single`)
 
 Uma única chamada ao modelo, **sem grafo**, para as condições **B** (ablação da arquitetura) e
-**C** (referência neutra) da avaliação do Capítulo 4. A condição **A** é o grafo completo, em
+**C** (referência neutra) da avaliação em bancada. A condição **A** é o grafo completo, em
 `/api/help`. As três saem do mesmo serviço, com o mesmo contrato, o mesmo registro e o mesmo
 proxy, para que a comparação não seja confundida por diferença de infraestrutura.
 
@@ -647,7 +653,7 @@ Como citar: ver [`CITATION.cff`](CITATION.cff).
 
 ## Bancada de avaliação (repositório à parte)
 
-O harness dos Capítulos 4 e 5 — executar o tutor sobre o banco de itens, julgar cada turno com um
+O harness da avaliação em bancada — executar o tutor sobre o banco de itens, julgar cada turno com um
 juiz automático de família distinta, codificar a subamostra às cegas e apurar H1/H2 — vive em
 **[maieutica-avaliacoes](https://github.com/luisricar-do/maieutica-avaliacoes)** (privado: contém
 os dados de pesquisa ainda não publicados).
@@ -667,7 +673,7 @@ make start                    # aqui: o serviço de pé
 cd ../maieutica-avaliacoes
 make aval-validar
 make aval-rodar               # condições A (artefato), B (ablação), C (referência)
-make aval-julgar --juiz-protocolo
+make aval-julgar AVAL="--juiz-protocolo"
 make aval-analisar
 ```
 
